@@ -1,0 +1,14 @@
+/* 基础样式 */
+html {
+    font-family: system-ui, sans-serif;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}

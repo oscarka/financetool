@@ -1,0 +1,1099 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import and_
+from typing import List, Optional
+from datetime import date
+import json
+
+from app.utils.database import get_db
+from app.models.schemas import (
+    FundOperationCreate, FundOperationUpdate, FundOperation,
+    FundOperationListResponse, FundOperationResponse,
+    FundPositionResponse, FundPosition, FundNavCreate, FundNav,
+    OperationQuery, BaseResponse, FundInfoCreate, FundInfo,
+    FundListResponse, DCAPlanCreate, DCAPlanUpdate, DCAPlan,
+    DCAPlanResponse, DCAPlanListResponse, PositionSummaryResponse
+)
+from app.models.database import UserOperation, FundNav, FundDividend
+from app.services.fund_service import FundOperationService, FundInfoService, FundNavService, DCAService, FundDividendService
+from app.services.fund_api_service import FundSyncService, FundAPIService
+
+router = APIRouter()
+
+
+@router.post("/operations", response_model=FundOperationResponse)
+def create_fund_operation(
+    operation: FundOperationCreate,
+    db: Session = Depends(get_db)
+):
+    """创建基金操作记录"""
+    try:
+        result = FundOperationService.create_operation(db, operation)
+        return FundOperationResponse(
+            success=True,
+            message="基金操作记录创建成功",
+            data=result
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/operations", response_model=FundOperationListResponse)
+def get_fund_operations(
+    asset_code: Optional[str] = Query(None, description="基金代码"),
+    operation_type: Optional[str] = Query(None, description="操作类型"),
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    dca_plan_id: Optional[int] = Query(None, description="定投计划ID"),
+    status: Optional[str] = Query(None, description="操作状态"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    db: Session = Depends(get_db)
+):
+    """获取基金操作记录"""
+    try:
+        print(f"[调试] 开始查询基金操作记录: asset_code={asset_code}, page={page}, page_size={page_size}")
+        
+        operations, total = FundOperationService.get_operations(
+            db=db,
+            fund_code=asset_code,
+            operation_type=operation_type,
+            start_date=start_date,
+            end_date=end_date,
+            dca_plan_id=dca_plan_id,
+            status=status,
+            page=page,
+            page_size=page_size
+        )
+        
+        print(f"[调试] 查询到 {len(operations)} 条记录，总数: {total}")
+        
+        # 手动转换数据库对象为Pydantic模型
+        from app.models.schemas import FundOperation
+        fund_operations = []
+        api_service = FundAPIService()
+        
+        for i, op in enumerate(operations):
+            print(f"[调试] 转换第 {i+1} 条记录: id={op.id}, asset_code={op.asset_code}, nav={op.nav}")
+            try:
+                # 优先查API，查不到再查数据库
+                latest_nav = None
+                try:
+                    # 修复异步调用问题
+                    import asyncio
+                    try:
+                        # 尝试获取当前事件循环
+                        loop = asyncio.get_running_loop()
+                        # 如果已经有运行中的循环，使用asyncio.create_task
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(asyncio.run, api_service.get_fund_nav_latest_tiantian(op.asset_code))
+                            api_data = future.result(timeout=5)  # 5秒超时
+                    except RuntimeError:
+                        # 如果没有运行中的循环，直接使用asyncio.run
+                        api_data = asyncio.run(api_service.get_fund_nav_latest_tiantian(op.asset_code))
+                    
+                    print(f"[调试] API查询结果: api_data={api_data}, type={type(api_data)}")
+                    if api_data:
+                        print(f"[调试] api_data.get('nav')={api_data.get('nav')}, type={type(api_data.get('nav'))}")
+                    if api_data and api_data.get('nav'):
+                        latest_nav = float(api_data['nav'])
+                        print(f"[调试] API查到最新净值: {latest_nav}")
+                    else:
+                        print(f"[调试] API查询失败或nav为空，api_data={api_data}")
+                except Exception as e:
+                    print(f"[调试] 查API最新净值异常: {e}")
+                if latest_nav is None:
+                    latest_nav_obj = FundNavService.get_latest_nav(db, op.asset_code)
+                    latest_nav = float(latest_nav_obj.nav) if latest_nav_obj and latest_nav_obj.nav is not None else None
+                    print(f"[调试] 数据库查到最新净值: {latest_nav}")
+                print(f"[调试] 构造FundOperation前: op.id={op.id}, op.asset_code={op.asset_code}, op.nav={op.nav}, latest_nav={latest_nav}")
+                fund_op = FundOperation(
+                    id=op.id,
+                    operation_date=op.operation_date,
+                    platform=op.platform,
+                    asset_type=op.asset_type,
+                    operation_type=op.operation_type,
+                    asset_code=op.asset_code,
+                    asset_name=op.asset_name,
+                    amount=op.amount,
+                    currency=op.currency,
+                    quantity=op.quantity,
+                    price=op.price,
+                    nav=op.nav,
+                    fee=op.fee,
+                    strategy=op.strategy,
+                    emotion_score=op.emotion_score,
+                    tags=op.tags,
+                    notes=op.notes,
+                    status=op.status,
+                    dca_plan_id=op.dca_plan_id,
+                    dca_execution_type=op.dca_execution_type,
+                    created_at=op.created_at,
+                    updated_at=op.updated_at,
+                    latest_nav=latest_nav
+                )
+                print(f"[调试] 构造FundOperation后: fund_op.id={fund_op.id}, fund_op.asset_code={fund_op.asset_code}, fund_op.nav={fund_op.nav}, fund_op.latest_nav={getattr(fund_op, 'latest_nav', None)}")
+                fund_operations.append(fund_op)
+                print(f"[调试] 第 {i+1} 条记录转换成功")
+            except Exception as convert_error:
+                print(f"[调试] 第 {i+1} 条记录转换失败: {convert_error}")
+                raise convert_error
+        
+        print(f"[调试] 成功转换 {len(fund_operations)} 条记录")
+        # 新增日志，打印每条记录的 nav 和 latest_nav
+        for idx, op in enumerate(fund_operations):
+            print(f"[调试] 返回第{idx+1}条: id={op.id}, asset_code={op.asset_code}, nav={op.nav}, latest_nav={getattr(op, 'latest_nav', None)}")
+        # 关键：打印最终返回给前端的完整数据
+        print('[调试] 返回给前端的完整fund_operations:', json.dumps([op.dict() for op in fund_operations], ensure_ascii=False, indent=2, default=str))
+        
+        return FundOperationListResponse(
+            success=True,
+            message=f"获取到 {len(fund_operations)} 条记录",
+            data=fund_operations,
+            total=total,
+            page=page,
+            page_size=page_size
+        )
+    except Exception as e:
+        print(f"[调试] API异常: {e}")
+        import traceback
+        print(f"[调试] 异常堆栈: {traceback.format_exc()}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/operations/{operation_id}", response_model=FundOperationResponse)
+def update_fund_operation(
+    operation_id: int,
+    update_data: FundOperationUpdate,
+    db: Session = Depends(get_db)
+):
+    """更新基金操作记录"""
+    try:
+        result = FundOperationService.update_operation(db, operation_id, update_data)
+        if not result:
+            raise HTTPException(status_code=404, detail="操作记录不存在")
+        
+        return FundOperationResponse(
+            success=True,
+            message="基金操作记录更新成功",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/operations/{operation_id}", response_model=BaseResponse)
+def delete_fund_operation(
+    operation_id: int,
+    db: Session = Depends(get_db)
+):
+    """删除基金操作记录"""
+    try:
+        operation = db.query(UserOperation).filter(UserOperation.id == operation_id).first()
+        if not operation:
+            raise HTTPException(status_code=404, detail="操作记录不存在")
+        
+        db.delete(operation)
+        db.commit()
+        
+        return BaseResponse(
+            success=True,
+            message="基金操作记录删除成功"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/positions", response_model=FundPositionResponse)
+def get_fund_positions(db: Session = Depends(get_db)):
+    """获取基金持仓列表"""
+    try:
+        positions = FundOperationService.get_fund_positions(db)
+        return FundPositionResponse(
+            success=True,
+            message=f"获取到 {len(positions)} 个基金持仓",
+            data=positions
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/positions/summary", response_model=PositionSummaryResponse)
+def get_position_summary(db: Session = Depends(get_db)):
+    """获取持仓汇总信息"""
+    try:
+        summary = FundOperationService.get_position_summary(db)
+        return PositionSummaryResponse(
+            success=True,
+            message="获取持仓汇总成功",
+            data=summary
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/positions/available", response_model=FundPositionResponse)
+def get_available_positions(db: Session = Depends(get_db)):
+    """获取可卖出的持仓列表（用于卖出操作选择）"""
+    try:
+        positions = FundOperationService.get_fund_positions(db)
+        # 过滤掉份额为0的持仓
+        available_positions = [pos for pos in positions if pos.total_shares > 0]
+        return FundPositionResponse(
+            success=True,
+            message=f"获取到 {len(available_positions)} 个可卖出的持仓",
+            data=available_positions
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/positions/recalculate", response_model=BaseResponse)
+def recalculate_positions(db: Session = Depends(get_db)):
+    """重新计算所有持仓（基于所有已确认的操作记录）"""
+    try:
+        result = FundOperationService.recalculate_all_positions(db)
+        
+        if result["success"]:
+            return BaseResponse(
+                success=True,
+                message=result["message"]
+            )
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/nav", response_model=BaseResponse)
+def create_fund_nav(
+    nav_data: FundNavCreate,
+    db: Session = Depends(get_db)
+):
+    """手动录入基金净值"""
+    try:
+        result = FundNavService.create_nav(
+            db=db,
+            fund_code=nav_data.fund_code,
+            nav_date=nav_data.nav_date,
+            nav=nav_data.nav,
+            accumulated_nav=nav_data.accumulated_nav,
+            growth_rate=nav_data.growth_rate,
+            source=nav_data.source
+        )
+        
+        return BaseResponse(
+            success=True,
+            message="基金净值录入成功",
+            data={"id": result.id}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/nav/{fund_code}", response_model=BaseResponse)
+def get_fund_nav_history(
+    fund_code: str,
+    days: int = Query(30, ge=1, le=365, description="获取天数"),
+    db: Session = Depends(get_db)
+):
+    """获取基金净值历史"""
+    try:
+        nav_history = FundNavService.get_nav_history(db, fund_code, days)
+        return BaseResponse(
+            success=True,
+            message=f"获取到 {len(nav_history)} 条净值记录",
+            data={"nav_history": nav_history}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/nav/{fund_code}/latest", response_model=BaseResponse)
+def get_latest_nav(
+    fund_code: str,
+    db: Session = Depends(get_db)
+):
+    """获取基金最新净值（含估算净值）"""
+    nav_obj = FundNavService.get_latest_nav(db, fund_code)
+    if not nav_obj:
+        raise HTTPException(status_code=404, detail="未找到净值")
+    nav_dict = {
+        "fund_code": nav_obj.fund_code,
+        "nav_date": nav_obj.nav_date,
+        "nav": float(nav_obj.nav) if nav_obj.nav is not None else None,
+        "accumulated_nav": float(nav_obj.accumulated_nav) if nav_obj.accumulated_nav is not None else None,
+        "growth_rate": float(nav_obj.growth_rate) if nav_obj.growth_rate is not None else None,
+        "source": nav_obj.source,
+        "estimated_nav": None,
+        "estimated_time": None,
+    }
+    # 实时拉取天天基金API估算净值
+    try:
+        api_service = FundAPIService()
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        api_data = loop.run_until_complete(api_service.get_fund_nav_latest_tiantian(fund_code))
+        if api_data:
+            nav_dict["estimated_nav"] = float(api_data.get("gsz")) if api_data.get("gsz") else None
+            nav_dict["estimated_time"] = api_data.get("gztime")
+    except Exception as e:
+        print(f"[调试] 获取估算净值异常: {e}")
+    return BaseResponse(success=True, data={"fund_nav": nav_dict})
+
+
+@router.post("/nav/{fund_code}/sync", response_model=BaseResponse)
+async def sync_fund_nav(
+    fund_code: str,
+    nav_date: date = Query(..., description="净值日期"),
+    db: Session = Depends(get_db)
+):
+    """同步基金净值"""
+    try:
+        sync_service = FundSyncService()
+        success = await sync_service.sync_fund_nav(db, fund_code, nav_date)
+        
+        if success:
+            return BaseResponse(
+                success=True,
+                message="基金净值同步成功"
+            )
+        else:
+            raise HTTPException(status_code=400, detail="基金净值同步失败")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/nav/{fund_code}/sync/latest", response_model=BaseResponse)
+async def sync_latest_fund_nav(
+    fund_code: str,
+    db: Session = Depends(get_db)
+):
+    """同步最新基金净值（只用API返回的最新净值）"""
+    try:
+        sync_service = FundSyncService()
+        success = await sync_service.api_service.sync_latest_fund_nav(db, fund_code)
+        if success:
+            return BaseResponse(
+                success=True,
+                message="最新基金净值同步成功"
+            )
+        else:
+            raise HTTPException(status_code=400, detail="最新基金净值同步失败")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/info", response_model=BaseResponse)
+def create_fund_info(
+    fund_info: FundInfoCreate,
+    db: Session = Depends(get_db)
+):
+    """创建基金信息"""
+    try:
+        result = FundInfoService.create_fund_info(
+            db=db,
+            fund_code=fund_info.fund_code,
+            fund_name=fund_info.fund_name,
+            fund_type=fund_info.fund_type,
+            management_fee=fund_info.management_fee,
+            purchase_fee=fund_info.purchase_fee,
+            redemption_fee=fund_info.redemption_fee,
+            min_purchase=fund_info.min_purchase,
+            risk_level=fund_info.risk_level
+        )
+        
+        return BaseResponse(
+            success=True,
+            message="基金信息创建成功",
+            data={"id": result.id}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/info", response_model=FundListResponse)
+def get_all_funds(db: Session = Depends(get_db)):
+    """获取所有基金信息"""
+    try:
+        funds = FundInfoService.get_all_funds(db)
+        
+        # 将SQLAlchemy模型列表转换为字典列表
+        funds_list = []
+        for fund in funds:
+            fund_dict = {
+                "id": fund.id,
+                "fund_code": fund.fund_code,
+                "fund_name": fund.fund_name,
+                "fund_type": fund.fund_type,
+                "management_fee": float(fund.management_fee) if fund.management_fee else None,
+                "purchase_fee": float(fund.purchase_fee) if fund.purchase_fee else None,
+                "redemption_fee": float(fund.redemption_fee) if fund.redemption_fee else None,
+                "min_purchase": float(fund.min_purchase) if fund.min_purchase else None,
+                "risk_level": fund.risk_level,
+                "created_at": fund.created_at.isoformat() if fund.created_at else None
+            }
+            funds_list.append(fund_dict)
+        
+        return FundListResponse(
+            success=True,
+            message=f"获取到 {len(funds_list)} 个基金",
+            data=funds_list
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/info/{fund_code}", response_model=BaseResponse)
+def get_fund_info(
+    fund_code: str,
+    db: Session = Depends(get_db)
+):
+    """获取基金信息，查不到自动同步"""
+    try:
+        fund_info = FundInfoService.get_fund_info(db, fund_code)
+        if not fund_info:
+            # 自动同步
+            sync_service = FundSyncService()
+            import asyncio
+            asyncio.run(sync_service.sync_fund_info(db, fund_code))
+            # 再查一次
+            fund_info = FundInfoService.get_fund_info(db, fund_code)
+            if not fund_info:
+                raise HTTPException(status_code=404, detail="基金不存在")
+        # 将SQLAlchemy模型转换为字典
+        fund_info_dict = {
+            "id": fund_info.id,
+            "fund_code": fund_info.fund_code,
+            "fund_name": fund_info.fund_name,
+            "fund_type": fund_info.fund_type,
+            "management_fee": float(fund_info.management_fee) if fund_info.management_fee else None,
+            "purchase_fee": float(fund_info.purchase_fee) if fund_info.purchase_fee else None,
+            "redemption_fee": float(fund_info.redemption_fee) if fund_info.redemption_fee else None,
+            "min_purchase": float(fund_info.min_purchase) if fund_info.min_purchase else None,
+            "risk_level": fund_info.risk_level,
+            "created_at": fund_info.created_at.isoformat() if fund_info.created_at else None
+        }
+        return BaseResponse(
+            success=True,
+            message="获取基金信息成功",
+            data={"fund_info": fund_info_dict}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/info/{fund_code}", response_model=BaseResponse)
+def update_fund_info(
+    fund_code: str,
+    fund_info: FundInfoCreate,
+    db: Session = Depends(get_db)
+):
+    """更新基金信息"""
+    try:
+        existing = FundInfoService.get_fund_info(db, fund_code)
+        if not existing:
+            raise HTTPException(status_code=404, detail="基金不存在")
+        
+        # 更新字段
+        for field, value in fund_info.dict(exclude_unset=True).items():
+            setattr(existing, field, value)
+        
+        db.commit()
+        db.refresh(existing)
+        
+        return BaseResponse(
+            success=True,
+            message="基金信息更新成功",
+            data={"id": existing.id}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/info/{fund_code}/sync", response_model=BaseResponse)
+async def sync_fund_info(
+    fund_code: str,
+    db: Session = Depends(get_db)
+):
+    """同步基金信息"""
+    try:
+        sync_service = FundSyncService()
+        success = await sync_service.sync_fund_info(db, fund_code)
+        
+        if success:
+            return BaseResponse(
+                success=True,
+                message="基金信息同步成功"
+            )
+        else:
+            raise HTTPException(status_code=400, detail="基金信息同步失败")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# 定投计划相关API
+@router.post("/dca/plans", response_model=DCAPlanResponse)
+def create_dca_plan(
+    plan: DCAPlanCreate,
+    db: Session = Depends(get_db)
+):
+    """创建定投计划"""
+    try:
+        result = DCAService.create_dca_plan(db, plan)
+        return DCAPlanResponse(
+            success=True,
+            message="定投计划创建成功",
+            data=result
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/dca/plans", response_model=DCAPlanListResponse)
+def get_dca_plans(
+    status: Optional[str] = Query(None, description="计划状态"),
+    db: Session = Depends(get_db)
+):
+    """获取定投计划列表"""
+    try:
+        plans = DCAService.get_dca_plans(db, status)
+        return DCAPlanListResponse(
+            success=True,
+            message=f"获取到 {len(plans)} 个定投计划",
+            data=plans
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/dca/plans/{plan_id}", response_model=DCAPlanResponse)
+def get_dca_plan(
+    plan_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取定投计划详情"""
+    try:
+        plan = DCAService.get_dca_plan_by_id(db, plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="定投计划不存在")
+        
+        return DCAPlanResponse(
+            success=True,
+            message="获取定投计划成功",
+            data=plan
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/dca/plans/{plan_id}", response_model=DCAPlanResponse)
+def update_dca_plan(
+    plan_id: int,
+    update_data: DCAPlanUpdate,
+    db: Session = Depends(get_db)
+):
+    """更新定投计划"""
+    try:
+        result = DCAService.update_dca_plan(db, plan_id, update_data)
+        if not result:
+            raise HTTPException(status_code=404, detail="定投计划不存在")
+        
+        return DCAPlanResponse(
+            success=True,
+            message="定投计划更新成功",
+            data=result
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/dca/plans/{plan_id}", response_model=BaseResponse)
+def delete_dca_plan(
+    plan_id: int,
+    delete_operations: bool = Query(False, description="是否一并删除所有关联定投操作"),
+    db: Session = Depends(get_db)
+):
+    """删除定投计划，支持批量删除操作记录"""
+    try:
+        if delete_operations:
+            success = DCAService.delete_dca_plan_with_operations(db, plan_id)
+        else:
+            success = DCAService.delete_dca_plan(db, plan_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="定投计划不存在")
+        
+        return BaseResponse(
+            success=True,
+            message="定投计划删除成功"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dca/plans/{plan_id}/execute", response_model=FundOperationResponse)
+def execute_dca_plan(
+    plan_id: int,
+    execution_type: str = Query("manual", description="执行类型: manual, scheduled, smart"),
+    db: Session = Depends(get_db)
+):
+    """手动执行定投计划"""
+    try:
+        operation = DCAService.execute_dca_plan(db, plan_id, execution_type)
+        if not operation:
+            raise HTTPException(status_code=400, detail="定投计划执行失败")
+        
+        return FundOperationResponse(
+            success=True,
+            message="定投计划执行成功",
+            data=operation
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dca/plans/execute-all", response_model=BaseResponse)
+def execute_all_dca_plans(
+    db: Session = Depends(get_db)
+):
+    """执行所有到期的定投计划"""
+    try:
+        operations = DCAService.check_and_execute_dca_plans(db)
+        return BaseResponse(
+            success=True,
+            message=f"执行了 {len(operations)} 个定投计划",
+            data={"executed_count": len(operations)}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/dca/plans/{plan_id}/statistics", response_model=BaseResponse)
+def get_dca_statistics(
+    plan_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取定投计划统计信息"""
+    try:
+        stats = DCAService.get_dca_statistics(db, plan_id)
+        if not stats:
+            raise HTTPException(status_code=404, detail="定投计划不存在")
+        
+        return BaseResponse(
+            success=True,
+            message="获取统计信息成功",
+            data=stats
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/nav_history", response_model=BaseResponse)
+def get_fund_nav_history(
+    fund_code: str = Query(..., description="基金代码"),
+    force_update: bool = Query(False, description="是否强制用akshare拉取最新历史净值"),
+    include_dividend: bool = Query(False, description="是否合并分红数据"),
+    db: Session = Depends(get_db)
+):
+    """获取基金历史净值，支持按需用akshare拉取并缓存，支持合并分红数据"""
+    try:
+        if force_update:
+            count = FundNavService.fetch_and_cache_nav_history(db, fund_code)
+        
+        navs = db.query(FundNav).filter_by(fund_code=fund_code).order_by(FundNav.nav_date.desc()).all()
+        data = [
+            {
+                "id": nav.id,
+                "fund_code": nav.fund_code,
+                "nav_date": str(nav.nav_date),
+                "nav": float(nav.nav) if nav.nav else None,
+                "accumulated_nav": float(nav.accumulated_nav) if nav.accumulated_nav else None,
+                "source": nav.source or "akshare"
+            }
+            for nav in navs
+        ]
+        
+        # 合并分红数据
+        if include_dividend:
+            # 只查询数据库中已有的分红数据，不自动拉取
+            dividends = FundDividendService.get_dividends_by_fund(db, fund_code)
+            
+            # 合并分红数据到净值数据
+            dividend_map = {str(div.dividend_date): div for div in dividends}
+            for item in data:
+                div = dividend_map.get(item['nav_date'])
+                if div is not None:
+                    item['dividend_amount'] = float(div.dividend_amount) if div.dividend_amount else None
+                    item['dividend_date'] = str(div.dividend_date) if div.dividend_date else None
+                    item['record_date'] = str(div.record_date) if div.record_date else None
+                else:
+                    item['dividend_amount'] = None
+                    item['dividend_date'] = None
+                    item['record_date'] = None
+        
+        return BaseResponse(success=True, message=f"获取到 {len(data)} 条历史净值记录", data={"nav_history": data})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/dividends/{fund_code}", response_model=BaseResponse)
+def get_fund_dividends(
+    fund_code: str,
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    force_update: bool = Query(False, description="是否强制从API更新分红数据"),
+    db: Session = Depends(get_db)
+):
+    """获取基金分红记录"""
+    try:
+        from app.services.fund_service import FundDividendService
+        
+        # 如果强制更新，先清空现有数据并从API重新拉取
+        if force_update:
+            # 删除现有分红数据
+            db.query(FundDividend).filter(FundDividend.fund_code == fund_code).delete()
+            db.commit()
+            
+            # 从API拉取最新分红数据
+            import akshare as ak
+            import pandas as pd
+            try:
+                print(f"[调试] 强制更新分红数据: {fund_code}")
+                df = ak.fund_fh_em()
+                df = df[df['基金代码'] == fund_code]
+                
+                if not df.empty:
+                    dividend_data = []
+                    for _, row in df.iterrows():
+                        try:
+                            dividend_data.append({
+                                'dividend_date': pd.to_datetime(row['权益登记日']).date(),
+                                'record_date': pd.to_datetime(row['权益登记日']).date(),
+                                'dividend_amount': float(row['分红']) if pd.notna(row['分红']) else 0,
+                                'total_dividend': None,
+                                'announcement_date': None
+                            })
+                        except Exception as e:
+                            print(f"[调试] 转换分红数据失败: {e}")
+                            continue
+                    
+                    if dividend_data:
+                        saved_count = FundDividendService.save_dividend_data(db, fund_code, dividend_data)
+                        print(f"[调试] 强制更新保存了 {saved_count} 条分红记录")
+                
+            except Exception as e:
+                print(f"[调试] 强制更新分红数据失败: {e}")
+        
+        # 查询分红数据
+        dividends = FundDividendService.get_dividends_by_fund(db, fund_code, start_date, end_date)
+        
+        data = [
+            {
+                "id": div.id,
+                "fund_code": div.fund_code,
+                "dividend_date": str(div.dividend_date),
+                "record_date": str(div.record_date) if div.record_date else None,
+                "dividend_amount": float(div.dividend_amount) if div.dividend_amount else None,
+                "total_dividend": float(div.total_dividend) if div.total_dividend else None,
+                "announcement_date": str(div.announcement_date) if div.announcement_date else None,
+                "created_at": div.created_at.isoformat() if div.created_at else None
+            }
+            for div in dividends
+        ]
+        
+        return BaseResponse(
+            success=True, 
+            message=f"获取到 {len(data)} 条分红记录", 
+            data={"dividends": data}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dividends/{fund_code}/sync", response_model=BaseResponse)
+async def sync_fund_dividends(
+    fund_code: str,
+    db: Session = Depends(get_db)
+):
+    """同步基金分红数据"""
+    try:
+        from app.services.fund_service import FundDividendService
+        import akshare as ak
+        import pandas as pd
+        
+        print(f"[调试] 开始同步分红数据: {fund_code}")
+        
+        # 使用异步方式拉取数据，避免阻塞
+        import asyncio
+        import concurrent.futures
+        
+        def fetch_dividend_data():
+            try:
+                df = ak.fund_fh_em()
+                df = df[df['基金代码'] == fund_code]
+                return df
+            except Exception as e:
+                print(f"[调试] 拉取分红数据失败: {e}")
+                return pd.DataFrame()
+        
+        # 在线程池中执行akshare调用
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            loop = asyncio.get_event_loop()
+            df = await loop.run_in_executor(executor, fetch_dividend_data)
+        
+        if df.empty:
+            return BaseResponse(
+                success=True,
+                message="未找到分红数据",
+                data={"saved_count": 0}
+            )
+        
+        # 转换数据格式
+        dividend_data = []
+        for _, row in df.iterrows():
+            try:
+                dividend_data.append({
+                    'dividend_date': pd.to_datetime(row['权益登记日']).date(),
+                    'record_date': pd.to_datetime(row['权益登记日']).date(),
+                    'dividend_amount': float(row['分红']) if pd.notna(row['分红']) else 0,
+                    'total_dividend': None,
+                    'announcement_date': None
+                })
+            except Exception as e:
+                print(f"[调试] 转换分红数据失败: {e}")
+                continue
+        
+        # 保存到数据库
+        saved_count = FundDividendService.save_dividend_data(db, fund_code, dividend_data)
+        
+        print(f"[调试] 分红数据同步完成，保存了 {saved_count} 条记录")
+        
+        return BaseResponse(
+            success=True,
+            message=f"同步分红数据成功，保存了 {saved_count} 条记录",
+            data={"saved_count": saved_count}
+        )
+    except Exception as e:
+        print(f"[调试] 同步分红数据异常: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dca/plans/update-pending", response_model=BaseResponse)
+def update_pending_operations(
+    db: Session = Depends(get_db)
+):
+    """更新所有待确认的定投操作记录"""
+    try:
+        updated_count = DCAService.update_pending_operations(db)
+        return BaseResponse(
+            success=True,
+            message=f"更新了 {updated_count} 条待确认的操作记录",
+            data={"updated_count": updated_count}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dca/plans/{plan_id}/generate-history", response_model=BaseResponse)
+def generate_historical_operations(
+    plan_id: int,
+    end_date: Optional[date] = Query(None, description="结束日期，默认为计划结束日期或今天"),
+    exclude_dates: Optional[List[str]] = Query(None, description="排除的日期列表（如定投失败日）"),
+    db: Session = Depends(get_db)
+):
+    """批量生成历史定投记录"""
+    from datetime import datetime
+    try:
+        # 强制转换exclude_dates为date类型
+        exclude_dates_parsed = []
+        if exclude_dates:
+            for d in exclude_dates:
+                if isinstance(d, str):
+                    exclude_dates_parsed.append(datetime.strptime(d, "%Y-%m-%d").date())
+                else:
+                    exclude_dates_parsed.append(d)
+        created_count = DCAService.generate_historical_operations(db, plan_id, end_date, exclude_dates=exclude_dates_parsed)
+        return BaseResponse(
+            success=True,
+            message=f"生成了 {created_count} 条历史定投记录",
+            data={"created_count": created_count}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dca/plans/update-status", response_model=BaseResponse)
+def update_plan_statuses(
+    db: Session = Depends(get_db)
+):
+    """批量更新定投计划状态"""
+    try:
+        updated_count = DCAService.update_all_plan_statuses(db)
+        return BaseResponse(
+            success=True,
+            message=f"更新了 {updated_count} 个定投计划状态",
+            data={"updated_count": updated_count}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/dca/plans/{plan_id}/operations", response_model=BaseResponse)
+def delete_plan_operations(
+    plan_id: int,
+    db: Session = Depends(get_db)
+):
+    """删除定投计划的所有操作记录"""
+    try:
+        deleted_count = DCAService.delete_plan_operations(db, plan_id)
+        return BaseResponse(
+            success=True,
+            message=f"删除了 {deleted_count} 条操作记录",
+            data={"deleted_count": deleted_count}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dca/plans/{plan_id}/update-statistics", response_model=BaseResponse)
+def update_plan_statistics(
+    plan_id: int,
+    db: Session = Depends(get_db)
+):
+    """手动更新定投计划统计信息"""
+    try:
+        success = DCAService.update_plan_statistics(db, plan_id)
+        if success:
+            return BaseResponse(
+                success=True,
+                message="定投计划统计信息更新成功"
+            )
+        else:
+            raise HTTPException(status_code=404, detail="定投计划不存在")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/dca/plans/{plan_id}/clean-operations", response_model=BaseResponse)
+def clean_plan_operations(
+    plan_id: int,
+    start_date: date = Query(..., description="新的开始日期"),
+    end_date: date = Query(..., description="新的结束日期"),
+    db: Session = Depends(get_db)
+):
+    """清理定投计划超出新区间的历史操作记录"""
+    try:
+        deleted_count = DCAService.clean_plan_operations_by_date_range(db, plan_id, start_date, end_date)
+        return BaseResponse(
+            success=True,
+            message=f"清理了 {deleted_count} 条超出区间的历史操作记录",
+            data={"deleted_count": deleted_count}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/operations/{operation_id}/process-dividend", response_model=BaseResponse)
+def process_dividend_operation(
+    operation_id: int,
+    process_type: str = Query(..., description="处理方式: reinvest(转投入), withdraw(提现), skip(暂不处理)"),
+    db: Session = Depends(get_db)
+):
+    """处理分红操作"""
+    try:
+        # 查找分红操作记录
+        operation = db.query(UserOperation).filter(
+            and_(
+                UserOperation.id == operation_id,
+                UserOperation.operation_type == "dividend"
+            )
+        ).first()
+        
+        if not operation:
+            raise HTTPException(status_code=404, detail="分红操作记录不存在")
+        
+        if process_type == "reinvest":
+            # 转投入：创建买入操作
+            buy_operation = UserOperation(
+                operation_date=operation.operation_date,
+                platform=operation.platform,
+                asset_type=operation.asset_type,
+                operation_type="buy",
+                asset_code=operation.asset_code,
+                asset_name=operation.asset_name,
+                amount=operation.amount,
+                currency=operation.currency,
+                strategy=f"分红转投入: {operation.notes or '分红转投入'}",
+                status="pending"
+            )
+            db.add(buy_operation)
+            operation.status = "processed"
+            operation.notes = f"{operation.notes or ''} - 已转投入"
+            
+        elif process_type == "withdraw":
+            # 提现：创建卖出操作
+            sell_operation = UserOperation(
+                operation_date=operation.operation_date,
+                platform=operation.platform,
+                asset_type=operation.asset_type,
+                operation_type="sell",
+                asset_code=operation.asset_code,
+                asset_name=operation.asset_name,
+                amount=operation.amount,
+                currency=operation.currency,
+                strategy=f"分红提现: {operation.notes or '分红提现'}",
+                status="confirmed"
+            )
+            db.add(sell_operation)
+            operation.status = "processed"
+            operation.notes = f"{operation.notes or ''} - 已提现"
+            
+        elif process_type == "skip":
+            # 暂不处理：标记为已处理
+            operation.status = "processed"
+            operation.notes = f"{operation.notes or ''} - 暂不处理"
+            
+        else:
+            raise HTTPException(status_code=400, detail="无效的处理方式")
+        
+        db.commit()
+        
+        return BaseResponse(
+            success=True,
+            message="分红处理成功"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) 
