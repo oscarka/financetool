@@ -181,6 +181,9 @@ class DCAPlanBase(BaseModel):
     
     # 新增字段：手续费设置
     fee_rate: Optional[Decimal] = Decimal("0")  # 手续费率，如0.0015表示0.15%
+    
+    # 新增字段：排除日期
+    exclude_dates: Optional[List[str]] = None  # 排除日期列表，如["2024-07-01", "2024-07-03"]
 
 
 class DCAPlanCreate(DCAPlanBase):
@@ -209,6 +212,7 @@ class DCAPlanUpdate(BaseModel):
     enable_notification: Optional[bool] = None
     notification_before: Optional[int] = None
     fee_rate: Optional[Decimal] = None
+    exclude_dates: Optional[List[str]] = None  # 排除日期列表
 
 
 class DCAPlan(DCAPlanBase):
@@ -231,6 +235,7 @@ class DCAPlan(DCAPlanBase):
     enable_notification: Optional[bool] = True
     notification_before: Optional[int] = 30
     fee_rate: Optional[Decimal] = Decimal("0")
+    exclude_dates: Optional[List[str]] = None  # 排除日期列表
     
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -356,4 +361,94 @@ class FundDividendResponse(BaseResponse):
 
 
 class FundDividendListResponse(BaseResponse):
-    data: Optional[List[FundDividend]] = None 
+    data: Optional[List[FundDividend]] = None
+
+
+# Wise交易记录相关模型
+class WiseTransactionBase(BaseModel):
+    profile_id: str
+    account_id: str
+    transaction_id: str
+    type: str  # INTERBALANCE, TRANSFER, etc.
+    amount: Decimal
+    currency: str
+    description: str
+    title: str
+    date: datetime
+    status: str
+    reference_number: str
+
+
+class WiseTransactionCreate(WiseTransactionBase):
+    pass
+
+
+class WiseTransactionUpdate(BaseModel):
+    profile_id: Optional[str] = None
+    account_id: Optional[str] = None
+    transaction_id: Optional[str] = None
+    type: Optional[str] = None
+    amount: Optional[Decimal] = None
+    currency: Optional[str] = None
+    description: Optional[str] = None
+    title: Optional[str] = None
+    date: Optional[datetime] = None
+    status: Optional[str] = None
+    reference_number: Optional[str] = None
+
+
+class WiseTransaction(WiseTransactionBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class WiseTransactionResponse(BaseResponse):
+    data: Optional[WiseTransaction] = None
+
+
+class WiseTransactionListResponse(BaseResponse):
+    data: Optional[List[WiseTransaction]] = None
+    total: int = 0
+    page: int = 1
+    page_size: int = 20
+
+
+# Wise余额相关模型
+class WiseBalanceBase(BaseModel):
+    account_id: str
+    currency: str
+    available_balance: Decimal
+    reserved_balance: Decimal
+    cash_amount: Decimal
+    total_worth: Decimal
+    type: str
+    investment_state: str
+    creation_time: datetime
+    modification_time: datetime
+    visible: bool
+    primary: bool
+
+
+class WiseBalanceCreate(WiseBalanceBase):
+    pass
+
+
+class WiseBalance(WiseBalanceBase):
+    id: int
+    update_time: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class WiseBalanceResponse(BaseResponse):
+    data: Optional[WiseBalance] = None
+
+
+class WiseBalanceListResponse(BaseResponse):
+    data: Optional[List[WiseBalance]] = None 

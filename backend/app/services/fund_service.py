@@ -885,6 +885,7 @@ class DCAService:
             plan_data.frequency_value
         )
         
+        # 创建定投计划
         plan = DCAPlan(
             plan_name=plan_data.plan_name,
             platform=plan_data.platform,
@@ -899,7 +900,6 @@ class DCAService:
             end_date=plan_data.end_date,
             strategy=plan_data.strategy,
             execution_time=plan_data.execution_time,
-            next_execution_date=next_execution_date,
             smart_dca=plan_data.smart_dca,
             base_amount=plan_data.base_amount,
             max_amount=plan_data.max_amount,
@@ -909,7 +909,8 @@ class DCAService:
             skip_holidays=plan_data.skip_holidays,
             enable_notification=plan_data.enable_notification,
             notification_before=plan_data.notification_before,
-            fee_rate=plan_data.fee_rate or 0
+            fee_rate=plan_data.fee_rate,
+            exclude_dates=json.dumps(plan_data.exclude_dates) if plan_data.exclude_dates else None
         )
         
         db.add(plan)
@@ -918,18 +919,41 @@ class DCAService:
         return plan
     
     @staticmethod
-    def get_dca_plans(db: Session, status: Optional[str] = None) -> List[DCAPlan]:
-        """获取定投计划列表"""
+    def get_dca_plans(db: Session, status: Optional[str] = None) -> List[dict]:
+        """获取定投计划列表，返回dict，exclude_dates为list，ORM对象不被污染"""
         query = db.query(DCAPlan)
         if status:
             query = query.filter(DCAPlan.status == status)
         plans = query.order_by(DCAPlan.created_at.desc()).all()
-        return plans
+        result = []
+        for plan in plans:
+            exclude_dates = []
+            if plan.exclude_dates:
+                try:
+                    exclude_dates = json.loads(plan.exclude_dates)
+                except (json.JSONDecodeError, TypeError):
+                    exclude_dates = []
+            plan_dict = {**plan.__dict__, 'exclude_dates': exclude_dates}
+            # 去除SQLAlchemy内部属性
+            plan_dict.pop('_sa_instance_state', None)
+            result.append(plan_dict)
+        return result
     
     @staticmethod
-    def get_dca_plan_by_id(db: Session, plan_id: int) -> Optional[DCAPlan]:
-        """根据ID获取定投计划"""
-        return db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
+    def get_dca_plan_by_id(db: Session, plan_id: int) -> Optional[dict]:
+        """根据ID获取定投计划，返回dict，exclude_dates为list，ORM对象不被污染"""
+        plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
+        if not plan:
+            return None
+        exclude_dates = []
+        if plan.exclude_dates:
+            try:
+                exclude_dates = json.loads(plan.exclude_dates)
+            except (json.JSONDecodeError, TypeError):
+                exclude_dates = []
+        plan_dict = {**plan.__dict__, 'exclude_dates': exclude_dates}
+        plan_dict.pop('_sa_instance_state', None)
+        return plan_dict
     
     @staticmethod
     def update_dca_plan(db: Session, plan_id: int, update_data: DCAPlanUpdate) -> Optional[DCAPlan]:
@@ -944,8 +968,12 @@ class DCAService:
             # 更新字段
             for field, value in update_data.dict(exclude_unset=True).items():
                 if hasattr(plan, field):
-                    logger.info(f"[日志] update_dca_plan: set {field}={value}")
-                    setattr(plan, field, value)
+                    if field == 'exclude_dates' and value is not None:
+                        # 特殊处理exclude_dates字段，转换为JSON字符串
+                        setattr(plan, field, json.dumps(value))
+                    else:
+                        logger.info(f"[日志] update_dca_plan: set {field}={value}")
+                        setattr(plan, field, value)
             # 如果更新了频率、频率值或开始日期，重新计算下次执行日期
             if (update_data.frequency is not None or update_data.frequency_value is not None or update_data.start_date is not None):
                 logger.info(f"[日志] update_dca_plan: recalculate next_execution_date")
@@ -1331,6 +1359,17 @@ class DCAService:
         # 更新定投计划统计
         DCAService.update_plan_statistics(db, plan_id)
         
+        # 生成历史后，如有新exclude_dates，需同步入库
+        if exclude_dates is not None:
+            import json
+            print(f'[防御] 赋值前 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
+            if isinstance(plan.exclude_dates, list):
+                plan.exclude_dates = json.dumps([d.strftime('%Y-%m-%d') if isinstance(d, date) else str(d) for d in plan.exclude_dates])
+                print(f'[防御] 已序列化 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
+            plan.exclude_dates = json.dumps([d.strftime('%Y-%m-%d') if isinstance(d, date) else str(d) for d in exclude_dates])
+            print(f'[防御] 新赋值 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
+            db.commit()
+        
         print(f'[历史生成] 总共生成 {created_count} 条操作记录')
         return created_count
 
@@ -1483,6 +1522,75 @@ class DCAService:
         
         db.commit()
         return deleted_count
+
+    @staticmethod
+    def update_pending_operations(db: Session) -> int:
+        """更新所有待确认的定投操作记录"""
+        updated_count = 0
+        
+        # 查找所有待确认的定投操作
+        pending_operations = db.query(UserOperation).filter(
+            and_(
+                UserOperation.status == "pending",
+                UserOperation.dca_plan_id.isnot(None)
+            )
+        ).all()
+        
+        for operation in pending_operations:
+            try:
+                # 获取当天净值
+                today = date.today()
+                nav_record = db.query(FundNav).filter(
+                    and_(
+                        FundNav.fund_code == operation.asset_code,
+                        FundNav.nav_date == today
+                    )
+                ).first()
+                
+                if nav_record:
+                    # 计算份额并确认操作
+                    DCAService._calculate_and_confirm_operation(db, operation, nav_record.nav)
+                    updated_count += 1
+                    
+            except Exception as e:
+                print(f"更新待确认操作 {operation.id} 失败: {e}")
+                continue
+        
+        return updated_count
+
+    @staticmethod
+    def update_fund_nav(db: Session, fund_code: str, nav: Decimal, nav_date: date) -> bool:
+        """更新或插入基金净值记录"""
+        try:
+            # 检查是否已存在当天的净值记录
+            existing_nav = db.query(FundNav).filter(
+                and_(
+                    FundNav.fund_code == fund_code,
+                    FundNav.nav_date == nav_date
+                )
+            ).first()
+            
+            if existing_nav:
+                # 更新现有记录
+                existing_nav.nav = nav
+                existing_nav.updated_at = datetime.now()
+            else:
+                # 创建新记录
+                new_nav = FundNav(
+                    fund_code=fund_code,
+                    nav_date=nav_date,
+                    nav=nav,
+                    source="scheduler"
+                )
+                db.add(new_nav)
+            
+            db.commit()
+            return True
+            
+        except Exception as e:
+            print(f"更新基金 {fund_code} 净值失败: {e}")
+            db.rollback()
+            return False
 
 
 class FundDividendService:

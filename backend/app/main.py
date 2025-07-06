@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.utils.database import init_database
-from app.api.v1 import funds
+from app.api.v1 import funds, exchange_rates, wise
+from app.services.scheduler_service import scheduler_service
 
 
 @asynccontextmanager
@@ -13,11 +14,15 @@ async def lifespan(app: FastAPI):
     # 启动时执行
     print("正在初始化数据库...")
     init_database()
+    print("正在启动定时任务...")
+    scheduler_service.start()
     print("应用启动完成")
     
     yield
     
     # 关闭时执行
+    print("正在停止定时任务...")
+    scheduler_service.stop()
     print("应用正在关闭...")
 
 
@@ -43,6 +48,18 @@ app.include_router(
     funds.router,
     prefix=f"{settings.api_v1_prefix}/funds",
     tags=["基金管理"]
+)
+
+app.include_router(
+    exchange_rates.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["汇率管理"]
+)
+
+app.include_router(
+    wise.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["Wise管理"]
 )
 
 

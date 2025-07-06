@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
     Card, Button, Form, Input, Select, DatePicker, InputNumber, message, Table, Space, Tag, Modal, Popconfirm, Tooltip,
-    Row, Col, Statistic, Tabs, Switch, Divider, Alert, Radio
+    Row, Col, Statistic, Tabs, Switch, Divider, Alert, Radio, Checkbox
 } from 'antd'
 import {
     PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, PlayCircleOutlined, PauseCircleOutlined,
@@ -48,6 +48,7 @@ interface DCAPlan {
     fee_rate?: number
     created_at: string
     updated_at: string
+    exclude_dates?: string[]
 }
 
 interface DCAPlanForm {
@@ -72,6 +73,7 @@ interface DCAPlanForm {
     enable_notification: boolean
     notification_before: number
     fee_rate?: number
+    exclude_dates?: string[]
 }
 
 interface DCAPlanStatistics {
@@ -118,6 +120,9 @@ const DCAPlans: React.FC = () => {
 
     // 新增：Modal强制刷新
     const [modalKey, setModalKey] = useState(Date.now())
+
+    // 新增：在组件顶部state定义区添加：
+    const [isOngoing, setIsOngoing] = useState(false)
 
     // 监听日期区间变化，自动生成区间内所有日期（仅工作日/可选日，简化为全日）
     useEffect(() => {
@@ -194,9 +199,10 @@ const DCAPlans: React.FC = () => {
             const planData = {
                 ...values,
                 start_date: dayjs(values.start_date).format('YYYY-MM-DD'),
-                end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined,
+                end_date: isOngoing ? dayjs().format('YYYY-MM-DD') : (values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined),
                 platform: '支付宝',
-                asset_type: '基金'
+                asset_type: '基金',
+                exclude_dates: values.exclude_dates
             }
             console.log('[日志] 提交的planData:', planData)
             console.log('[日志] 当前editingPlan:', editingPlan)
@@ -210,20 +216,22 @@ const DCAPlans: React.FC = () => {
                     planData.end_date !== originalEndDate
                 ) {
                     console.log('[日志] 日期区间发生变化，弹窗确认')
-                    // 假设有弹窗确认逻辑
                     if (!window.confirm('日期区间发生变化，是否清理历史操作？')) {
                         console.log('[日志] 用户取消了日期区间变更确认，return')
                         setSubmitting(false)
                         return
                     }
-                    // 假设有 cleanPlanOperations
                     console.log('[日志] 即将调用 cleanPlanOperations')
-                    // await fundAPI.cleanPlanOperations(...)
-                    console.log('[日志] cleanPlanOperations 已调用完成')
+                    try {
+                        await fundAPI.cleanPlanOperations(editingPlan.id, planData.start_date, planData.end_date)
+                        console.log('[日志] cleanPlanOperations 已调用完成')
+                    } catch (error) {
+                        console.error('[日志] cleanPlanOperations 调用失败:', error)
+                        message.error('清理历史操作失败，但将继续更新定投计划')
+                    }
                 }
             }
 
-            // 其他可能的提前 return 分支
             if (!planData.plan_name) {
                 console.log('[日志] plan_name 为空，return')
                 setSubmitting(false)
@@ -236,22 +244,23 @@ const DCAPlans: React.FC = () => {
             }
             // ...可继续补充其他校验...
 
-            console.log('[日志] 即将调用 updateDCAPlan')
-            const response = await fundAPI.updateDCAPlan(editingPlan.id, planData)
-            console.log('[日志] updateDCAPlan 已调用，response:', response)
+            let response
+            if (editingPlan) {
+                console.log('[日志] 即将调用 updateDCAPlan')
+                response = await fundAPI.updateDCAPlan(editingPlan.id, planData)
+                console.log('[日志] updateDCAPlan 已调用，response:', response)
+            } else {
+                console.log('[日志] 即将调用 createDCAPlan')
+                response = await fundAPI.createDCAPlan(planData)
+                console.log('[日志] createDCAPlan 已调用，response:', response)
+            }
 
             if (response.success) {
-                console.log('[日志] updateDCAPlan 成功，准备关闭弹窗')
-                console.log('[日志] setModalVisible(false) before')
+                console.log('[日志] 操作成功，准备关闭弹窗')
                 setModalVisible(false)
                 setModalKey(Date.now())
-                console.log('[日志] setModalVisible(false) after')
-                console.log('[日志] fetchPlans before')
                 fetchPlans()
-                console.log('[日志] fetchPlans after')
-                console.log('[日志] form.resetFields before')
                 form.resetFields()
-                console.log('[日志] form.resetFields after')
                 setEditingPlan(null)
                 setCreationMode('new')
                 setSelectedCopyPlanId(null)
@@ -604,34 +613,46 @@ const DCAPlans: React.FC = () => {
                             size="small"
                             icon={<EditOutlined />}
                             style={{ padding: 0 }}
-                            onClick={() => {
-                                console.log('[日志] 编辑按钮 record:', record)
-                                setEditingPlan(record)
+                            onClick={async () => {
                                 setModalKey(Date.now())
                                 setModalVisible(true)
                                 setModalMode('edit')
-                                // 自动填充historyRange和historyDates
-                                if (record.start_date && record.end_date) {
-                                    const start = dayjs(record.start_date)
-                                    const end = dayjs(record.end_date)
-                                    setHistoryRange([start, end])
-                                    const dates: string[] = []
-                                    let d = start.clone()
-                                    while (d.isBefore(end, 'day') || d.isSame(end, 'day')) {
-                                        dates.push(d.format('YYYY-MM-DD'))
-                                        d = d.add(1, 'day')
+                                // 强制拉取最新详情，保证exclude_dates同步
+                                const response = await fundAPI.getDCAPlan(record.id)
+                                console.log('[编辑弹窗] getDCAPlan响应', response)
+                                if (response.success && response.data) {
+                                    const plan = response.data
+                                    setEditingPlan(plan)
+                                    console.log('[编辑弹窗] plan.exclude_dates', plan.exclude_dates)
+                                    form.setFieldsValue({
+                                        ...plan,
+                                        start_date: dayjs(plan.start_date),
+                                        end_date: plan.end_date ? dayjs(plan.end_date) : undefined,
+                                        exclude_dates: plan.exclude_dates || []
+                                    })
+                                    // 自动填充historyRange和historyDates
+                                    if (plan.start_date && plan.end_date) {
+                                        const start = dayjs(plan.start_date)
+                                        const end = dayjs(plan.end_date)
+                                        setHistoryRange([start, end])
+                                        const dates: string[] = []
+                                        let d = start.clone()
+                                        while (d.isBefore(end, 'day') || d.isSame(end, 'day')) {
+                                            dates.push(d.format('YYYY-MM-DD'))
+                                            d = d.add(1, 'day')
+                                        }
+                                        setHistoryDates(dates)
+                                        setTimeout(() => {
+                                            console.log('[编辑弹窗] setHistoryDates后 historyDates', dates)
+                                            console.log('[编辑弹窗] setHistoryRange', [start, end])
+                                        }, 100)
                                     }
-                                    setHistoryDates(dates)
+                                    setTimeout(() => {
+                                        console.log('[编辑弹窗] form.getFieldsValue()', form.getFieldsValue())
+                                    }, 200)
                                 } else {
-                                    setHistoryRange(null)
-                                    setHistoryDates([])
+                                    message.error('获取定投计划详情失败')
                                 }
-                                setExcludeDates([])
-                                form.setFieldsValue({
-                                    ...record,
-                                    start_date: dayjs(record.start_date),
-                                    end_date: record.end_date ? dayjs(record.end_date) : undefined
-                                })
                             }}
                         />
                     </Tooltip>
@@ -775,6 +796,16 @@ const DCAPlans: React.FC = () => {
             }
         }
     ]
+
+    // 在组件顶部state定义区添加：
+    useEffect(() => {
+        if (editingPlan && editingPlan.end_date) {
+            const isToday = dayjs(editingPlan.end_date).isSame(dayjs(), 'day')
+            setIsOngoing(isToday)
+        } else {
+            setIsOngoing(false)
+        }
+    }, [editingPlan, modalVisible])
 
     return (
         <div className="space-y-6">
@@ -1072,30 +1103,50 @@ const DCAPlans: React.FC = () => {
                                 name="end_date"
                                 label="结束日期"
                             >
-                                <DatePicker style={{ width: '100%' }}
+                                <DatePicker
+                                    style={{ width: '100%' }}
+                                    disabled={isOngoing}
                                     onChange={date => setHistoryRange([historyRange ? historyRange[0] : null, date])}
                                 />
+                            </Form.Item>
+                            <Form.Item style={{ marginTop: 8, marginBottom: 0 }}>
+                                <Checkbox
+                                    checked={isOngoing}
+                                    onChange={e => {
+                                        setIsOngoing(e.target.checked)
+                                        if (e.target.checked) {
+                                            form.setFieldsValue({ end_date: dayjs() })
+                                            setHistoryRange([historyRange ? historyRange[0] : null, dayjs()])
+                                        } else {
+                                            form.setFieldsValue({ end_date: undefined })
+                                        }
+                                    }}
+                                >
+                                    结束日期为当前/持续进行中
+                                </Checkbox>
                             </Form.Item>
                         </Col>
                     </Row>
 
-                    {historyDates.length > 0 && (
-                        <Row gutter={16}>
-                            <Col span={24}>
-                                <Form.Item label="排除日期（如定投失败日）">
-                                    <Select
-                                        mode="multiple"
-                                        allowClear
-                                        style={{ width: '100%' }}
-                                        placeholder="可选定投失败的日期不生成操作记录"
-                                        value={excludeDates}
-                                        onChange={setExcludeDates}
-                                        options={historyDates.map(date => ({ label: date, value: date }))}
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                    )}
+                    <Row gutter={16}>
+                        <Col span={24}>
+                            <Form.Item name="exclude_dates" label="排除日期">
+                                <Select
+                                    mode="multiple"
+                                    allowClear
+                                    style={{ width: '100%' }}
+                                    placeholder="可选定投失败的日期不生成操作记录"
+                                    options={historyDates.map(date => ({ label: date, value: date }))}
+                                    onDropdownVisibleChange={open => {
+                                        if (open) {
+                                            console.log('[Select下拉] options', historyDates)
+                                            console.log('[Select下拉] value', form.getFieldValue('exclude_dates'))
+                                        }
+                                    }}
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
                     <Divider orientation="left">智能定投设置</Divider>
 

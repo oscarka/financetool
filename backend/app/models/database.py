@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, DateTime, Date, DECIMAL, Text, 
-    Boolean, ForeignKey, UniqueConstraint, Index
+    Boolean, ForeignKey, UniqueConstraint, Index, Float
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -33,7 +33,7 @@ class UserOperation(Base):
     status = Column(String(20), default="pending")
     
     # 新增字段：定投计划关联
-    dca_plan_id = Column(Integer, ForeignKey('dca_plans.id'), nullable=True)  # 关联定投计划
+    dca_plan_id = Column(Integer, nullable=True)  # 关联定投计划，暂时去掉外键约束
     dca_execution_type = Column(String(20), nullable=True)  # 定投执行类型：scheduled(定时), manual(手动), smart(智能)
     
     created_at = Column(DateTime, default=func.now())
@@ -161,6 +161,9 @@ class DCAPlan(Base):
     # 新增字段：手续费设置
     fee_rate = Column(DECIMAL(5, 4), default=0)  # 手续费率，如0.0015表示0.15%
     
+    # 新增字段：排除日期
+    exclude_dates = Column(Text)  # JSON格式存储排除日期列表，如["2024-07-01", "2024-07-03"]
+    
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -191,6 +194,71 @@ class SystemConfig(Base):
     config_value = Column(Text)
     description = Column(Text)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class WiseTransaction(Base):
+    """Wise交易记录表"""
+    __tablename__ = "wise_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    profile_id = Column(String(50), nullable=False, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    transaction_id = Column(String(200), unique=True, nullable=False, index=True)
+    type = Column(String(50), nullable=False)  # INTERBALANCE, TRANSFER, etc.
+    amount = Column(DECIMAL(15, 4), nullable=False)
+    currency = Column(String(10), nullable=False)
+    description = Column(Text)
+    title = Column(Text)
+    date = Column(DateTime, nullable=False, index=True)
+    status = Column(String(20), nullable=False)
+    reference_number = Column(String(100))
+    
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('transaction_id', name='uq_wise_transaction'),
+        Index('idx_wise_transaction_date', 'date'),
+        Index('idx_wise_transaction_profile', 'profile_id'),
+        Index('idx_wise_transaction_account', 'account_id'),
+    )
+
+
+class WiseBalance(Base):
+    """Wise余额表"""
+    __tablename__ = "wise_balances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), unique=True, nullable=False, index=True)
+    currency = Column(String(10), nullable=False, index=True)
+    available_balance = Column(DECIMAL(15, 4), nullable=False)
+    reserved_balance = Column(DECIMAL(15, 4), nullable=False)
+    cash_amount = Column(DECIMAL(15, 4), nullable=False)
+    total_worth = Column(DECIMAL(15, 4), nullable=False)
+    type = Column(String(50), nullable=False)
+    investment_state = Column(String(50), nullable=False)
+    creation_time = Column(DateTime, nullable=False)
+    modification_time = Column(DateTime, nullable=False)
+    visible = Column(Boolean, default=True)
+    primary = Column(Boolean, default=False)
+    update_time = Column(DateTime, default=func.now())
+    
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('account_id', name='uq_wise_balance'),
+        Index('idx_wise_balance_currency', 'currency'),
+    )
+
+
+class WiseExchangeRate(Base):
+    __tablename__ = 'wise_exchange_rates'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_currency = Column(String(8), nullable=False)
+    target_currency = Column(String(8), nullable=False)
+    rate = Column(Float, nullable=False)
+    time = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
 # 创建索引

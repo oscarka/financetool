@@ -20,6 +20,17 @@ class BaseConfig(BaseSettings):
     # 雪球API配置
     xueqiu_api_base_url: str = "https://stock.xueqiu.com/v5/stock/chart/kline.json"
     
+    # OKX API配置
+    okx_api_base_url: str = "https://www.okx.com"
+    okx_api_key: str = ""
+    okx_secret_key: str = ""
+    okx_passphrase: str = ""
+    okx_sandbox: bool = True  # 是否使用沙盒环境
+    
+    # Wise API配置
+    wise_api_token: str = ""
+    wise_api_base_url: str = "https://api.transferwise.com"
+    
     # 定时任务配置
     scheduler_timezone: str = "Asia/Shanghai"
     

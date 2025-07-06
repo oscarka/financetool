@@ -17,6 +17,8 @@ from app.models.schemas import (
 from app.models.database import UserOperation, FundNav, FundDividend
 from app.services.fund_service import FundOperationService, FundInfoService, FundNavService, DCAService, FundDividendService
 from app.services.fund_api_service import FundSyncService, FundAPIService
+from app.services.scheduler_service import scheduler_service
+from app.services.okx_api_service import OKXAPIService
 
 router = APIRouter()
 
@@ -562,6 +564,13 @@ def create_dca_plan(
     """创建定投计划"""
     try:
         result = DCAService.create_dca_plan(db, plan)
+        # 修正：确保exclude_dates为List[str]类型
+        if result and result.exclude_dates and isinstance(result.exclude_dates, str):
+            import json
+            try:
+                result.exclude_dates = json.loads(result.exclude_dates)
+            except Exception:
+                result.exclude_dates = []
         return DCAPlanResponse(
             success=True,
             message="定投计划创建成功",
@@ -621,7 +630,13 @@ def update_dca_plan(
         result = DCAService.update_dca_plan(db, plan_id, update_data)
         if not result:
             raise HTTPException(status_code=404, detail="定投计划不存在")
-        
+        # 修正：确保exclude_dates为List[str]类型
+        if result and result.exclude_dates and isinstance(result.exclude_dates, str):
+            import json
+            try:
+                result.exclude_dates = json.loads(result.exclude_dates)
+            except Exception:
+                result.exclude_dates = []
         return DCAPlanResponse(
             success=True,
             message="定投计划更新成功",
@@ -630,6 +645,10 @@ def update_dca_plan(
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        print(f"[调试] update_dca_plan异常: {e}")
+        print(f"[调试] update_dca_plan堆栈: {traceback.format_exc()}")
+        print(f"[调试] update_data: {update_data}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -935,14 +954,30 @@ def generate_historical_operations(
     """批量生成历史定投记录"""
     from datetime import datetime
     try:
+        print(f"[历史生成] exclude_dates原始: {exclude_dates}, 类型: {type(exclude_dates)}")
+        if exclude_dates:
+            for i, d in enumerate(exclude_dates):
+                print(f"[历史生成] exclude_dates[{i}]: {d}, 类型: {type(d)}")
+        # 如果未传exclude_dates，则自动用计划本身的exclude_dates
+        if exclude_dates is None:
+            plan = DCAService.get_dca_plan_by_id(db, plan_id)
+            if plan and plan.get('exclude_dates'):
+                exclude_dates = plan['exclude_dates']
         # 强制转换exclude_dates为date类型
         exclude_dates_parsed = []
         if exclude_dates:
             for d in exclude_dates:
+                # 兼容直接传date类型
                 if isinstance(d, str):
                     exclude_dates_parsed.append(datetime.strptime(d, "%Y-%m-%d").date())
-                else:
+                elif isinstance(d, date):
                     exclude_dates_parsed.append(d)
+                else:
+                    try:
+                        exclude_dates_parsed.append(datetime.strptime(str(d), "%Y-%m-%d").date())
+                    except Exception as e:
+                        print(f"[历史生成] exclude_dates解析失败: {d}, 错误: {e}")
+        print(f"[历史生成] exclude_dates_parsed: {exclude_dates_parsed}, 类型: {type(exclude_dates_parsed)}")
         created_count = DCAService.generate_historical_operations(db, plan_id, end_date, exclude_dates=exclude_dates_parsed)
         return BaseResponse(
             success=True,
@@ -950,6 +985,9 @@ def generate_historical_operations(
             data={"created_count": created_count}
         )
     except Exception as e:
+        import traceback
+        print(f"[历史生成] 生成历史异常: {e}")
+        print(f"[历史生成] 异常堆栈: {traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -1096,4 +1134,224 @@ def process_dividend_operation(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) 
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# 定时任务管理API
+@router.get("/scheduler/jobs", response_model=BaseResponse)
+def get_scheduler_jobs():
+    """获取所有定时任务信息"""
+    try:
+        jobs = scheduler_service.get_jobs()
+        return BaseResponse(
+            success=True,
+            message="获取定时任务信息成功",
+            data={"jobs": jobs}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/scheduler/jobs/{job_id}/update", response_model=BaseResponse)
+def update_job_schedule(
+    job_id: str,
+    hour: int = Query(..., ge=0, le=23, description="小时"),
+    minute: int = Query(..., ge=0, le=59, description="分钟")
+):
+    """更新定时任务执行时间"""
+    try:
+        success = scheduler_service.update_job_schedule(job_id, hour, minute)
+        if success:
+            return BaseResponse(
+                success=True,
+                message=f"任务 {job_id} 执行时间已更新为 {hour:02d}:{minute:02d}"
+            )
+        else:
+            raise HTTPException(status_code=400, detail="更新任务执行时间失败")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/scheduler/start", response_model=BaseResponse)
+async def start_scheduler():
+    """启动定时任务调度器"""
+    try:
+        await scheduler_service.start_async()
+        return BaseResponse(
+            success=True,
+            message="定时任务调度器已启动"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/scheduler/stop", response_model=BaseResponse)
+async def stop_scheduler():
+    """停止定时任务调度器"""
+    try:
+        await scheduler_service.stop_async()
+        return BaseResponse(
+            success=True,
+            message="定时任务调度器已停止"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/scheduler/restart", response_model=BaseResponse)
+async def restart_scheduler():
+    """重启定时任务调度器"""
+    try:
+        await scheduler_service.restart_async()
+        return BaseResponse(
+            success=True,
+            message="定时任务调度器已重启"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/scheduler/update-navs", response_model=BaseResponse)
+async def manual_update_navs():
+    """手动执行净值更新任务"""
+    try:
+        await scheduler_service._update_fund_navs()
+        return BaseResponse(
+            success=True,
+            message="手动净值更新任务执行完成"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/okx/account", response_model=BaseResponse)
+async def get_okx_account():
+    """获取OKX账户资产信息"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_account_balance()
+        if data is None:
+            return BaseResponse(success=False, message="OKX账户资产获取失败，请检查API配置", data=None)
+        return BaseResponse(success=True, message="OKX账户资产获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/positions", response_model=BaseResponse)
+async def get_okx_positions():
+    """获取OKX持仓信息"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_account_positions()
+        if data is None:
+            return BaseResponse(success=False, message="OKX持仓信息获取失败，请检查API配置", data=None)
+        return BaseResponse(success=True, message="OKX持仓信息获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/bills", response_model=BaseResponse)
+async def get_okx_bills(
+    inst_type: Optional[str] = Query(None, description="产品类型"),
+    limit: int = Query(100, ge=1, le=100, description="返回结果数量")
+):
+    """获取OKX账单流水"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_bills(inst_type=inst_type, limit=limit)
+        if data is None:
+            return BaseResponse(success=False, message="OKX账单流水获取失败，请检查API配置", data=None)
+        return BaseResponse(success=True, message="OKX账单流水获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/ticker", response_model=BaseResponse)
+async def get_okx_ticker(inst_id: str):
+    """获取OKX币种行情"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_ticker(inst_id)
+        if data is None:
+            return BaseResponse(success=False, message="OKX行情获取失败", data=None)
+        return BaseResponse(success=True, message="OKX行情获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/tickers", response_model=BaseResponse)
+async def get_okx_all_tickers(inst_type: str = Query("SPOT", description="产品类型")):
+    """获取OKX所有币种行情"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_all_tickers(inst_type=inst_type)
+        if data is None:
+            return BaseResponse(success=False, message="OKX行情获取失败", data=None)
+        return BaseResponse(success=True, message="OKX行情获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/instruments", response_model=BaseResponse)
+async def get_okx_instruments(inst_type: str = Query("SPOT", description="产品类型")):
+    """获取OKX交易产品基础信息"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_instruments(inst_type=inst_type)
+        if data is None:
+            return BaseResponse(success=False, message="OKX交易产品信息获取失败", data=None)
+        return BaseResponse(success=True, message="OKX交易产品信息获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/config", response_model=BaseResponse)
+async def get_okx_config():
+    """获取OKX API配置信息"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_config()
+        return BaseResponse(success=True, message="OKX配置信息获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/test", response_model=BaseResponse)
+async def test_okx_connection():
+    """测试OKX API连接状态"""
+    try:
+        service = OKXAPIService()
+        data = await service.test_connection()
+        success = data.get("public_api", False) or data.get("private_api", False)
+        message = "OKX连接测试完成"
+        if not success:
+            message += " - 连接失败"
+        return BaseResponse(success=success, message=message, data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/asset-balances", response_model=BaseResponse)
+async def get_okx_asset_balances(ccy: Optional[str] = Query(None, description="币种")):
+    """获取OKX资金账户余额 (GET /api/v5/asset/balances)"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_asset_balances(ccy=ccy)
+        if data is None:
+            return BaseResponse(success=False, message="OKX资金账户余额获取失败，请检查API配置", data=None)
+        return BaseResponse(success=True, message="OKX资金账户余额获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/savings-balance", response_model=BaseResponse)
+async def get_okx_savings_balance(ccy: Optional[str] = Query(None, description="币种")):
+    """获取OKX储蓄账户余额 (GET /api/v5/finance/savings/balance)"""
+    try:
+        service = OKXAPIService()
+        data = await service.get_savings_balance(ccy=ccy)
+        if data is None:
+            return BaseResponse(success=False, message="OKX储蓄账户余额获取失败，请检查API配置", data=None)
+        return BaseResponse(success=True, message="OKX储蓄账户余额获取成功", data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) 
