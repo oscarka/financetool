@@ -1,0 +1,14 @@
+# 测试用nixpacks配置
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python run.py"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+
+[deploy.environment]
+PORT = "8000"
+DEBUG = "false"
+WORKERS = "1"

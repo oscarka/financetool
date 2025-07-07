@@ -1,0 +1,14 @@
+# 调试版railway配置
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile.debug"
+
+[deploy]
+startCommand = "echo 'Debug mode - checking environment' && python --version"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+
+[deploy.environment]
+PORT = "8000"
+DEBUG = "true"

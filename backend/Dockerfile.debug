@@ -1,0 +1,26 @@
+# 调试版Dockerfile - 输出环境信息
+FROM python:3.11-slim
+
+# 输出调试信息
+RUN echo "=== 调试信息 ==="
+RUN echo "当前工作目录:" && pwd
+RUN echo "目录内容:" && ls -la
+RUN echo "查找railway.toml:" && find . -name "railway.toml" -type f || echo "未找到railway.toml"
+RUN echo "查找Dockerfile:" && find . -name "Dockerfile*" -type f || echo "未找到Dockerfile"
+RUN echo "Python版本:" && python --version
+RUN echo "=== 调试结束 ==="
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制所有文件（用于调试）
+COPY . .
+
+# 再次输出调试信息
+RUN echo "=== 复制后的目录内容 ==="
+RUN ls -la
+RUN echo "=== 查找run.py ==="
+RUN find . -name "run.py" -type f || echo "未找到run.py"
+
+# 简单的启动命令
+CMD ["python", "--version"]

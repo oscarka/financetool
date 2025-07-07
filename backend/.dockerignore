@@ -1,0 +1,78 @@
+# Python相关
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE相关
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 测试和覆盖率
+.coverage
+.pytest_cache/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# 文档
+*.md
+docs/
+
+# 环境文件
+.env
+.env.*
+env.*.example
+
+# 数据库文件（开发环境）
+# *.db
+# *.sqlite
+# *.sqlite3
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+.tmp/
+
+# Git
+.git/
+.gitignore
+
+# 开发工具
+test_*.py
+*_test.py
+migrations/
+
+# 数据文件（保留data目录但排除其他格式）
+# data/
+*.csv
+*.json
+*.xlsx
+
+# Poetry相关（如果使用requirements.txt）
+poetry.lock
+pyproject.toml
+
+# Railway相关
+railway.toml
+
+# 其他
+.DS_Store
+Thumbs.db
