@@ -1,0 +1,61 @@
+name: Smart Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend-changed: ${{ steps.changes.outputs.frontend }}
+      backend-changed: ${{ steps.changes.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      
+      - name: Detect changes
+        id: changes
+        run: |
+          # 检查frontend目录变化
+          if git diff --name-only HEAD~1 | grep -q "^frontend/"; then
+            echo "frontend=true" >> $GITHUB_OUTPUT
+          else
+            echo "frontend=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # 检查backend目录变化
+          if git diff --name-only HEAD~1 | grep -q "^backend/"; then
+            echo "backend=true" >> $GITHUB_OUTPUT
+          else
+            echo "backend=false" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy Frontend to Railway
+        uses: railway/deploy@v1
+        with:
+          service: frontend
+          token: ${{ secrets.RAILWAY_TOKEN }}
+
+  deploy-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy Backend to Railway
+        uses: railway/deploy@v1
+        with:
+          service: backend
+          token: ${{ secrets.RAILWAY_TOKEN }} 

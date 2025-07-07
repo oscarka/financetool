@@ -1,0 +1,29 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+
+# 前端service配置
+[deploy.environment]
+NODE_ENV = "production"
+
+# 只监听frontend目录变化
+[deploy.watch]
+paths = ["frontend/**"]
+
+# 后端service配置（在backend目录创建）
+# [deploy]
+# startCommand = "python run.py"
+# healthcheckPath = "/health"
+# healthcheckTimeout = 300
+# restartPolicyType = "on_failure"
+
+# [deploy.environment]
+# PYTHON_VERSION = "3.11"
+
+# [deploy.watch]
+# paths = ["backend/**"] 
