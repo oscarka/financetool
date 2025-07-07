@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Card, Row, Col } from 'antd'
 import { 
     SearchOutlined, 
@@ -12,7 +12,37 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 const MobileFunds: React.FC = () => {
-    console.log('📱 MobileFunds 组件已渲染')
+    console.log('📱 MobileFunds 组件已渲染', {
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        screenWidth: window.innerWidth,
+        screenHeight: window.innerHeight
+    })
+    
+    // 强制输出到页面（用于调试）
+    useEffect(() => {
+        console.log('🚀 MobileFunds useEffect 执行')
+        // 在页面顶部添加可见的调试信息
+        const debugEl = document.createElement('div')
+        debugEl.style.cssText = `
+            position: fixed;
+            top: 80px;
+            left: 10px;
+            background: #1890ff;
+            color: white;
+            padding: 4px 8px;
+            font-size: 12px;
+            z-index: 10000;
+            border-radius: 4px;
+        `
+        debugEl.textContent = '✅ MobileFunds已加载'
+        document.body.appendChild(debugEl)
+        
+        // 3秒后移除
+        setTimeout(() => {
+            document.body.removeChild(debugEl)
+        }, 3000)
+    }, [])
     
     const navigate = useNavigate()
 
