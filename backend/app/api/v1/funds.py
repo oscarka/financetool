@@ -12,7 +12,8 @@ from app.models.schemas import (
     FundPositionResponse, FundPosition, FundNavCreate, FundNav,
     OperationQuery, BaseResponse, FundInfoCreate, FundInfo,
     FundListResponse, DCAPlanCreate, DCAPlanUpdate, DCAPlan,
-    DCAPlanResponse, DCAPlanListResponse, PositionSummaryResponse
+    DCAPlanResponse, DCAPlanListResponse, PositionSummaryResponse,
+    PositionSummary
 )
 from app.models.database import UserOperation, FundNav, FundDividend
 from app.services.fund_service import FundOperationService, FundInfoService, FundNavService, DCAService, FundDividendService
@@ -202,6 +203,9 @@ def get_fund_positions(db: Session = Depends(get_db)):
             data=positions
         )
     except Exception as e:
+        print(f"[调试] 持仓列表API异常: {e}")
+        import traceback
+        print(f"[调试] 异常堆栈: {traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -209,13 +213,28 @@ def get_fund_positions(db: Session = Depends(get_db)):
 def get_position_summary(db: Session = Depends(get_db)):
     """获取持仓汇总信息"""
     try:
-        summary = FundOperationService.get_position_summary(db)
+        summary_data = FundOperationService.get_position_summary(db)
+        
+        # 包装数据到模型中
+        summary = PositionSummary(
+            total_invested=summary_data["total_invested"],
+            total_value=summary_data["total_value"],
+            total_profit=summary_data["total_profit"],
+            total_profit_rate=summary_data["total_profit_rate"],
+            asset_count=summary_data["asset_count"],
+            profitable_count=summary_data["profitable_count"],
+            loss_count=summary_data["loss_count"]
+        )
+        
         return PositionSummaryResponse(
             success=True,
             message="获取持仓汇总成功",
             data=summary
         )
     except Exception as e:
+        print(f"[调试] 持仓汇总API异常: {e}")
+        import traceback
+        print(f"[调试] 异常堆栈: {traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
