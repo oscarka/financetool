@@ -39,8 +39,16 @@ const MobilePositions: React.FC = () => {
     const [detailVisible, setDetailVisible] = useState(false)
     const navigate = useNavigate()
 
+    console.log('🔄 [DEBUG] MobilePositions 组件版本: v2.0.1 (带类型转换)')
+    console.log('🔄 [DEBUG] 组件状态:', { 
+        positionsCount: positions.length, 
+        summaryExists: !!summary, 
+        loading 
+    })
+
     // 获取持仓数据
     const fetchPositions = async () => {
+        console.log('📡 [DEBUG] 开始获取持仓数据...')
         setLoading(true)
         try {
             const [positionsRes, summaryRes] = await Promise.all([
@@ -48,20 +56,57 @@ const MobilePositions: React.FC = () => {
                 fundAPI.getPositionSummary()
             ])
 
+            console.log('📡 [DEBUG] 持仓API原始响应:', positionsRes)
+            console.log('📡 [DEBUG] 汇总API原始响应:', summaryRes)
+
             if (positionsRes.success && positionsRes.data) {
+                console.log('📊 [DEBUG] 持仓数据详情:', positionsRes.data)
+                
+                // 检查数据类型
+                if (positionsRes.data.length > 0) {
+                    const firstPosition = positionsRes.data[0]
+                    console.log('🔍 [DEBUG] 第一个持仓数据类型检查:', {
+                        total_shares: {
+                            value: firstPosition.total_shares,
+                            type: typeof firstPosition.total_shares,
+                            hasToFixed: typeof firstPosition.total_shares?.toFixed === 'function'
+                        },
+                        current_nav: {
+                            value: firstPosition.current_nav,
+                            type: typeof firstPosition.current_nav,
+                            hasToFixed: typeof firstPosition.current_nav?.toFixed === 'function'
+                        },
+                        total_profit: {
+                            value: firstPosition.total_profit,
+                            type: typeof firstPosition.total_profit
+                        }
+                    })
+                }
+                
                 setPositions(positionsRes.data || [])
             } else {
-                console.warn('持仓API响应失败:', positionsRes)
+                console.warn('⚠️ [DEBUG] 持仓API响应失败:', positionsRes)
                 message.error('获取持仓数据失败')
             }
 
             if (summaryRes.success && summaryRes.data) {
+                console.log('📊 [DEBUG] 汇总数据详情:', summaryRes.data)
+                console.log('🔍 [DEBUG] 汇总数据类型检查:', {
+                    total_value: {
+                        value: summaryRes.data.total_value,
+                        type: typeof summaryRes.data.total_value
+                    },
+                    total_profit: {
+                        value: summaryRes.data.total_profit,
+                        type: typeof summaryRes.data.total_profit
+                    }
+                })
                 setSummary(summaryRes.data)
             } else {
-                console.warn('汇总API响应失败:', summaryRes)
+                console.warn('⚠️ [DEBUG] 汇总API响应失败:', summaryRes)
             }
         } catch (error) {
-            console.error('获取持仓数据异常:', error)
+            console.error('❌ [DEBUG] 获取持仓数据异常:', error)
             message.error('获取持仓数据失败')
         } finally {
             setLoading(false)
@@ -92,21 +137,32 @@ const MobilePositions: React.FC = () => {
 
     // 安全的数字格式化
     const safeToFixed = (value: number | string, digits: number = 2) => {
+        console.log(`🔧 [DEBUG] safeToFixed 调用:`, { value, type: typeof value, digits })
         const numValue = typeof value === 'string' ? parseFloat(value) : value
-        if (isNaN(numValue)) return '0.' + '0'.repeat(digits)
-        return numValue.toFixed(digits)
+        if (isNaN(numValue)) {
+            console.log(`⚠️ [DEBUG] safeToFixed 无效值，返回默认:`, '0.' + '0'.repeat(digits))
+            return '0.' + '0'.repeat(digits)
+        }
+        const result = numValue.toFixed(digits)
+        console.log(`✅ [DEBUG] safeToFixed 成功:`, { input: value, output: result })
+        return result
     }
 
     // 安全的数字转换
     const safeNumber = (value: number | string) => {
+        console.log(`🔧 [DEBUG] safeNumber 调用:`, { value, type: typeof value })
         const numValue = typeof value === 'string' ? parseFloat(value) : value
-        return isNaN(numValue) ? 0 : numValue
+        const result = isNaN(numValue) ? 0 : numValue
+        console.log(`✅ [DEBUG] safeNumber 结果:`, { input: value, output: result })
+        return result
     }
 
     // 获取收益颜色
     const getReturnColor = (value: number | string) => {
         const numValue = safeNumber(value)
-        return numValue >= 0 ? '#52c41a' : '#ff4d4f'
+        const color = numValue >= 0 ? '#52c41a' : '#ff4d4f'
+        console.log(`🎨 [DEBUG] getReturnColor:`, { value, numValue, color })
+        return color
     }
 
     // 查看持仓详情
