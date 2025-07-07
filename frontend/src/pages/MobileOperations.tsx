@@ -24,6 +24,8 @@ interface FundOperation {
 }
 
 const MobileOperations: React.FC = () => {
+    console.log('📱 MobileOperations 组件已渲染')
+    
     const [operations, setOperations] = useState<FundOperation[]>([])
     const [loading, setLoading] = useState(false)
     const [filterVisible, setFilterVisible] = useState(false)

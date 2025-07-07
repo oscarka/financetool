@@ -16,18 +16,53 @@ import ExchangeRates from './pages/ExchangeRates'
 import WiseManagementPage from './pages/WiseManagement'
 
 function App() {
-    const { isMobile } = useDeviceDetection()
+    const deviceInfo = useDeviceDetection()
+    
+    // 添加调试信息
+    console.log('🔍 设备检测信息:', {
+        isMobile: deviceInfo.isMobile,
+        isTablet: deviceInfo.isTablet,
+        isDesktop: deviceInfo.isDesktop,
+        screenWidth: deviceInfo.screenWidth,
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString()
+    })
     
     // 根据设备类型选择布局组件和页面组件
-    const LayoutComponent = isMobile ? MobileLayout : Layout
-    const DashboardComponent = isMobile ? MobileDashboard : Dashboard
-    const OperationsComponent = isMobile ? MobileOperations : Operations
-    const PositionsComponent = isMobile ? MobilePositions : Positions
-    const FundsComponent = isMobile ? MobileFunds : Funds
+    const LayoutComponent = deviceInfo.isMobile ? MobileLayout : Layout
+    const DashboardComponent = deviceInfo.isMobile ? MobileDashboard : Dashboard
+    const OperationsComponent = deviceInfo.isMobile ? MobileOperations : Operations
+    const PositionsComponent = deviceInfo.isMobile ? MobilePositions : Positions
+    const FundsComponent = deviceInfo.isMobile ? MobileFunds : Funds
+
+    console.log('📱 当前使用组件:', {
+        Layout: deviceInfo.isMobile ? 'MobileLayout' : 'Layout',
+        Dashboard: deviceInfo.isMobile ? 'MobileDashboard' : 'Dashboard',
+        Operations: deviceInfo.isMobile ? 'MobileOperations' : 'Operations',
+        Positions: deviceInfo.isMobile ? 'MobilePositions' : 'Positions',
+        Funds: deviceInfo.isMobile ? 'MobileFunds' : 'Funds'
+    })
 
     return (
         <Router>
             <div className="min-h-screen bg-gray-50">
+                {/* 添加设备信息显示（仅开发环境） */}
+                {process.env.NODE_ENV === 'development' && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        background: 'rgba(0,0,0,0.8)',
+                        color: 'white',
+                        padding: '4px 8px',
+                        fontSize: '10px',
+                        zIndex: 9999,
+                        borderRadius: '0 0 4px 0'
+                    }}>
+                        {deviceInfo.isMobile ? '📱Mobile' : '🖥️Desktop'} | {deviceInfo.screenWidth}px
+                    </div>
+                )}
+                
                 <LayoutComponent>
                     <Routes>
                         <Route path="/" element={<DashboardComponent />} />

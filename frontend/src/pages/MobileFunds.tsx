@@ -12,6 +12,8 @@ import {
 import { useNavigate } from 'react-router-dom'
 
 const MobileFunds: React.FC = () => {
+    console.log('📱 MobileFunds 组件已渲染')
+    
     const navigate = useNavigate()
 
     const fundModules = [
