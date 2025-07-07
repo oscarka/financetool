@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import os
 
 from app.config import settings
 from app.utils.database import init_database
@@ -14,8 +15,14 @@ async def lifespan(app: FastAPI):
     # 启动时执行
     print("正在初始化数据库...")
     init_database()
-    print("正在启动定时任务...")
-    scheduler_service.start()
+    
+    # 生产环境延迟启动定时任务，避免启动时阻塞
+    if os.environ.get("ENABLE_SCHEDULER", "true").lower() == "true":
+        print("正在启动定时任务...")
+        scheduler_service.start()
+    else:
+        print("定时任务已禁用")
+    
     print("应用启动完成")
     
     yield
@@ -31,7 +38,10 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="多资产投资记录与收益分析系统API",
-    lifespan=lifespan
+    lifespan=lifespan,
+    # 生产环境可以禁用文档来提高启动速度
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
 )
 
 # 配置CORS
@@ -76,7 +86,7 @@ async def root():
     return {
         "message": "个人财务管理系统API",
         "version": settings.app_version,
-        "docs": "/docs"
+        "docs": "/docs" if settings.debug else "文档已禁用"
     }
 
 

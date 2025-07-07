@@ -1,0 +1,33 @@
+# 核心框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0.post1
+pydantic==2.11.7
+pydantic-settings==2.10.1
+
+# 数据库
+sqlalchemy==2.0.41
+alembic==1.16.2
+
+# HTTP客户端
+httpx==0.25.2
+
+# 定时任务
+apscheduler==3.11.0
+
+# 日志
+loguru==0.7.3
+
+# 文件上传
+python-multipart==0.0.6
+
+# 认证
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+
+# 数据分析 (如果必需)
+akshare==1.17.16
+pandas==2.3.0
+numpy==2.3.1
+
+# 配置
+python-dotenv==1.1.1
