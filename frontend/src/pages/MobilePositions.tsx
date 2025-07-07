@@ -31,6 +31,56 @@ interface PositionSummary {
     loss_count: number
 }
 
+// 错误边界组件
+class MobilePositionsErrorBoundary extends React.Component<
+    { children: React.ReactNode },
+    { hasError: boolean; error?: Error }
+> {
+    constructor(props: { children: React.ReactNode }) {
+        super(props)
+        this.state = { hasError: false }
+    }
+
+    static getDerivedStateFromError(error: Error) {
+        console.error('❌ [ERROR BOUNDARY] MobilePositions 错误:', error)
+        return { hasError: true, error }
+    }
+
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+        console.error('❌ [ERROR BOUNDARY] MobilePositions 详细错误信息:', {
+            error: error.message,
+            stack: error.stack,
+            componentStack: errorInfo.componentStack
+        })
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                    <Card title="页面出错了" style={{ maxWidth: 400, margin: '0 auto' }}>
+                        <p>持仓页面遇到了问题，正在诊断中...</p>
+                        <p style={{ fontSize: '12px', color: '#666' }}>
+                            错误信息: {this.state.error?.message}
+                        </p>
+                        <Button 
+                            type="primary" 
+                            onClick={() => {
+                                this.setState({ hasError: false })
+                                window.location.reload()
+                            }}
+                        >
+                            重新加载
+                        </Button>
+                    </Card>
+                </div>
+            )
+        }
+
+        return this.props.children
+    }
+}
+
 const MobilePositions: React.FC = () => {
     const [positions, setPositions] = useState<Position[]>([])
     const [summary, setSummary] = useState<PositionSummary | null>(null)
@@ -39,12 +89,39 @@ const MobilePositions: React.FC = () => {
     const [detailVisible, setDetailVisible] = useState(false)
     const navigate = useNavigate()
 
-    console.log('🔄 [DEBUG] MobilePositions 组件版本: v2.0.1 (带类型转换)')
+    console.log('🔄 [DEBUG] MobilePositions 组件版本: v3.0.0 (增强错误处理)')
     console.log('🔄 [DEBUG] 组件状态:', { 
         positionsCount: positions.length, 
         summaryExists: !!summary, 
         loading 
     })
+
+    // 强制输出到页面（用于调试）
+    useEffect(() => {
+        console.log('🚀 MobilePositions useEffect 执行')
+        // 在页面顶部添加可见的调试信息
+        const debugEl = document.createElement('div')
+        debugEl.style.cssText = `
+            position: fixed;
+            top: 110px;
+            left: 10px;
+            background: #722ed1;
+            color: white;
+            padding: 4px 8px;
+            font-size: 12px;
+            z-index: 10000;
+            border-radius: 4px;
+        `
+        debugEl.textContent = '✅ MobilePositions已加载'
+        document.body.appendChild(debugEl)
+        
+        // 3秒后移除
+        setTimeout(() => {
+            if (document.body.contains(debugEl)) {
+                document.body.removeChild(debugEl)
+            }
+        }, 3000)
+    }, [])
 
     // 获取持仓数据
     const fetchPositions = async () => {
@@ -167,32 +244,59 @@ const MobilePositions: React.FC = () => {
 
     // 查看持仓详情
     const handleViewDetail = (position: Position) => {
-        setSelectedPosition(position)
-        setDetailVisible(true)
+        console.log('👁️ [DEBUG] 查看详情按钮点击:', position)
+        try {
+            setSelectedPosition(position)
+            setDetailVisible(true)
+        } catch (error) {
+            console.error('❌ [DEBUG] 查看详情失败:', error)
+            message.error('打开详情失败')
+        }
     }
 
     // 编辑持仓（跳转到操作记录页面）
     const handleEdit = (position: Position) => {
-        // 跳转到操作记录页面，并筛选该基金
-        navigate(`/operations?fund=${position.asset_code}`)
+        console.log('✏️ [DEBUG] 编辑按钮点击:', position)
+        try {
+            // 跳转到操作记录页面，并筛选该基金
+            navigate(`/operations?fund=${position.asset_code}`)
+        } catch (error) {
+            console.error('❌ [DEBUG] 编辑跳转失败:', error)
+            message.error('跳转失败')
+        }
     }
 
     // 查看基金详情
     const handleViewFund = (position: Position) => {
-        // TODO: 跳转到基金详情页面
-        message.info(`查看${position.asset_code}基金详情`)
+        console.log('📈 [DEBUG] 基金详情按钮点击:', position)
+        try {
+            // TODO: 跳转到基金详情页面
+            message.info(`查看${position.asset_code}基金详情`)
+        } catch (error) {
+            console.error('❌ [DEBUG] 查看基金详情失败:', error)
+        }
     }
 
     // 买入基金
     const handleBuy = (position: Position) => {
-        // TODO: 打开买入弹窗或跳转到买入页面
-        message.info(`买入${position.asset_code}`)
+        console.log('💰 [DEBUG] 买入按钮点击:', position)
+        try {
+            // TODO: 打开买入弹窗或跳转到买入页面
+            message.info(`买入${position.asset_code}`)
+        } catch (error) {
+            console.error('❌ [DEBUG] 买入操作失败:', error)
+        }
     }
 
     // 卖出基金
     const handleSell = (position: Position) => {
-        // TODO: 打开卖出弹窗或跳转到卖出页面
-        message.info(`卖出${position.asset_code}`)
+        console.log('💸 [DEBUG] 卖出按钮点击:', position)
+        try {
+            // TODO: 打开卖出弹窗或跳转到卖出页面
+            message.info(`卖出${position.asset_code}`)
+        } catch (error) {
+            console.error('❌ [DEBUG] 卖出操作失败:', error)
+        }
     }
 
     // 渲染持仓卡片
@@ -675,4 +779,11 @@ const MobilePositions: React.FC = () => {
     )
 }
 
-export default MobilePositions
+// 导出包装了错误边界的组件
+const MobilePositionsWithErrorBoundary: React.FC = () => (
+    <MobilePositionsErrorBoundary>
+        <MobilePositions />
+    </MobilePositionsErrorBoundary>
+)
+
+export default MobilePositionsWithErrorBoundary
