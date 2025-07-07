@@ -6,22 +6,24 @@ import { fundAPI } from '../services/api'
 interface Position {
     asset_code: string
     asset_name: string
-    total_quantity: number
-    average_nav: number
-    current_nav: number | null
-    total_cost: number
-    current_value: number | null
-    total_return: number | null
-    return_rate: number | null
-    last_operation_date: string
+    total_shares: number
+    avg_cost: number
+    current_nav: number
+    current_value: number
+    total_invested: number
+    total_profit: number
+    profit_rate: number
+    last_updated: string
 }
 
 interface PositionSummary {
-    total_cost: number
-    current_value: number
-    total_return: number
-    return_rate: number
-    position_count: number
+    total_invested: number
+    total_value: number
+    total_profit: number
+    total_profit_rate: number
+    asset_count: number
+    profitable_count: number
+    loss_count: number
 }
 
 const MobilePositions: React.FC = () => {
@@ -29,23 +31,37 @@ const MobilePositions: React.FC = () => {
     const [summary, setSummary] = useState<PositionSummary | null>(null)
     const [loading, setLoading] = useState(false)
 
+    console.log('[DEBUG] MobilePositions 组件渲染, positions:', positions, 'summary:', summary, 'loading:', loading)
+
     // 获取持仓数据
     const fetchPositions = async () => {
+        console.log('[DEBUG] 开始获取持仓数据...')
         setLoading(true)
         try {
+            console.log('[DEBUG] 正在调用持仓API...')
             const [positionsRes, summaryRes] = await Promise.all([
                 fundAPI.getFundPositions(),
                 fundAPI.getPositionSummary()
             ])
 
+            console.log('[DEBUG] 持仓API响应:', positionsRes)
+            console.log('[DEBUG] 汇总API响应:', summaryRes)
+
             if (positionsRes.success && positionsRes.data) {
+                console.log('[DEBUG] 设置持仓数据:', positionsRes.data)
                 setPositions(positionsRes.data || [])
+            } else {
+                console.warn('[DEBUG] 持仓API响应失败:', positionsRes)
             }
 
             if (summaryRes.success && summaryRes.data) {
+                console.log('[DEBUG] 设置汇总数据:', summaryRes.data)
                 setSummary(summaryRes.data)
+            } else {
+                console.warn('[DEBUG] 汇总API响应失败:', summaryRes)
             }
         } catch (error) {
+            console.error('[DEBUG] 获取持仓数据异常:', error)
             message.error('获取持仓数据失败')
         } finally {
             setLoading(false)
@@ -55,6 +71,10 @@ const MobilePositions: React.FC = () => {
     useEffect(() => {
         fetchPositions()
     }, [])
+
+    useEffect(() => {
+        console.log('[DEBUG] 持仓数据更新 - positions.length:', positions.length, 'summary:', summary)
+    }, [positions, summary])
 
     // 格式化金额
     const formatAmount = (amount: number | null) => {
@@ -112,7 +132,7 @@ const MobilePositions: React.FC = () => {
                     <div style={{ textAlign: 'center', padding: '8px', background: '#fafafa', borderRadius: '4px' }}>
                         <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>持仓份额</div>
                         <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                            {position.total_quantity.toFixed(2)}
+                            {position.total_shares.toFixed(2)}
                         </div>
                     </div>
                 </Col>
@@ -120,7 +140,7 @@ const MobilePositions: React.FC = () => {
                     <div style={{ textAlign: 'center', padding: '8px', background: '#fafafa', borderRadius: '4px' }}>
                         <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>平均成本</div>
                         <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                            ¥{position.average_nav.toFixed(4)}
+                            ¥{position.avg_cost.toFixed(4)}
                         </div>
                     </div>
                 </Col>
@@ -131,7 +151,7 @@ const MobilePositions: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ fontSize: '12px', color: '#666' }}>当前净值</span>
                     <span style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                        {position.current_nav ? `¥${position.current_nav.toFixed(4)}` : '-'}
+                        ¥{position.current_nav.toFixed(4)}
                     </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -139,10 +159,9 @@ const MobilePositions: React.FC = () => {
                     <span style={{ 
                         fontSize: '12px', 
                         fontWeight: 'bold',
-                        color: position.current_nav ? getReturnColor(position.current_nav - position.average_nav) : '#666'
+                        color: getReturnColor(position.current_nav - position.avg_cost)
                     }}>
-                        {position.current_nav ? 
-                            `¥${(position.current_nav - position.average_nav).toFixed(4)}` : '-'}
+                        ¥{(position.current_nav - position.avg_cost).toFixed(4)}
                     </span>
                 </div>
             </div>
@@ -159,7 +178,7 @@ const MobilePositions: React.FC = () => {
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>总成本</div>
                             <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                {formatAmount(position.total_cost)}
+                                {formatAmount(position.total_invested)}
                             </div>
                         </div>
                     </Col>
@@ -177,9 +196,9 @@ const MobilePositions: React.FC = () => {
                             <div style={{ 
                                 fontSize: '14px', 
                                 fontWeight: 'bold',
-                                color: getReturnColor(position.total_return)
+                                color: getReturnColor(position.total_profit)
                             }}>
-                                {formatAmount(position.total_return)}
+                                {formatAmount(position.total_profit)}
                             </div>
                         </div>
                     </Col>
@@ -190,20 +209,16 @@ const MobilePositions: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', color: '#666' }}>收益率</span>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {position.return_rate !== null && (
-                        <>
-                            {position.return_rate >= 0 ? 
-                                <ArrowUpOutlined style={{ color: '#52c41a', marginRight: 4 }} /> :
-                                <ArrowDownOutlined style={{ color: '#ff4d4f', marginRight: 4 }} />
-                            }
-                        </>
-                    )}
+                    {position.profit_rate >= 0 ? 
+                        <ArrowUpOutlined style={{ color: '#52c41a', marginRight: 4 }} /> :
+                        <ArrowDownOutlined style={{ color: '#ff4d4f', marginRight: 4 }} />
+                    }
                     <span style={{ 
                         fontSize: '14px', 
                         fontWeight: 'bold',
-                        color: getReturnColor(position.return_rate)
+                        color: getReturnColor(position.profit_rate)
                     }}>
-                        {formatPercent(position.return_rate)}
+                        {formatPercent(position.profit_rate)}
                     </span>
                 </div>
             </div>
@@ -252,7 +267,7 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <Statistic 
                                 title="总成本"
-                                value={summary.total_cost}
+                                value={summary.total_invested}
                                 precision={2}
                                 prefix="¥"
                                 valueStyle={{ fontSize: '16px' }}
@@ -261,7 +276,7 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <Statistic 
                                 title="当前市值"
-                                value={summary.current_value}
+                                value={summary.total_value}
                                 precision={2}
                                 prefix="¥"
                                 valueStyle={{ fontSize: '16px' }}
@@ -270,24 +285,24 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <Statistic 
                                 title="总收益"
-                                value={summary.total_return}
+                                value={summary.total_profit}
                                 precision={2}
                                 prefix="¥"
                                 valueStyle={{ 
                                     fontSize: '16px',
-                                    color: getReturnColor(summary.total_return)
+                                    color: getReturnColor(summary.total_profit)
                                 }}
                             />
                         </Col>
                         <Col span={12}>
                             <Statistic 
                                 title="收益率"
-                                value={summary.return_rate * 100}
+                                value={summary.total_profit_rate * 100}
                                 precision={2}
                                 suffix="%"
                                 valueStyle={{ 
                                     fontSize: '16px',
-                                    color: getReturnColor(summary.return_rate)
+                                    color: getReturnColor(summary.total_profit_rate)
                                 }}
                             />
                         </Col>
