@@ -114,7 +114,7 @@ export const fundAPI = {
         try {
             const response = await api.put(url, data)
             console.log('[日志] updateDCAPlan 响应:', response)
-            return response
+            return response as unknown as APIResponse
         } catch (error) {
             console.error('[日志] updateDCAPlan 异常:', error)
             throw error

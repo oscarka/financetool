@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, Row, Col, Statistic, Table, Tag, Space, Button, message, Input, Divider } from 'antd'
 import { SyncOutlined, BarChartOutlined, SearchOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
-import type { APIResponse } from '../services/api'
+
 
 interface FundOperation {
     id: number
@@ -59,9 +59,8 @@ const FundAnalysis: React.FC = () => {
     const fetchAnalysisData = async () => {
         setLoading(true)
         try {
-            const [operationsResponse, positionsResponse] = await Promise.all([
-                fundAPI.getFundOperations(),
-                fundAPI.getFundPositions()
+            const [operationsResponse] = await Promise.all([
+                fundAPI.getFundOperations()
             ])
 
             if (operationsResponse.success && operationsResponse.data) {
@@ -71,13 +70,13 @@ const FundAnalysis: React.FC = () => {
                 // 计算分析数据
                 const analysis: AnalysisData = {
                     total_operations: ops.length,
-                    buy_operations: ops.filter(op => op.operation_type === 'buy').length,
-                    sell_operations: ops.filter(op => op.operation_type === 'sell').length,
-                    total_invested: ops.filter(op => op.operation_type === 'buy')
-                        .reduce((sum, op) => sum + op.amount, 0),
+                    buy_operations: ops.filter((op: FundOperation) => op.operation_type === 'buy').length,
+                    sell_operations: ops.filter((op: FundOperation) => op.operation_type === 'sell').length,
+                    total_invested: ops.filter((op: FundOperation) => op.operation_type === 'buy')
+                        .reduce((sum: number, op: FundOperation) => sum + op.amount, 0),
                     total_profit: 0, // 需要从持仓数据计算
                     avg_emotion_score: ops.length > 0
-                        ? ops.reduce((sum, op) => sum + (op.emotion_score || 5), 0) / ops.length
+                        ? ops.reduce((sum: number, op: FundOperation) => sum + (op.emotion_score || 5), 0) / ops.length
                         : 0,
                     most_active_fund: '',
                     best_performing_fund: '',
@@ -85,14 +84,14 @@ const FundAnalysis: React.FC = () => {
                 }
 
                 // 计算最活跃基金
-                const fundCounts = ops.reduce((acc, op) => {
+                const fundCounts = ops.reduce((acc: Record<string, number>, op: FundOperation) => {
                     acc[op.asset_code] = (acc[op.asset_code] || 0) + 1
                     return acc
                 }, {} as Record<string, number>)
 
                 if (Object.keys(fundCounts).length > 0) {
                     analysis.most_active_fund = Object.entries(fundCounts)
-                        .sort(([, a], [, b]) => b - a)[0][0]
+                        .sort(([, a], [, b]) => (b as number) - (a as number))[0][0]
                 }
 
                 setAnalysisData(analysis)

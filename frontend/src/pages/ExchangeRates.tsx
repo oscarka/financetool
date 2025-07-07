@@ -11,14 +11,12 @@ import {
     Col,
     Statistic,
     Alert,
-    Spin,
-    DatePicker,
-    Divider
+
 } from 'antd';
 import { ReloadOutlined, SwapOutlined, DollarOutlined } from '@ant-design/icons';
 import { exchangeRateAPI } from '../services/api';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { Option } = Select;
 
 interface ExchangeRate {

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { Input, Button, Card, Descriptions, Spin, message, Space, Tag } from 'antd'
+import { Input, Button, Card, Descriptions, Spin, message, Space } from 'antd'
 import { SearchOutlined, SyncOutlined, PlusOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
-import type { APIResponse } from '../services/api'
+
 
 const { Search } = Input
 

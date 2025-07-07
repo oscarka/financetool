@@ -1,7 +1,7 @@
 import React from 'react'
 import { Card, Row, Col, Button, Statistic, Typography } from 'antd'
 import {
-    DollarOutlined,
+
     ArrowUpOutlined,
     ArrowDownOutlined,
     BarChartOutlined,

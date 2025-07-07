@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, message, Row, Col, Statistic, Tag, Descriptions, Tabs, Input, Select } from 'antd';
+import { Card, Button, Table, Space, message, Row, Col, Statistic, Tag, Descriptions, Tabs, Select } from 'antd';
 import { ReloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { okxAPI } from '../services/api';
 
@@ -328,7 +328,7 @@ export const OKXManagement: React.FC = () => {
             <Table
                 columns={columns}
                 dataSource={bills}
-                rowKey={(row) => row.billId || row.ts || Math.random()}
+                rowKey={(row) => (row as any).billId || (row as any).ts || Math.random()}
                 pagination={false}
                 size="small"
             />

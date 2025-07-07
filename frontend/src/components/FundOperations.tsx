@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, Button, Form, Input, Select, DatePicker, InputNumber, message, Table, Space, Tag, Modal, Popconfirm, Tooltip, Radio, Row, Col } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
-import type { APIResponse } from '../services/api'
+
 import dayjs from 'dayjs'
 
 const { Option } = Select
@@ -64,7 +64,6 @@ const FundOperations: React.FC = () => {
     const [submitting, setSubmitting] = useState(false)
     const [modalVisible, setModalVisible] = useState(false)
     const [editingOperation, setEditingOperation] = useState<FundOperation | null>(null)
-    const [selectedFund, setSelectedFund] = useState<{ code: string; name: string } | null>(null)
     const [quantityManuallySet, setQuantityManuallySet] = useState(false)
     const [latestNavMap, setLatestNavMap] = useState<{ [code: string]: number }>({})
     const [modalMode, setModalMode] = useState<'view' | 'edit' | 'create'>('create')
@@ -599,7 +598,7 @@ const FundOperations: React.FC = () => {
                         onChange: (page, pageSize) => {
                             fetchOperations(searchParams, page, pageSize)
                         },
-                        onShowSizeChange: (current, size) => {
+                        onShowSizeChange: (_current, size) => {
                             fetchOperations(searchParams, 1, size)
                         }
                     }}

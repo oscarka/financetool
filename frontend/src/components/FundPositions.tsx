@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Table, Statistic, Row, Col, Tag, Space, Button, message, Typography, Divider } from 'antd'
+import { Card, Table, Statistic, Row, Col, Tag, Button, message, Typography, Divider } from 'antd'
 import { SyncOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
-import type { APIResponse } from '../services/api'
+
 
 interface FundPosition {
     id: number
@@ -196,7 +196,6 @@ const FundPositions: React.FC = () => {
             <Row gutter={[24, 24]}>
                 {positions.map(pos => {
                     const profitColor = pos.total_profit >= 0 ? '#3f8600' : '#cf1322'
-                    const rateColor = pos.profit_rate >= 0 ? '#3f8600' : '#cf1322'
                     return (
                         <Col xs={24} sm={12} md={8} lg={6} key={pos.id}>
                             <Card

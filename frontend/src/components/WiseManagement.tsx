@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Tabs, Badge, Alert, Select, Spin, Row, Col, Statistic, Tag, Tooltip, DatePicker, message } from 'antd';
-import { ReloadOutlined, DollarOutlined, CheckCircleOutlined, ExclamationCircleOutlined, BankOutlined, ClockCircleOutlined, DollarCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Tabs, Badge, Alert, Select, Row, Col, Statistic, Tag, Tooltip, DatePicker, message } from 'antd';
+import { ReloadOutlined, BankOutlined, ClockCircleOutlined, DollarCircleOutlined } from '@ant-design/icons';
 import api from '../services/api';
 import { Line } from '@ant-design/charts';
 import dayjs from 'dayjs';
@@ -29,7 +29,7 @@ const WiseManagement: React.FC = () => {
     const [connectionStatus, setConnectionStatus] = useState<any>(null);
     const [sourceCurrency, setSourceCurrency] = useState('USD');
     const [targetCurrency, setTargetCurrency] = useState('CNY');
-    const [selectedCurrency, setSelectedCurrency] = useState('USD');
+
     const [transactionDays, setTransactionDays] = useState(90); // 默认90天
     const [configLoading, setConfigLoading] = useState(true);
     const [testLoading, setTestLoading] = useState(true);
@@ -221,9 +221,9 @@ const WiseManagement: React.FC = () => {
     };
 
     // 计算总资产（所有币种余额简单相加，实际可按需折算）
-    const getTotalWorth = () => {
+    const getTotalWorth = (): number => {
         if (!summary || !summary.balance_by_currency) return 0;
-        return Object.values(summary.balance_by_currency).reduce((a, b) => {
+        return Object.values(summary.balance_by_currency as Record<string, number>).reduce((a: number, b: number) => {
             const aNum = typeof a === 'number' ? a : 0;
             const bNum = typeof b === 'number' ? b : 0;
             return aNum + bNum;
@@ -494,7 +494,7 @@ const WiseManagement: React.FC = () => {
                         ))}
                     </Select>
                     <DatePicker.RangePicker
-                        value={dateRange}
+                        value={dateRange as any}
                         onChange={range => setDateRange(range as [moment.Moment, moment.Moment])}
                         style={{ marginRight: 16 }}
                     />

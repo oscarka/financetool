@@ -4,11 +4,10 @@ import {
     Row, Col, Statistic, Tabs, Switch, Divider, Alert, Radio, Checkbox
 } from 'antd'
 import {
-    PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, PlayCircleOutlined, PauseCircleOutlined,
-    StopOutlined, ReloadOutlined, BarChartOutlined, HistoryOutlined, CopyOutlined
+    PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, PlayCircleOutlined,
+    ReloadOutlined, BarChartOutlined, HistoryOutlined
 } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
-import type { APIResponse } from '../services/api'
 import dayjs from 'dayjs'
 
 const { Option } = Select
@@ -95,7 +94,6 @@ const DCAPlans: React.FC = () => {
     const [submitting, setSubmitting] = useState(false)
     const [modalVisible, setModalVisible] = useState(false)
     const [editingPlan, setEditingPlan] = useState<DCAPlan | null>(null)
-    const [modalMode, setModalMode] = useState<'view' | 'edit' | 'create'>('create')
     const [selectedPlan, setSelectedPlan] = useState<DCAPlan | null>(null)
     const [planStatistics, setPlanStatistics] = useState<DCAPlanStatistics | null>(null)
     const [planOperations, setPlanOperations] = useState<any[]>([])
@@ -116,7 +114,6 @@ const DCAPlans: React.FC = () => {
     const [historyRange, setHistoryRange] = useState<[any, any] | null>(null)
     const [historyDates, setHistoryDates] = useState<string[]>([])
     const [excludeDates, setExcludeDates] = useState<string[]>([])
-    const [historyPreviewLoading, setHistoryPreviewLoading] = useState(false)
 
     // 新增：Modal强制刷新
     const [modalKey, setModalKey] = useState(Date.now())
@@ -499,7 +496,6 @@ const DCAPlans: React.FC = () => {
     const handleCreateNew = () => {
         setModalKey(Date.now())
         setModalVisible(true)
-        setModalMode('create')
         setEditingPlan(null)
         setCreationMode('new')
         setSelectedCopyPlanId(null)
@@ -616,7 +612,6 @@ const DCAPlans: React.FC = () => {
                             onClick={async () => {
                                 setModalKey(Date.now())
                                 setModalVisible(true)
-                                setModalMode('edit')
                                 // 强制拉取最新详情，保证exclude_dates同步
                                 const response = await fundAPI.getDCAPlan(record.id)
                                 console.log('[编辑弹窗] getDCAPlan响应', response)
