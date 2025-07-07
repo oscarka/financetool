@@ -1,10 +1,55 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- PWA配置 -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1890ff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="投资管理" />
+    
+    <!-- iOS图标 -->
+    <link rel="apple-touch-icon" href="/icon-152x152.png" />
+    
+    <!-- Android主题 -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- 触摸优化 -->
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <title>个人投资管理系统</title>
+    
+    <style>
+      /* 移动端触摸优化 */
+      * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      
+      input, textarea {
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
+        user-select: text;
+      }
+      
+      /* 防止iOS Safari缩放 */
+      @media screen and (max-width: 768px) {
+        body {
+          -webkit-text-size-adjust: 100%;
+          -ms-text-size-adjust: 100%;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,20 @@
+{
+  "name": "投资管理系统",
+  "short_name": "投资管理",
+  "description": "个人投资组合管理系统",
+  "theme_color": "#1890ff",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "lang": "zh-CN"
+}

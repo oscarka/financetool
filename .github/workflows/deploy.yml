@@ -13,7 +13,7 @@ jobs:
       frontend-changed: ${{ steps.changes.outputs.frontend }}
       backend-changed: ${{ steps.changes.outputs.backend }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       
@@ -38,24 +38,28 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend-changed == 'true'
     runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Deploy Frontend to Railway
-        uses: railway/deploy@v1
-        with:
-          service: frontend
-          token: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd frontend
+          railway up
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
   deploy-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend-changed == 'true'
     runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Deploy Backend to Railway
-        uses: railway/deploy@v1
-        with:
-          service: backend
-          token: ${{ secrets.RAILWAY_TOKEN }} 
+        run: |
+          cd backend
+          railway up
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }} 
