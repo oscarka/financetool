@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, Row, Col, Statistic, Typography, Space, Progress } from 'antd'
 import {
     ArrowUpOutlined,
@@ -11,42 +11,56 @@ import {
     RightOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
+import { fundAPI } from '../services/api'
 
 const { Title, Text } = Typography
 
+interface DashboardStats {
+    total_value: number
+    total_invested: number
+    total_profit: number
+    total_profit_rate: number
+    asset_count: number
+    profitable_count: number
+    loss_count: number
+}
+
 const MobileDashboard: React.FC = () => {
     const navigate = useNavigate()
+    const [loading, setLoading] = useState(false)
+    const [stats, setStats] = useState<DashboardStats | null>(null)
     
-    const stats = [
-        { 
-            name: '总资产', 
-            value: 125000, 
-            change: '+12.5%', 
-            changeType: 'positive',
-            trend: 85 
-        },
-        { 
-            name: '总收益', 
-            value: 15000, 
-            change: '+8.2%', 
-            changeType: 'positive',
-            trend: 72
-        },
-        { 
-            name: '本月收益', 
-            value: 2500, 
-            change: '+3.1%', 
-            changeType: 'positive',
-            trend: 45
-        },
-        { 
-            name: '持仓数量', 
-            value: 8, 
-            change: '+2', 
-            changeType: 'positive',
-            trend: 60
-        },
-    ]
+    // 获取持仓汇总数据
+    const fetchStats = async () => {
+        setLoading(true)
+        try {
+            const response = await fundAPI.getPositionSummary()
+            if (response.success && response.data) {
+                setStats(response.data)
+            }
+        } catch (error) {
+            console.error('获取统计数据失败:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchStats()
+    }, [])
+
+    // 格式化金额
+    const formatAmount = (amount: number) => {
+        return amount.toLocaleString('zh-CN', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        })
+    }
+
+    // 格式化百分比
+    const formatPercent = (rate: number) => {
+        return `${rate >= 0 ? '+' : ''}${(rate * 100).toFixed(2)}%`
+    }
 
     const quickActions = [
         {
@@ -95,7 +109,7 @@ const MobileDashboard: React.FC = () => {
                         欢迎回来！
                     </Title>
                     <Text style={{ color: 'rgba(255,255,255,0.8)' }}>
-                        今天是投资的好日子
+                        {stats ? '查看您的投资概况' : '正在加载投资数据...'}
                     </Text>
                 </Space>
             </Card>
@@ -105,57 +119,120 @@ const MobileDashboard: React.FC = () => {
                 title="核心指标" 
                 bordered={false} 
                 style={{ marginBottom: 16 }}
-                extra={<EyeOutlined />}
+                extra={<EyeOutlined onClick={() => navigate('/positions')} />}
+                loading={loading}
             >
-                <Row gutter={[12, 12]}>
-                    {stats.slice(0, 2).map((item) => (
-                        <Col xs={12} key={item.name}>
+                {stats && (
+                    <Row gutter={[12, 12]}>
+                        <Col xs={12}>
                             <Card size="small" style={{ textAlign: 'center' }}>
                                 <Statistic
-                                    title={item.name}
-                                    value={item.value}
-                                    precision={item.name.includes('数量') ? 0 : 0}
+                                    title="总市值"
+                                    value={stats.total_value}
+                                    precision={0}
                                     valueStyle={{
-                                        color: item.changeType === 'positive' ? '#3f8600' : '#cf1322',
+                                        color: '#1890ff',
                                         fontSize: '20px',
                                         fontWeight: 'bold'
                                     }}
-                                    prefix={item.name.includes('数量') ? null : '¥'}
+                                    prefix="¥"
                                 />
                                 <Space style={{ marginTop: 8 }}>
-                                    {item.changeType === 'positive' ? (
+                                    {stats.total_profit >= 0 ? (
                                         <ArrowUpOutlined style={{ color: '#3f8600' }} />
                                     ) : (
                                         <ArrowDownOutlined style={{ color: '#cf1322' }} />
                                     )}
                                     <Text style={{ 
-                                        color: item.changeType === 'positive' ? '#3f8600' : '#cf1322',
+                                        color: stats.total_profit >= 0 ? '#3f8600' : '#cf1322',
                                         fontSize: '12px'
                                     }}>
-                                        {item.change}
+                                        {formatPercent(stats.total_profit_rate)}
                                     </Text>
                                 </Space>
                                 <Progress 
-                                    percent={item.trend} 
+                                    percent={Math.min(Math.abs(stats.total_profit_rate * 100), 100)} 
                                     showInfo={false} 
                                     size="small"
                                     style={{ marginTop: 8 }}
+                                    strokeColor={stats.total_profit >= 0 ? '#3f8600' : '#cf1322'}
                                 />
                             </Card>
                         </Col>
-                    ))}
-                </Row>
+                        <Col xs={12}>
+                            <Card size="small" style={{ textAlign: 'center' }}>
+                                <Statistic
+                                    title="总收益"
+                                    value={Math.abs(stats.total_profit)}
+                                    precision={0}
+                                    valueStyle={{
+                                        color: stats.total_profit >= 0 ? '#3f8600' : '#cf1322',
+                                        fontSize: '20px',
+                                        fontWeight: 'bold'
+                                    }}
+                                    prefix={stats.total_profit >= 0 ? '+¥' : '-¥'}
+                                />
+                                <Space style={{ marginTop: 8 }}>
+                                    {stats.total_profit >= 0 ? (
+                                        <ArrowUpOutlined style={{ color: '#3f8600' }} />
+                                    ) : (
+                                        <ArrowDownOutlined style={{ color: '#cf1322' }} />
+                                    )}
+                                    <Text style={{ 
+                                        color: stats.total_profit >= 0 ? '#3f8600' : '#cf1322',
+                                        fontSize: '12px'
+                                    }}>
+                                        {formatPercent(stats.total_profit_rate)}
+                                    </Text>
+                                </Space>
+                                <Progress 
+                                    percent={Math.min(Math.abs(stats.total_profit_rate * 100), 100)} 
+                                    showInfo={false} 
+                                    size="small"
+                                    style={{ marginTop: 8 }}
+                                    strokeColor={stats.total_profit >= 0 ? '#3f8600' : '#cf1322'}
+                                />
+                            </Card>
+                        </Col>
+                    </Row>
+                )}
             </Card>
 
-            {/* 收益概览 */}
-            <Card 
-                title="收益概览" 
-                bordered={false} 
-                style={{ marginBottom: 16 }}
-            >
-                <Row gutter={[12, 12]}>
-                    {stats.slice(2).map((item) => (
-                        <Col xs={12} key={item.name}>
+            {/* 投资概览 */}
+            {stats && (
+                <Card 
+                    title="投资概览" 
+                    bordered={false} 
+                    style={{ marginBottom: 16 }}
+                >
+                    <Row gutter={[12, 12]}>
+                        <Col xs={12}>
+                            <div style={{ 
+                                textAlign: 'center', 
+                                padding: '12px',
+                                background: '#f0f5ff',
+                                borderRadius: '8px'
+                            }}>
+                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                    累计投入
+                                </Text>
+                                <div style={{ 
+                                    fontSize: '18px', 
+                                    fontWeight: 'bold',
+                                    color: '#1890ff',
+                                    margin: '4px 0'
+                                }}>
+                                    ¥{formatAmount(stats.total_invested)}
+                                </div>
+                                <Text style={{ 
+                                    color: '#1890ff',
+                                    fontSize: '12px'
+                                }}>
+                                    本金
+                                </Text>
+                            </div>
+                        </Col>
+                        <Col xs={12}>
                             <div style={{ 
                                 textAlign: 'center', 
                                 padding: '12px',
@@ -163,27 +240,27 @@ const MobileDashboard: React.FC = () => {
                                 borderRadius: '8px'
                             }}>
                                 <Text type="secondary" style={{ fontSize: '12px' }}>
-                                    {item.name}
+                                    持仓数量
                                 </Text>
                                 <div style={{ 
                                     fontSize: '18px', 
                                     fontWeight: 'bold',
-                                    color: item.changeType === 'positive' ? '#3f8600' : '#cf1322',
+                                    color: '#722ed1',
                                     margin: '4px 0'
                                 }}>
-                                    {item.name.includes('数量') ? item.value : `¥${item.value.toLocaleString()}`}
+                                    {stats.asset_count}
                                 </div>
                                 <Text style={{ 
-                                    color: item.changeType === 'positive' ? '#3f8600' : '#cf1322',
+                                    color: '#722ed1',
                                     fontSize: '12px'
                                 }}>
-                                    {item.change}
+                                    个基金
                                 </Text>
                             </div>
                         </Col>
-                    ))}
-                </Row>
-            </Card>
+                    </Row>
+                </Card>
+            )}
 
             {/* 快速操作 */}
             <Card 
@@ -240,27 +317,52 @@ const MobileDashboard: React.FC = () => {
                 </Space>
             </Card>
 
-            {/* 今日摘要 */}
-            <Card 
-                title="今日摘要" 
-                bordered={false}
-                size="small"
-            >
-                <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Text type="secondary">今日收益</Text>
-                        <Text style={{ color: '#3f8600', fontWeight: 'bold' }}>+¥1,250</Text>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Text type="secondary">活跃基金</Text>
-                        <Text>5 个</Text>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Text type="secondary">待处理操作</Text>
-                        <Text style={{ color: '#faad14' }}>2 个</Text>
-                    </div>
-                </Space>
-            </Card>
+            {/* 基金分布 */}
+            {stats && (
+                <Card 
+                    title="基金分布" 
+                    bordered={false}
+                    size="small"
+                >
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Text type="secondary">总基金数</Text>
+                            <Text style={{ fontWeight: 'bold' }}>{stats.asset_count} 个</Text>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Text type="secondary">盈利基金</Text>
+                            <Text style={{ color: '#3f8600', fontWeight: 'bold' }}>{stats.profitable_count} 个</Text>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Text type="secondary">亏损基金</Text>
+                            <Text style={{ color: '#cf1322', fontWeight: 'bold' }}>{stats.loss_count} 个</Text>
+                        </div>
+                        {stats.asset_count > 0 && (
+                            <div style={{ marginTop: 12 }}>
+                                <Progress 
+                                    percent={(stats.profitable_count / stats.asset_count) * 100}
+                                    showInfo={false}
+                                    strokeColor="#3f8600"
+                                    trailColor="#cf1322"
+                                />
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    marginTop: 4,
+                                    fontSize: '12px'
+                                }}>
+                                    <Text style={{ color: '#3f8600' }}>
+                                        盈利 {((stats.profitable_count / stats.asset_count) * 100).toFixed(1)}%
+                                    </Text>
+                                    <Text style={{ color: '#cf1322' }}>
+                                        亏损 {((stats.loss_count / stats.asset_count) * 100).toFixed(1)}%
+                                    </Text>
+                                </div>
+                            </div>
+                        )}
+                    </Space>
+                </Card>
+            )}
         </div>
     )
 }

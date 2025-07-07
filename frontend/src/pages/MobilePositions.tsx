@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Button, message, Empty, Statistic, Row, Col } from 'antd'
-import { ReloadOutlined, ArrowUpOutlined, ArrowDownOutlined, EyeOutlined } from '@ant-design/icons'
+import { Card, Button, message, Empty, Statistic, Row, Col, Space, Modal, FloatButton, Tag } from 'antd'
+import { 
+    ReloadOutlined, 
+    LineChartOutlined,
+    PlusOutlined
+} from '@ant-design/icons'
 import { fundAPI } from '../services/api'
+import { useNavigate } from 'react-router-dom'
 
 interface Position {
     asset_code: string
@@ -30,38 +35,33 @@ const MobilePositions: React.FC = () => {
     const [positions, setPositions] = useState<Position[]>([])
     const [summary, setSummary] = useState<PositionSummary | null>(null)
     const [loading, setLoading] = useState(false)
-
-    console.log('[DEBUG] MobilePositions 组件渲染, positions:', positions, 'summary:', summary, 'loading:', loading)
+    const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
+    const [detailVisible, setDetailVisible] = useState(false)
+    const navigate = useNavigate()
 
     // 获取持仓数据
     const fetchPositions = async () => {
-        console.log('[DEBUG] 开始获取持仓数据...')
         setLoading(true)
         try {
-            console.log('[DEBUG] 正在调用持仓API...')
             const [positionsRes, summaryRes] = await Promise.all([
                 fundAPI.getFundPositions(),
                 fundAPI.getPositionSummary()
             ])
 
-            console.log('[DEBUG] 持仓API响应:', positionsRes)
-            console.log('[DEBUG] 汇总API响应:', summaryRes)
-
             if (positionsRes.success && positionsRes.data) {
-                console.log('[DEBUG] 设置持仓数据:', positionsRes.data)
                 setPositions(positionsRes.data || [])
             } else {
-                console.warn('[DEBUG] 持仓API响应失败:', positionsRes)
+                console.warn('持仓API响应失败:', positionsRes)
+                message.error('获取持仓数据失败')
             }
 
             if (summaryRes.success && summaryRes.data) {
-                console.log('[DEBUG] 设置汇总数据:', summaryRes.data)
                 setSummary(summaryRes.data)
             } else {
-                console.warn('[DEBUG] 汇总API响应失败:', summaryRes)
+                console.warn('汇总API响应失败:', summaryRes)
             }
         } catch (error) {
-            console.error('[DEBUG] 获取持仓数据异常:', error)
+            console.error('获取持仓数据异常:', error)
             message.error('获取持仓数据失败')
         } finally {
             setLoading(false)
@@ -72,13 +72,8 @@ const MobilePositions: React.FC = () => {
         fetchPositions()
     }, [])
 
-    useEffect(() => {
-        console.log('[DEBUG] 持仓数据更新 - positions.length:', positions.length, 'summary:', summary)
-    }, [positions, summary])
-
     // 格式化金额
-    const formatAmount = (amount: number | null) => {
-        if (amount === null) return '-'
+    const formatAmount = (amount: number) => {
         return new Intl.NumberFormat('zh-CN', {
             style: 'currency',
             currency: 'CNY',
@@ -87,146 +82,227 @@ const MobilePositions: React.FC = () => {
     }
 
     // 格式化百分比
-    const formatPercent = (rate: number | null) => {
-        if (rate === null) return '-'
+    const formatPercent = (rate: number) => {
         return `${(rate * 100).toFixed(2)}%`
     }
 
     // 获取收益颜色
-    const getReturnColor = (value: number | null) => {
-        if (value === null) return '#666'
+    const getReturnColor = (value: number) => {
         return value >= 0 ? '#52c41a' : '#ff4d4f'
     }
 
+    // 查看持仓详情
+    const handleViewDetail = (position: Position) => {
+        setSelectedPosition(position)
+        setDetailVisible(true)
+    }
+
+    // 编辑持仓（跳转到操作记录页面）
+    const handleEdit = (position: Position) => {
+        // 跳转到操作记录页面，并筛选该基金
+        navigate(`/operations?fund=${position.asset_code}`)
+    }
+
+    // 查看基金详情
+    const handleViewFund = (position: Position) => {
+        // TODO: 跳转到基金详情页面
+        message.info(`查看${position.asset_code}基金详情`)
+    }
+
+    // 买入基金
+    const handleBuy = (position: Position) => {
+        // TODO: 打开买入弹窗或跳转到买入页面
+        message.info(`买入${position.asset_code}`)
+    }
+
+    // 卖出基金
+    const handleSell = (position: Position) => {
+        // TODO: 打开卖出弹窗或跳转到卖出页面
+        message.info(`卖出${position.asset_code}`)
+    }
+
     // 渲染持仓卡片
-    const renderPositionCard = (position: Position) => (
-        <Card
-            key={position.asset_code}
-            size="small"
-            style={{ marginBottom: 12 }}
-            bodyStyle={{ padding: '12px 16px' }}
-        >
-            {/* 基金信息 */}
-            <div style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: 2 }}>
-                            {position.asset_code}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#666', lineHeight: '1.2' }}>
-                            {position.asset_name}
-                        </div>
-                    </div>
-                    <Button 
-                        type="text" 
-                        size="small" 
-                        icon={<EyeOutlined />}
-                        style={{ padding: '0 4px' }}
-                    />
-                </div>
-            </div>
-
-            {/* 持仓数据 */}
-            <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-                <Col span={12}>
-                    <div style={{ textAlign: 'center', padding: '8px', background: '#fafafa', borderRadius: '4px' }}>
-                        <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>持仓份额</div>
-                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                            {position.total_shares.toFixed(2)}
-                        </div>
-                    </div>
-                </Col>
-                <Col span={12}>
-                    <div style={{ textAlign: 'center', padding: '8px', background: '#fafafa', borderRadius: '4px' }}>
-                        <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>平均成本</div>
-                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                            ¥{position.avg_cost.toFixed(4)}
-                        </div>
-                    </div>
-                </Col>
-            </Row>
-
-            {/* 净值信息 */}
-            <div style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '12px', color: '#666' }}>当前净值</span>
-                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                        ¥{position.current_nav.toFixed(4)}
-                    </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '12px', color: '#666' }}>单位收益</span>
-                    <span style={{ 
-                        fontSize: '12px', 
-                        fontWeight: 'bold',
-                        color: getReturnColor(position.current_nav - position.avg_cost)
-                    }}>
-                        ¥{(position.current_nav - position.avg_cost).toFixed(4)}
-                    </span>
-                </div>
-            </div>
-
-            {/* 投资金额和收益 */}
-            <div style={{ 
-                padding: '8px 12px',
-                background: '#f0f5ff',
-                borderRadius: '6px',
-                marginBottom: 12
-            }}>
-                <Row gutter={16}>
-                    <Col span={8}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>总成本</div>
-                            <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                {formatAmount(position.total_invested)}
+    const renderPositionCard = (position: Position) => {
+        const profitColor = getReturnColor(position.total_profit)
+        const profitRateColor = getReturnColor(position.profit_rate)
+        
+        return (
+            <Card
+                key={position.asset_code}
+                style={{ 
+                    marginBottom: 12,
+                    border: position.total_profit >= 0 ? '1px solid #b7eb8f' : '1px solid #ffadd2'
+                }}
+                bodyStyle={{ padding: '16px' }}
+            >
+                {/* 基金信息头部 */}
+                <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ 
+                                fontWeight: 'bold', 
+                                fontSize: '16px', 
+                                marginBottom: 2,
+                                color: '#1890ff'
+                            }}>
+                                {position.asset_code}
+                            </div>
+                            <div style={{ 
+                                fontSize: '13px', 
+                                color: '#666', 
+                                lineHeight: '1.3',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                {position.asset_name}
                             </div>
                         </div>
-                    </Col>
-                    <Col span={8}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>当前市值</div>
+                        <div style={{ marginLeft: 12, flexShrink: 0 }}>
+                            <Tag color={position.total_profit >= 0 ? 'green' : 'red'}>
+                                {position.total_profit >= 0 ? '盈利' : '亏损'}
+                            </Tag>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 核心数据展示 */}
+                <div style={{ 
+                    background: position.total_profit >= 0 ? '#f6ffed' : '#fff2f0',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    marginBottom: 12
+                }}>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '18px', fontWeight: 'bold', color: profitColor }}>
+                                    {position.total_profit >= 0 ? '+' : ''}{formatAmount(position.total_profit)}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#666' }}>累计收益</div>
+                            </div>
+                        </Col>
+                        <Col span={12}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '18px', fontWeight: 'bold', color: profitRateColor }}>
+                                    {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#666' }}>收益率</div>
+                            </div>
+                        </Col>
+                    </Row>
+                </div>
+
+                {/* 详细数据 */}
+                <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
+                    <Col span={12}>
+                        <div style={{ 
+                            textAlign: 'center', 
+                            padding: '8px', 
+                            background: '#fafafa', 
+                            borderRadius: '4px' 
+                        }}>
                             <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
                                 {formatAmount(position.current_value)}
                             </div>
+                            <div style={{ fontSize: '11px', color: '#666' }}>当前市值</div>
                         </div>
                     </Col>
-                    <Col span={8}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>收益</div>
-                            <div style={{ 
-                                fontSize: '14px', 
-                                fontWeight: 'bold',
-                                color: getReturnColor(position.total_profit)
-                            }}>
-                                {formatAmount(position.total_profit)}
+                    <Col span={12}>
+                        <div style={{ 
+                            textAlign: 'center', 
+                            padding: '8px', 
+                            background: '#fafafa', 
+                            borderRadius: '4px' 
+                        }}>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                                {formatAmount(position.total_invested)}
                             </div>
+                            <div style={{ fontSize: '11px', color: '#666' }}>累计投入</div>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ 
+                            textAlign: 'center', 
+                            padding: '8px', 
+                            background: '#fafafa', 
+                            borderRadius: '4px' 
+                        }}>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                                {position.total_shares.toFixed(2)}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#666' }}>持仓份额</div>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ 
+                            textAlign: 'center', 
+                            padding: '8px', 
+                            background: '#fafafa', 
+                            borderRadius: '4px' 
+                        }}>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                                ¥{position.current_nav.toFixed(4)}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#666' }}>当前净值</div>
                         </div>
                     </Col>
                 </Row>
-            </div>
 
-            {/* 收益率 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', color: '#666' }}>收益率</span>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {position.profit_rate >= 0 ? 
-                        <ArrowUpOutlined style={{ color: '#52c41a', marginRight: 4 }} /> :
-                        <ArrowDownOutlined style={{ color: '#ff4d4f', marginRight: 4 }} />
-                    }
-                    <span style={{ 
-                        fontSize: '14px', 
-                        fontWeight: 'bold',
-                        color: getReturnColor(position.profit_rate)
-                    }}>
-                        {formatPercent(position.profit_rate)}
-                    </span>
+                {/* 操作按钮 */}
+                <div style={{ 
+                    borderTop: '1px solid #f0f0f0', 
+                    paddingTop: '12px'
+                }}>
+                    <Row gutter={8}>
+                        <Col span={6}>
+                            <Button 
+                                type="primary"
+                                size="small"
+                                block
+                                onClick={() => handleViewDetail(position)}
+                            >
+                                详情
+                            </Button>
+                        </Col>
+                        <Col span={6}>
+                            <Button 
+                                size="small"
+                                block
+                                onClick={() => handleViewFund(position)}
+                            >
+                                基金
+                            </Button>
+                        </Col>
+                        <Col span={6}>
+                            <Button 
+                                type="primary"
+                                size="small"
+                                block
+                                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                                onClick={() => handleBuy(position)}
+                            >
+                                买入
+                            </Button>
+                        </Col>
+                        <Col span={6}>
+                            <Button 
+                                danger
+                                size="small"
+                                block
+                                onClick={() => handleSell(position)}
+                            >
+                                卖出
+                            </Button>
+                        </Col>
+                    </Row>
                 </div>
-            </div>
-        </Card>
-    )
+            </Card>
+        )
+    }
 
     return (
-        <div style={{ paddingBottom: '20px' }}>
+        <div style={{ paddingBottom: '80px' }}>
             {/* 页面标题和刷新按钮 */}
             <Card 
                 bordered={false}
@@ -235,9 +311,9 @@ const MobilePositions: React.FC = () => {
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>持仓</h2>
+                        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>持仓管理</h2>
                         <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#666' }}>
-                            查看当前所有资产的持仓状态
+                            查看和管理基金持仓
                         </p>
                     </div>
                     <Button 
@@ -255,18 +331,42 @@ const MobilePositions: React.FC = () => {
             {/* 持仓汇总 */}
             {summary && (
                 <Card 
+                    title={
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <span>持仓汇总</span>
+                            <Tag 
+                                color={summary.total_profit >= 0 ? 'green' : 'red'}
+                                style={{ marginLeft: 8 }}
+                            >
+                                {summary.total_profit >= 0 ? '总体盈利' : '总体亏损'}
+                            </Tag>
+                        </div>
+                    }
                     bordered={false}
-                    style={{ marginBottom: 16 }}
+                    style={{ 
+                        marginBottom: 16,
+                        background: summary.total_profit >= 0 ? '#f6ffed' : '#fff2f0',
+                        border: `1px solid ${summary.total_profit >= 0 ? '#b7eb8f' : '#ffadd2'}`
+                    }}
                     bodyStyle={{ padding: '16px' }}
                 >
-                    <div style={{ marginBottom: 12 }}>
-                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>持仓汇总</h3>
-                    </div>
-                    
-                    <Row gutter={[8, 8]}>
+                    <Row gutter={[8, 12]}>
                         <Col span={12}>
                             <Statistic 
-                                title="总成本"
+                                title="总市值"
+                                value={summary.total_value}
+                                precision={2}
+                                prefix="¥"
+                                valueStyle={{ 
+                                    fontSize: '20px', 
+                                    fontWeight: 'bold', 
+                                    color: '#1890ff' 
+                                }}
+                            />
+                        </Col>
+                        <Col span={12}>
+                            <Statistic 
+                                title="累计投入"
                                 value={summary.total_invested}
                                 precision={2}
                                 prefix="¥"
@@ -275,38 +375,60 @@ const MobilePositions: React.FC = () => {
                         </Col>
                         <Col span={12}>
                             <Statistic 
-                                title="当前市值"
-                                value={summary.total_value}
-                                precision={2}
-                                prefix="¥"
-                                valueStyle={{ fontSize: '16px' }}
-                            />
-                        </Col>
-                        <Col span={12}>
-                            <Statistic 
-                                title="总收益"
+                                title="累计收益"
                                 value={summary.total_profit}
                                 precision={2}
-                                prefix="¥"
+                                prefix={summary.total_profit >= 0 ? '+¥' : '-¥'}
                                 valueStyle={{ 
-                                    fontSize: '16px',
+                                    fontSize: '18px',
+                                    fontWeight: 'bold',
                                     color: getReturnColor(summary.total_profit)
                                 }}
                             />
                         </Col>
                         <Col span={12}>
                             <Statistic 
-                                title="收益率"
-                                value={summary.total_profit_rate * 100}
+                                title="总收益率"
+                                value={Math.abs(summary.total_profit_rate * 100)}
                                 precision={2}
+                                prefix={summary.total_profit_rate >= 0 ? '+' : '-'}
                                 suffix="%"
                                 valueStyle={{ 
-                                    fontSize: '16px',
+                                    fontSize: '18px',
+                                    fontWeight: 'bold',
                                     color: getReturnColor(summary.total_profit_rate)
                                 }}
                             />
                         </Col>
                     </Row>
+                    
+                    <div style={{ 
+                        marginTop: 16, 
+                        paddingTop: 16, 
+                        borderTop: '1px solid #f0f0f0',
+                        display: 'flex',
+                        justifyContent: 'space-around',
+                        textAlign: 'center'
+                    }}>
+                        <div>
+                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1890ff' }}>
+                                {summary.asset_count}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>持仓基金</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#52c41a' }}>
+                                {summary.profitable_count}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>盈利基金</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#ff4d4f' }}>
+                                {summary.loss_count}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>亏损基金</div>
+                        </div>
+                    </div>
                 </Card>
             )}
 
@@ -316,11 +438,165 @@ const MobilePositions: React.FC = () => {
                     <Empty 
                         description="暂无持仓记录"
                         style={{ marginTop: 60 }}
-                    />
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    >
+                        <Button 
+                            type="primary" 
+                            onClick={() => navigate('/operations')}
+                        >
+                            去记录第一笔操作
+                        </Button>
+                    </Empty>
                 ) : (
                     positions.map(renderPositionCard)
                 )}
             </div>
+
+            {/* 悬浮按钮 */}
+            <FloatButton.Group
+                trigger="click"
+                type="primary"
+                style={{ right: 24, bottom: 80 }}
+                icon={<PlusOutlined />}
+            >
+                <FloatButton 
+                    icon={<PlusOutlined />} 
+                    tooltip="记录操作"
+                    onClick={() => navigate('/operations')}
+                />
+                <FloatButton 
+                    icon={<LineChartOutlined />} 
+                    tooltip="收益分析"
+                    onClick={() => navigate('/analysis')}
+                />
+            </FloatButton.Group>
+
+            {/* 持仓详情弹窗 */}
+            <Modal
+                title="持仓详情"
+                open={detailVisible}
+                onCancel={() => setDetailVisible(false)}
+                footer={null}
+                width="90%"
+                style={{ top: 20 }}
+            >
+                {selectedPosition && (
+                    <div>
+                        <Card
+                            title={`${selectedPosition.asset_code} - ${selectedPosition.asset_name}`}
+                            style={{ marginBottom: 16 }}
+                        >
+                            <Row gutter={[16, 16]}>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="持仓份额"
+                                        value={selectedPosition.total_shares}
+                                        precision={2}
+                                        suffix="份"
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="平均成本"
+                                        value={selectedPosition.avg_cost}
+                                        precision={4}
+                                        prefix="¥"
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="当前净值"
+                                        value={selectedPosition.current_nav}
+                                        precision={4}
+                                        prefix="¥"
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="单位收益"
+                                        value={selectedPosition.current_nav - selectedPosition.avg_cost}
+                                        precision={4}
+                                        prefix={selectedPosition.current_nav - selectedPosition.avg_cost >= 0 ? '+¥' : '-¥'}
+                                        valueStyle={{
+                                            color: getReturnColor(selectedPosition.current_nav - selectedPosition.avg_cost)
+                                        }}
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="当前市值"
+                                        value={selectedPosition.current_value}
+                                        precision={2}
+                                        prefix="¥"
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="累计投入"
+                                        value={selectedPosition.total_invested}
+                                        precision={2}
+                                        prefix="¥"
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="累计收益"
+                                        value={Math.abs(selectedPosition.total_profit)}
+                                        precision={2}
+                                        prefix={selectedPosition.total_profit >= 0 ? '+¥' : '-¥'}
+                                        valueStyle={{
+                                            color: getReturnColor(selectedPosition.total_profit)
+                                        }}
+                                    />
+                                </Col>
+                                <Col span={12}>
+                                    <Statistic
+                                        title="收益率"
+                                        value={Math.abs(selectedPosition.profit_rate * 100)}
+                                        precision={2}
+                                        prefix={selectedPosition.profit_rate >= 0 ? '+' : '-'}
+                                        suffix="%"
+                                        valueStyle={{
+                                            color: getReturnColor(selectedPosition.profit_rate)
+                                        }}
+                                    />
+                                </Col>
+                            </Row>
+                        </Card>
+
+                        <div style={{ textAlign: 'center' }}>
+                            <Space>
+                                <Button 
+                                    type="primary"
+                                    onClick={() => {
+                                        setDetailVisible(false)
+                                        handleEdit(selectedPosition)
+                                    }}
+                                >
+                                    查看操作记录
+                                </Button>
+                                <Button 
+                                    onClick={() => {
+                                        setDetailVisible(false)
+                                        handleBuy(selectedPosition)
+                                    }}
+                                >
+                                    买入
+                                </Button>
+                                <Button 
+                                    danger
+                                    onClick={() => {
+                                        setDetailVisible(false)
+                                        handleSell(selectedPosition)
+                                    }}
+                                >
+                                    卖出
+                                </Button>
+                            </Space>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     )
 }

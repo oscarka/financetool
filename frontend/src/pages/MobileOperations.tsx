@@ -63,8 +63,6 @@ const MobileOperations: React.FC = () => {
         fetchOperations(true)
     }, [])
 
-
-
     // 加载更多
     const loadMore = () => {
         if (!loading && hasMore) {
@@ -113,6 +111,70 @@ const MobileOperations: React.FC = () => {
             currency: 'CNY',
             minimumFractionDigits: 2
         }).format(amount)
+    }
+
+    // 查看操作详情
+    const handleViewOperation = (operation: FundOperation) => {
+        Modal.info({
+            title: '操作详情',
+            width: '90%',
+            content: (
+                <div style={{ marginTop: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                        <strong>基金代码：</strong>{operation.asset_code}
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                        <strong>基金名称：</strong>{operation.asset_name}
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                        <strong>操作类型：</strong>
+                        {operation.operation_type === 'buy' ? '买入' : 
+                         operation.operation_type === 'sell' ? '卖出' : '分红'}
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                        <strong>操作日期：</strong>{dayjs(operation.operation_date).format('YYYY-MM-DD HH:mm:ss')}
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                        <strong>操作金额：</strong>{formatAmount(operation.amount)}
+                    </div>
+                    {operation.quantity && (
+                        <div style={{ marginBottom: 12 }}>
+                            <strong>份额：</strong>{Number(operation.quantity).toFixed(2)}
+                        </div>
+                    )}
+                    {operation.nav && (
+                        <div style={{ marginBottom: 12 }}>
+                            <strong>净值：</strong>¥{Number(operation.nav).toFixed(4)}
+                        </div>
+                    )}
+                    {operation.fee && (
+                        <div style={{ marginBottom: 12 }}>
+                            <strong>手续费：</strong>{formatAmount(operation.fee)}
+                        </div>
+                    )}
+                    <div style={{ marginBottom: 12 }}>
+                        <strong>状态：</strong>
+                        <Tag color={getStatusColor(operation.status)} style={{ marginLeft: 8 }}>
+                            {operation.status === 'pending' ? '待确认' :
+                             operation.status === 'confirmed' ? '已确认' :
+                             operation.status === 'cancelled' ? '已取消' : '已处理'}
+                        </Tag>
+                    </div>
+                    {operation.dca_plan_id && (
+                        <div style={{ marginBottom: 12 }}>
+                            <strong>定投计划ID：</strong>{operation.dca_plan_id}
+                        </div>
+                    )}
+                </div>
+            ),
+            onOk() {},
+        })
+    }
+
+    // 编辑操作
+    const handleEditOperation = (_operation: FundOperation) => {
+        // TODO: 实现编辑功能
+        message.info('编辑操作功能开发中')
     }
 
     // 渲染操作卡片
@@ -191,12 +253,14 @@ const MobileOperations: React.FC = () => {
                                 size="small" 
                                 icon={<EyeOutlined />}
                                 style={{ padding: '0 4px' }}
+                                onClick={() => handleViewOperation(operation)}
                             />
                             <Button 
                                 type="text" 
                                 size="small" 
                                 icon={<EditOutlined />}
                                 style={{ padding: '0 4px' }}
+                                onClick={() => handleEditOperation(operation)}
                             />
                             <Button 
                                 type="text" 
