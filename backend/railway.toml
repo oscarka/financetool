@@ -1,8 +1,6 @@
 [build]
 builder = "dockerfile"
-# 默认使用完整依赖的Dockerfile
 dockerfilePath = "Dockerfile"
-# 生产环境推荐使用: dockerfilePath = "Dockerfile.prod"
 
 [deploy]
 startCommand = "python run.py"
@@ -12,22 +10,6 @@ restartPolicyType = "on_failure"
 
 [deploy.environment]
 PORT = "8000"
-PYTHONPATH = "/app"
-PYTHONUNBUFFERED = "1"
+DEBUG = "false"
+WORKERS = "2"
 
-# 监听后端目录变化
-[deploy.watch]
-paths = ["**"]
-
-# 构建时忽略某些文件
-[build.watch]
-ignore = [
-    "**/*.md",
-    "**/test_*.py",
-    "**/*_test.py",
-    "**/tests/",
-    "**/__pycache__/",
-    "**/.pytest_cache/",
-    "**/data/",
-    "**/migrations/"
-]
