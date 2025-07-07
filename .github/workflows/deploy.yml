@@ -13,7 +13,7 @@ jobs:
       frontend-changed: ${{ steps.changes.outputs.frontend }}
       backend-changed: ${{ steps.changes.outputs.backend }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2
       
@@ -39,23 +39,37 @@ jobs:
     if: needs.detect-changes.outputs.frontend-changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.app/install.sh | sh
+          echo "$HOME/.railway/bin" >> $GITHUB_PATH
       
       - name: Deploy Frontend to Railway
-        uses: railway/deploy@v1
-        with:
-          service: frontend
-          token: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd frontend
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          railway deploy --service frontend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
   deploy-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend-changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.app/install.sh | sh
+          echo "$HOME/.railway/bin" >> $GITHUB_PATH
       
       - name: Deploy Backend to Railway
-        uses: railway/deploy@v1
-        with:
-          service: backend
-          token: ${{ secrets.RAILWAY_TOKEN }} 
+        run: |
+          cd backend
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          railway deploy --service backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }} 
