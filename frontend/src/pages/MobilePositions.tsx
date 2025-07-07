@@ -11,21 +11,21 @@ import { useNavigate } from 'react-router-dom'
 interface Position {
     asset_code: string
     asset_name: string
-    total_shares: number
-    avg_cost: number
-    current_nav: number
-    current_value: number
-    total_invested: number
-    total_profit: number
-    profit_rate: number
+    total_shares: number | string
+    avg_cost: number | string
+    current_nav: number | string
+    current_value: number | string
+    total_invested: number | string
+    total_profit: number | string
+    profit_rate: number | string
     last_updated: string
 }
 
 interface PositionSummary {
-    total_invested: number
-    total_value: number
-    total_profit: number
-    total_profit_rate: number
+    total_invested: number | string
+    total_value: number | string
+    total_profit: number | string
+    total_profit_rate: number | string
     asset_count: number
     profitable_count: number
     loss_count: number
@@ -73,22 +73,40 @@ const MobilePositions: React.FC = () => {
     }, [])
 
     // 格式化金额
-    const formatAmount = (amount: number) => {
+    const formatAmount = (amount: number | string) => {
+        const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
+        if (isNaN(numAmount)) return '¥0.00'
         return new Intl.NumberFormat('zh-CN', {
             style: 'currency',
             currency: 'CNY',
             minimumFractionDigits: 2
-        }).format(amount)
+        }).format(numAmount)
     }
 
     // 格式化百分比
-    const formatPercent = (rate: number) => {
-        return `${(rate * 100).toFixed(2)}%`
+    const formatPercent = (rate: number | string) => {
+        const numRate = typeof rate === 'string' ? parseFloat(rate) : rate
+        if (isNaN(numRate)) return '0.00%'
+        return `${(numRate * 100).toFixed(2)}%`
+    }
+
+    // 安全的数字格式化
+    const safeToFixed = (value: number | string, digits: number = 2) => {
+        const numValue = typeof value === 'string' ? parseFloat(value) : value
+        if (isNaN(numValue)) return '0.' + '0'.repeat(digits)
+        return numValue.toFixed(digits)
+    }
+
+    // 安全的数字转换
+    const safeNumber = (value: number | string) => {
+        const numValue = typeof value === 'string' ? parseFloat(value) : value
+        return isNaN(numValue) ? 0 : numValue
     }
 
     // 获取收益颜色
-    const getReturnColor = (value: number) => {
-        return value >= 0 ? '#52c41a' : '#ff4d4f'
+    const getReturnColor = (value: number | string) => {
+        const numValue = safeNumber(value)
+        return numValue >= 0 ? '#52c41a' : '#ff4d4f'
     }
 
     // 查看持仓详情
@@ -131,7 +149,7 @@ const MobilePositions: React.FC = () => {
                 key={position.asset_code}
                 style={{ 
                     marginBottom: 12,
-                    border: position.total_profit >= 0 ? '1px solid #b7eb8f' : '1px solid #ffadd2'
+                    border: safeNumber(position.total_profit) >= 0 ? '1px solid #b7eb8f' : '1px solid #ffadd2'
                 }}
                 bodyStyle={{ padding: '16px' }}
             >
@@ -159,8 +177,8 @@ const MobilePositions: React.FC = () => {
                             </div>
                         </div>
                         <div style={{ marginLeft: 12, flexShrink: 0 }}>
-                            <Tag color={position.total_profit >= 0 ? 'green' : 'red'}>
-                                {position.total_profit >= 0 ? '盈利' : '亏损'}
+                            <Tag color={safeNumber(position.total_profit) >= 0 ? 'green' : 'red'}>
+                                {safeNumber(position.total_profit) >= 0 ? '盈利' : '亏损'}
                             </Tag>
                         </div>
                     </div>
@@ -168,7 +186,7 @@ const MobilePositions: React.FC = () => {
 
                 {/* 核心数据展示 */}
                 <div style={{ 
-                    background: position.total_profit >= 0 ? '#f6ffed' : '#fff2f0',
+                    background: safeNumber(position.total_profit) >= 0 ? '#f6ffed' : '#fff2f0',
                     padding: '12px',
                     borderRadius: '8px',
                     marginBottom: 12
@@ -177,7 +195,7 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: profitColor }}>
-                                    {position.total_profit >= 0 ? '+' : ''}{formatAmount(position.total_profit)}
+                                    {safeNumber(position.total_profit) >= 0 ? '+' : ''}{formatAmount(position.total_profit)}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#666' }}>累计收益</div>
                             </div>
@@ -185,7 +203,7 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: profitRateColor }}>
-                                    {position.profit_rate >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
+                                    {safeNumber(position.profit_rate) >= 0 ? '+' : ''}{formatPercent(position.profit_rate)}
                                 </div>
                                 <div style={{ fontSize: '12px', color: '#666' }}>收益率</div>
                             </div>
@@ -229,7 +247,7 @@ const MobilePositions: React.FC = () => {
                             borderRadius: '4px' 
                         }}>
                             <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                {position.total_shares.toFixed(2)}
+                                {safeToFixed(position.total_shares, 2)}
                             </div>
                             <div style={{ fontSize: '11px', color: '#666' }}>持仓份额</div>
                         </div>
@@ -242,7 +260,7 @@ const MobilePositions: React.FC = () => {
                             borderRadius: '4px' 
                         }}>
                             <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                ¥{position.current_nav.toFixed(4)}
+                                ¥{safeToFixed(position.current_nav, 4)}
                             </div>
                             <div style={{ fontSize: '11px', color: '#666' }}>当前净值</div>
                         </div>
@@ -335,18 +353,18 @@ const MobilePositions: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                             <span>持仓汇总</span>
                             <Tag 
-                                color={summary.total_profit >= 0 ? 'green' : 'red'}
+                                color={safeNumber(summary.total_profit) >= 0 ? 'green' : 'red'}
                                 style={{ marginLeft: 8 }}
                             >
-                                {summary.total_profit >= 0 ? '总体盈利' : '总体亏损'}
+                                {safeNumber(summary.total_profit) >= 0 ? '总体盈利' : '总体亏损'}
                             </Tag>
                         </div>
                     }
                     bordered={false}
                     style={{ 
                         marginBottom: 16,
-                        background: summary.total_profit >= 0 ? '#f6ffed' : '#fff2f0',
-                        border: `1px solid ${summary.total_profit >= 0 ? '#b7eb8f' : '#ffadd2'}`
+                        background: safeNumber(summary.total_profit) >= 0 ? '#f6ffed' : '#fff2f0',
+                        border: `1px solid ${safeNumber(summary.total_profit) >= 0 ? '#b7eb8f' : '#ffadd2'}`
                     }}
                     bodyStyle={{ padding: '16px' }}
                 >
@@ -354,7 +372,7 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <Statistic 
                                 title="总市值"
-                                value={summary.total_value}
+                                value={safeNumber(summary.total_value)}
                                 precision={2}
                                 prefix="¥"
                                 valueStyle={{ 
@@ -367,7 +385,7 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <Statistic 
                                 title="累计投入"
-                                value={summary.total_invested}
+                                value={safeNumber(summary.total_invested)}
                                 precision={2}
                                 prefix="¥"
                                 valueStyle={{ fontSize: '16px' }}
@@ -376,9 +394,9 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <Statistic 
                                 title="累计收益"
-                                value={summary.total_profit}
+                                value={Math.abs(safeNumber(summary.total_profit))}
                                 precision={2}
-                                prefix={summary.total_profit >= 0 ? '+¥' : '-¥'}
+                                prefix={safeNumber(summary.total_profit) >= 0 ? '+¥' : '-¥'}
                                 valueStyle={{ 
                                     fontSize: '18px',
                                     fontWeight: 'bold',
@@ -389,9 +407,9 @@ const MobilePositions: React.FC = () => {
                         <Col span={12}>
                             <Statistic 
                                 title="总收益率"
-                                value={Math.abs(summary.total_profit_rate * 100)}
+                                value={Math.abs(safeNumber(summary.total_profit_rate) * 100)}
                                 precision={2}
-                                prefix={summary.total_profit_rate >= 0 ? '+' : '-'}
+                                prefix={safeNumber(summary.total_profit_rate) >= 0 ? '+' : '-'}
                                 suffix="%"
                                 valueStyle={{ 
                                     fontSize: '18px',
@@ -412,19 +430,19 @@ const MobilePositions: React.FC = () => {
                     }}>
                         <div>
                             <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1890ff' }}>
-                                {summary.asset_count}
+                                {summary.asset_count || 0}
                             </div>
                             <div style={{ fontSize: '12px', color: '#666' }}>持仓基金</div>
                         </div>
                         <div>
                             <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#52c41a' }}>
-                                {summary.profitable_count}
+                                {summary.profitable_count || 0}
                             </div>
                             <div style={{ fontSize: '12px', color: '#666' }}>盈利基金</div>
                         </div>
                         <div>
                             <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#ff4d4f' }}>
-                                {summary.loss_count}
+                                {summary.loss_count || 0}
                             </div>
                             <div style={{ fontSize: '12px', color: '#666' }}>亏损基金</div>
                         </div>
@@ -490,7 +508,7 @@ const MobilePositions: React.FC = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="持仓份额"
-                                        value={selectedPosition.total_shares}
+                                        value={safeNumber(selectedPosition.total_shares)}
                                         precision={2}
                                         suffix="份"
                                     />
@@ -498,7 +516,7 @@ const MobilePositions: React.FC = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="平均成本"
-                                        value={selectedPosition.avg_cost}
+                                        value={safeNumber(selectedPosition.avg_cost)}
                                         precision={4}
                                         prefix="¥"
                                     />
@@ -506,7 +524,7 @@ const MobilePositions: React.FC = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="当前净值"
-                                        value={selectedPosition.current_nav}
+                                        value={safeNumber(selectedPosition.current_nav)}
                                         precision={4}
                                         prefix="¥"
                                     />
@@ -514,18 +532,18 @@ const MobilePositions: React.FC = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="单位收益"
-                                        value={selectedPosition.current_nav - selectedPosition.avg_cost}
+                                        value={safeNumber(selectedPosition.current_nav) - safeNumber(selectedPosition.avg_cost)}
                                         precision={4}
-                                        prefix={selectedPosition.current_nav - selectedPosition.avg_cost >= 0 ? '+¥' : '-¥'}
+                                        prefix={safeNumber(selectedPosition.current_nav) - safeNumber(selectedPosition.avg_cost) >= 0 ? '+¥' : '-¥'}
                                         valueStyle={{
-                                            color: getReturnColor(selectedPosition.current_nav - selectedPosition.avg_cost)
+                                            color: getReturnColor(safeNumber(selectedPosition.current_nav) - safeNumber(selectedPosition.avg_cost))
                                         }}
                                     />
                                 </Col>
                                 <Col span={12}>
                                     <Statistic
                                         title="当前市值"
-                                        value={selectedPosition.current_value}
+                                        value={safeNumber(selectedPosition.current_value)}
                                         precision={2}
                                         prefix="¥"
                                     />
@@ -533,7 +551,7 @@ const MobilePositions: React.FC = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="累计投入"
-                                        value={selectedPosition.total_invested}
+                                        value={safeNumber(selectedPosition.total_invested)}
                                         precision={2}
                                         prefix="¥"
                                     />
@@ -541,9 +559,9 @@ const MobilePositions: React.FC = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="累计收益"
-                                        value={Math.abs(selectedPosition.total_profit)}
+                                        value={Math.abs(safeNumber(selectedPosition.total_profit))}
                                         precision={2}
-                                        prefix={selectedPosition.total_profit >= 0 ? '+¥' : '-¥'}
+                                        prefix={safeNumber(selectedPosition.total_profit) >= 0 ? '+¥' : '-¥'}
                                         valueStyle={{
                                             color: getReturnColor(selectedPosition.total_profit)
                                         }}
@@ -552,9 +570,9 @@ const MobilePositions: React.FC = () => {
                                 <Col span={12}>
                                     <Statistic
                                         title="收益率"
-                                        value={Math.abs(selectedPosition.profit_rate * 100)}
+                                        value={Math.abs(safeNumber(selectedPosition.profit_rate) * 100)}
                                         precision={2}
-                                        prefix={selectedPosition.profit_rate >= 0 ? '+' : '-'}
+                                        prefix={safeNumber(selectedPosition.profit_rate) >= 0 ? '+' : '-'}
                                         suffix="%"
                                         valueStyle={{
                                             color: getReturnColor(selectedPosition.profit_rate)

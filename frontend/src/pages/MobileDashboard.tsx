@@ -16,10 +16,10 @@ import { fundAPI } from '../services/api'
 const { Title, Text } = Typography
 
 interface DashboardStats {
-    total_value: number
-    total_invested: number
-    total_profit: number
-    total_profit_rate: number
+    total_value: number | string
+    total_invested: number | string
+    total_profit: number | string
+    total_profit_rate: number | string
     asset_count: number
     profitable_count: number
     loss_count: number
@@ -49,17 +49,25 @@ const MobileDashboard: React.FC = () => {
         fetchStats()
     }, [])
 
+    // 安全的数字转换
+    const safeNumber = (value: number | string) => {
+        const numValue = typeof value === 'string' ? parseFloat(value) : value
+        return isNaN(numValue) ? 0 : numValue
+    }
+
     // 格式化金额
-    const formatAmount = (amount: number) => {
-        return amount.toLocaleString('zh-CN', {
+    const formatAmount = (amount: number | string) => {
+        const numAmount = safeNumber(amount)
+        return numAmount.toLocaleString('zh-CN', {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         })
     }
 
     // 格式化百分比
-    const formatPercent = (rate: number) => {
-        return `${rate >= 0 ? '+' : ''}${(rate * 100).toFixed(2)}%`
+    const formatPercent = (rate: number | string) => {
+        const numRate = safeNumber(rate)
+        return `${numRate >= 0 ? '+' : ''}${(numRate * 100).toFixed(2)}%`
     }
 
     const quickActions = [
@@ -128,7 +136,7 @@ const MobileDashboard: React.FC = () => {
                             <Card size="small" style={{ textAlign: 'center' }}>
                                 <Statistic
                                     title="总市值"
-                                    value={stats.total_value}
+                                    value={safeNumber(stats.total_value)}
                                     precision={0}
                                     valueStyle={{
                                         color: '#1890ff',
@@ -138,24 +146,24 @@ const MobileDashboard: React.FC = () => {
                                     prefix="¥"
                                 />
                                 <Space style={{ marginTop: 8 }}>
-                                    {stats.total_profit >= 0 ? (
+                                    {safeNumber(stats.total_profit) >= 0 ? (
                                         <ArrowUpOutlined style={{ color: '#3f8600' }} />
                                     ) : (
                                         <ArrowDownOutlined style={{ color: '#cf1322' }} />
                                     )}
                                     <Text style={{ 
-                                        color: stats.total_profit >= 0 ? '#3f8600' : '#cf1322',
+                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
                                         fontSize: '12px'
                                     }}>
                                         {formatPercent(stats.total_profit_rate)}
                                     </Text>
                                 </Space>
                                 <Progress 
-                                    percent={Math.min(Math.abs(stats.total_profit_rate * 100), 100)} 
+                                    percent={Math.min(Math.abs(safeNumber(stats.total_profit_rate) * 100), 100)} 
                                     showInfo={false} 
                                     size="small"
                                     style={{ marginTop: 8 }}
-                                    strokeColor={stats.total_profit >= 0 ? '#3f8600' : '#cf1322'}
+                                    strokeColor={safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322'}
                                 />
                             </Card>
                         </Col>
@@ -163,34 +171,34 @@ const MobileDashboard: React.FC = () => {
                             <Card size="small" style={{ textAlign: 'center' }}>
                                 <Statistic
                                     title="总收益"
-                                    value={Math.abs(stats.total_profit)}
+                                    value={Math.abs(safeNumber(stats.total_profit))}
                                     precision={0}
                                     valueStyle={{
-                                        color: stats.total_profit >= 0 ? '#3f8600' : '#cf1322',
+                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
                                         fontSize: '20px',
                                         fontWeight: 'bold'
                                     }}
-                                    prefix={stats.total_profit >= 0 ? '+¥' : '-¥'}
+                                    prefix={safeNumber(stats.total_profit) >= 0 ? '+¥' : '-¥'}
                                 />
                                 <Space style={{ marginTop: 8 }}>
-                                    {stats.total_profit >= 0 ? (
+                                    {safeNumber(stats.total_profit) >= 0 ? (
                                         <ArrowUpOutlined style={{ color: '#3f8600' }} />
                                     ) : (
                                         <ArrowDownOutlined style={{ color: '#cf1322' }} />
                                     )}
                                     <Text style={{ 
-                                        color: stats.total_profit >= 0 ? '#3f8600' : '#cf1322',
+                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
                                         fontSize: '12px'
                                     }}>
                                         {formatPercent(stats.total_profit_rate)}
                                     </Text>
                                 </Space>
                                 <Progress 
-                                    percent={Math.min(Math.abs(stats.total_profit_rate * 100), 100)} 
+                                    percent={Math.min(Math.abs(safeNumber(stats.total_profit_rate) * 100), 100)} 
                                     showInfo={false} 
                                     size="small"
                                     style={{ marginTop: 8 }}
-                                    strokeColor={stats.total_profit >= 0 ? '#3f8600' : '#cf1322'}
+                                    strokeColor={safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322'}
                                 />
                             </Card>
                         </Col>
@@ -248,7 +256,7 @@ const MobileDashboard: React.FC = () => {
                                     color: '#722ed1',
                                     margin: '4px 0'
                                 }}>
-                                    {stats.asset_count}
+                                    {stats.asset_count || 0}
                                 </div>
                                 <Text style={{ 
                                     color: '#722ed1',
