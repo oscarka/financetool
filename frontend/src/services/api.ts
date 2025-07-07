@@ -1,8 +1,24 @@
 import axios from 'axios'
 
+// 根据环境变量确定API基础URL
+const getBaseURL = () => {
+    // 优先使用环境变量VITE_API_BASE_URL
+    if (import.meta.env.VITE_API_BASE_URL) {
+        return import.meta.env.VITE_API_BASE_URL
+    }
+
+    // 开发环境默认使用本地后端
+    if (import.meta.env.DEV) {
+        return 'http://localhost:8000/api/v1'
+    }
+
+    // 生产环境默认值（如果没有设置环境变量）
+    return '/api/v1'
+}
+
 // 创建axios实例
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
+    baseURL: getBaseURL(),
     timeout: 300000, // 5分钟超时，给分红同步足够时间
     headers: {
         'Content-Type': 'application/json',
