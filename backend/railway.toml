@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile"
+dockerfilePath = "backend/Dockerfile"
 
 [deploy]
 startCommand = "python run.py"
@@ -12,4 +12,5 @@ restartPolicyType = "on_failure"
 PORT = "8000"
 DEBUG = "false"
 WORKERS = "2"
+APP_ENV = "prod"
 

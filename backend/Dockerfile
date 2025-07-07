@@ -36,6 +36,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 # 复制应用代码
 COPY . .
 
+# 确保数据和日志目录存在
+RUN mkdir -p data logs
+
 # 创建非root用户
 RUN useradd --create-home --shell /bin/bash app && \
     chown -R app:app /app
