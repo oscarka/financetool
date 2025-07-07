@@ -52,7 +52,7 @@ def get_fund_operations(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     db: Session = Depends(get_db)
 ):
-    """获取基金操作记录"""
+    """获取基金操作记录 - 优化版本"""
     try:
         print(f"[调试] 开始查询基金操作记录: asset_code={asset_code}, page={page}, page_size={page_size}")
         
@@ -70,45 +70,27 @@ def get_fund_operations(
         
         print(f"[调试] 查询到 {len(operations)} 条记录，总数: {total}")
         
-        # 手动转换数据库对象为Pydantic模型
+        # 手动转换数据库对象为Pydantic模型 - 优化版本（移除单独的API调用）
         from app.models.schemas import FundOperation
         fund_operations = []
-        api_service = FundAPIService()
+        
+        # 批量获取最新净值 - 优化：只查询数据库，避免外部API调用
+        fund_codes = list(set(op.asset_code for op in operations))
+        latest_nav_map = {}
+        
+        if fund_codes:
+            # 批量查询数据库中的最新净值
+            for fund_code in fund_codes:
+                latest_nav_obj = FundNavService.get_latest_nav(db, fund_code)
+                if latest_nav_obj and latest_nav_obj.nav:
+                    latest_nav_map[fund_code] = float(latest_nav_obj.nav)
         
         for i, op in enumerate(operations):
             print(f"[调试] 转换第 {i+1} 条记录: id={op.id}, asset_code={op.asset_code}, nav={op.nav}")
             try:
-                # 优先查API，查不到再查数据库
-                latest_nav = None
-                try:
-                    # 修复异步调用问题
-                    import asyncio
-                    try:
-                        # 尝试获取当前事件循环
-                        loop = asyncio.get_running_loop()
-                        # 如果已经有运行中的循环，使用asyncio.create_task
-                        import concurrent.futures
-                        with concurrent.futures.ThreadPoolExecutor() as executor:
-                            future = executor.submit(asyncio.run, api_service.get_fund_nav_latest_tiantian(op.asset_code))
-                            api_data = future.result(timeout=5)  # 5秒超时
-                    except RuntimeError:
-                        # 如果没有运行中的循环，直接使用asyncio.run
-                        api_data = asyncio.run(api_service.get_fund_nav_latest_tiantian(op.asset_code))
-                    
-                    print(f"[调试] API查询结果: api_data={api_data}, type={type(api_data)}")
-                    if api_data:
-                        print(f"[调试] api_data.get('nav')={api_data.get('nav')}, type={type(api_data.get('nav'))}")
-                    if api_data and api_data.get('nav'):
-                        latest_nav = float(api_data['nav'])
-                        print(f"[调试] API查到最新净值: {latest_nav}")
-                    else:
-                        print(f"[调试] API查询失败或nav为空，api_data={api_data}")
-                except Exception as e:
-                    print(f"[调试] 查API最新净值异常: {e}")
-                if latest_nav is None:
-                    latest_nav_obj = FundNavService.get_latest_nav(db, op.asset_code)
-                    latest_nav = float(latest_nav_obj.nav) if latest_nav_obj and latest_nav_obj.nav is not None else None
-                    print(f"[调试] 数据库查到最新净值: {latest_nav}")
+                # 使用批量查询的结果
+                latest_nav = latest_nav_map.get(op.asset_code, None)
+                
                 print(f"[调试] 构造FundOperation前: op.id={op.id}, op.asset_code={op.asset_code}, op.nav={op.nav}, latest_nav={latest_nav}")
                 fund_op = FundOperation(
                     id=op.id,
@@ -146,8 +128,6 @@ def get_fund_operations(
         # 新增日志，打印每条记录的 nav 和 latest_nav
         for idx, op in enumerate(fund_operations):
             print(f"[调试] 返回第{idx+1}条: id={op.id}, asset_code={op.asset_code}, nav={op.nav}, latest_nav={getattr(op, 'latest_nav', None)}")
-        # 关键：打印最终返回给前端的完整数据
-        print('[调试] 返回给前端的完整fund_operations:', json.dumps([op.dict() for op in fund_operations], ensure_ascii=False, indent=2, default=str))
         
         return FundOperationListResponse(
             success=True,
@@ -1354,4 +1334,39 @@ async def get_okx_savings_balance(ccy: Optional[str] = Query(None, description="
             return BaseResponse(success=False, message="OKX储蓄账户余额获取失败，请检查API配置", data=None)
         return BaseResponse(success=True, message="OKX储蓄账户余额获取成功", data=data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/nav/batch-latest", response_model=BaseResponse)
+def get_batch_latest_nav(
+    fund_codes: List[str],
+    db: Session = Depends(get_db)
+):
+    """批量获取基金最新净值 - 优化性能"""
+    try:
+        nav_map = {}
+        
+        # 批量查询数据库中的最新净值
+        for fund_code in fund_codes:
+            try:
+                latest_nav_obj = FundNavService.get_latest_nav(db, fund_code)
+                if latest_nav_obj and latest_nav_obj.nav:
+                    nav_map[fund_code] = {
+                        "nav": float(latest_nav_obj.nav),
+                        "nav_date": latest_nav_obj.nav_date.isoformat(),
+                        "accumulated_nav": float(latest_nav_obj.accumulated_nav) if latest_nav_obj.accumulated_nav else None,
+                        "growth_rate": float(latest_nav_obj.growth_rate) if latest_nav_obj.growth_rate else None,
+                        "source": latest_nav_obj.source
+                    }
+            except Exception as e:
+                print(f"[调试] 获取基金 {fund_code} 最新净值失败: {e}")
+                continue
+        
+        return BaseResponse(
+            success=True,
+            message=f"获取到 {len(nav_map)} 个基金的最新净值",
+            data={"nav_map": nav_map}
+        )
+    except Exception as e:
+        print(f"[调试] 批量获取净值异常: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) 

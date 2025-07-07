@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
+from sqlalchemy import and_, or_, desc, func
 from typing import List, Optional, Tuple
 from datetime import datetime, date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -866,6 +866,36 @@ class FundNavService:
             print(f"[调试] akshare拉取历史净值失败: {e}")
             db.rollback()
             raise e
+
+    @staticmethod
+    def get_batch_latest_nav(db: Session, fund_codes: List[str]) -> dict:
+        """批量获取基金最新净值 - 优化性能"""
+        if not fund_codes:
+            return {}
+        
+        # 子查询：获取每个基金的最新净值日期
+        latest_dates = db.query(
+            FundNav.fund_code,
+            func.max(FundNav.nav_date).label('max_date')
+        ).filter(
+            FundNav.fund_code.in_(fund_codes)
+        ).group_by(FundNav.fund_code).subquery()
+        
+        # 主查询：获取最新净值记录
+        latest_navs = db.query(FundNav).join(
+            latest_dates,
+            and_(
+                FundNav.fund_code == latest_dates.c.fund_code,
+                FundNav.nav_date == latest_dates.c.max_date
+            )
+        ).all()
+        
+        # 构建结果字典
+        result = {}
+        for nav_obj in latest_navs:
+            result[nav_obj.fund_code] = nav_obj
+        
+        return result
 
 
 class DCAService:
