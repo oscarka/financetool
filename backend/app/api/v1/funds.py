@@ -719,7 +719,7 @@ def get_dca_statistics(
 
 
 @router.get("/nav_history", response_model=BaseResponse)
-def get_fund_nav_history(
+def get_fund_nav_history_with_cache(
     fund_code: str = Query(..., description="基金代码"),
     force_update: bool = Query(False, description="是否强制用akshare拉取最新历史净值"),
     include_dividend: bool = Query(False, description="是否合并分红数据"),

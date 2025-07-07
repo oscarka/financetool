@@ -1281,7 +1281,7 @@ class DCAService:
         }
 
     @staticmethod
-    def generate_historical_operations(db: Session, plan_id: int, end_date: date = None, skip_holidays: bool = True, exclude_dates: Optional[List[date]] = None) -> int:
+    def generate_historical_operations(db: Session, plan_id: int, end_date: Optional[date] = None, skip_holidays: bool = True, exclude_dates: Optional[List[date]] = None) -> int:
         """批量生成历史定投记录，支持排除指定日期"""
         print(f'[历史生成] plan_id={plan_id}, end_date={end_date}, exclude_dates原始值={exclude_dates}')
         plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
