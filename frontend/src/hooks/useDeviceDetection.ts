@@ -20,6 +20,12 @@ export const useDeviceDetection = (): DeviceInfo => {
             const width = window.innerWidth
             const userAgent = navigator.userAgent.toLowerCase()
             
+            console.log('🔧 设备检测更新:', {
+                windowWidth: width,
+                userAgent: userAgent.substring(0, 100),
+                timestamp: new Date().toISOString()
+            })
+            
             // 检测移动设备
             const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)
             
@@ -32,15 +38,29 @@ export const useDeviceDetection = (): DeviceInfo => {
             const isTablet = !isMobile && isTabletWidth
             const isDesktop = !isMobile && !isTablet
 
-            setDeviceInfo({
+            console.log('🎯 设备判断结果:', {
+                isMobileDevice,
+                isMobileWidth,
+                width,
+                isMobile,
+                isTablet,
+                isDesktop
+            })
+
+            const newDeviceInfo = {
                 isMobile,
                 isTablet,
                 isDesktop,
                 screenWidth: width
-            })
+            }
+
+            setDeviceInfo(newDeviceInfo)
+            
+            console.log('✅ 设备信息已更新:', newDeviceInfo)
         }
 
         // 初始检测
+        console.log('🚀 useDeviceDetection hook 初始化')
         updateDeviceInfo()
 
         // 监听窗口大小变化
@@ -50,6 +70,7 @@ export const useDeviceDetection = (): DeviceInfo => {
         window.addEventListener('orientationchange', updateDeviceInfo)
 
         return () => {
+            console.log('🧹 useDeviceDetection hook 清理')
             window.removeEventListener('resize', updateDeviceInfo)
             window.removeEventListener('orientationchange', updateDeviceInfo)
         }
