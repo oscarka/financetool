@@ -74,6 +74,10 @@ export const fundAPI = {
     getLatestNav: (fundCode: string): Promise<APIResponse> =>
         api.get(`/funds/nav/${fundCode}/latest`),
 
+    // 批量获取最新净值 - 新增优化接口
+    getBatchLatestNav: (fundCodes: string[]): Promise<APIResponse> =>
+        api.post('/funds/nav/batch-latest', fundCodes),
+
     // 同步基金净值
     syncFundNav: (fundCode: string, navDate: string): Promise<APIResponse> =>
         api.post(`/funds/nav/${fundCode}/sync?nav_date=${navDate}`),

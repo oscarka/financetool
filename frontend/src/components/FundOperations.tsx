@@ -87,22 +87,18 @@ const FundOperations: React.FC = () => {
     const [processingDividend, setProcessingDividend] = useState<FundOperation | null>(null)
     const [dividendProcessType, setDividendProcessType] = useState<'reinvest' | 'withdraw' | 'skip'>('reinvest')
 
-    // 批量查所有基金的最新净值
+    // 批量查所有基金的最新净值 - 已优化：后端已包含最新净值，无需前端单独获取
     const fetchLatestNavs = async (operations: FundOperation[]) => {
-        const codes = Array.from(new Set(operations.map(op => op.asset_code)))
+        // 优化：移除前端的单独API调用，后端已经返回latest_nav字段
+        // 这个函数现在只用于处理latest_nav字段，构建navMap用于显示
         const navMap: { [code: string]: number } = {}
-        await Promise.all(
-            codes.map(async code => {
-                try {
-                    const res = await fundAPI.getLatestNav(code)
-                    if (res.success && res.data && res.data.fund_nav && res.data.fund_nav.nav) {
-                        navMap[code] = Number(res.data.fund_nav.nav)
-                    }
-                } catch { }
-            })
-        )
+        operations.forEach(op => {
+            if (op.latest_nav && op.asset_code) {
+                navMap[op.asset_code] = op.latest_nav
+            }
+        })
         setLatestNavMap(navMap)
-        console.log('[日志] setLatestNavMap', navMap)
+        console.log('[日志] 优化后的navMap（来自后端）:', navMap)
     }
 
     // 获取可用持仓
