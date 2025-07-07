@@ -537,45 +537,31 @@ class FundOperationService:
     
     @staticmethod
     def get_fund_positions(db: Session) -> List[FundPosition]:
-        """获取基金持仓列表"""
+        """获取基金持仓列表 - 优化版本"""
         positions = db.query(AssetPosition).filter(
             AssetPosition.asset_type == "基金"
         ).all()
         
-        result = []
-        api_service = FundAPIService()
+        if not positions:
+            return []
         
+        # 批量获取最新净值 - 优化：只查询数据库，避免外部API调用
+        fund_codes = list(set(pos.asset_code for pos in positions))
+        latest_nav_map = {}
+        
+        if fund_codes:
+            # 批量查询数据库中的最新净值
+            for fund_code in fund_codes:
+                latest_nav_obj = FundNavService.get_latest_nav(db, fund_code)
+                if latest_nav_obj and latest_nav_obj.nav:
+                    latest_nav_map[fund_code] = float(latest_nav_obj.nav)
+                    print(f"[调试] 持仓批量获取净值: {fund_code} = {latest_nav_obj.nav}")
+        
+        result = []
         for pos in positions:
-            # 优先从API获取最新净值，查不到再查数据库
-            current_nav = None
-            try:
-                # 修复异步调用问题
-                import asyncio
-                try:
-                    # 尝试获取当前事件循环
-                    loop = asyncio.get_running_loop()
-                    # 如果已经有运行中的循环，使用ThreadPoolExecutor
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, api_service.get_fund_nav_latest_tiantian(pos.asset_code))
-                        api_data = future.result(timeout=5)  # 5秒超时
-                except RuntimeError:
-                    # 如果没有运行中的循环，直接使用asyncio.run
-                    api_data = asyncio.run(api_service.get_fund_nav_latest_tiantian(pos.asset_code))
-                
-                if api_data and api_data.get('nav'):
-                    current_nav = api_data['nav']
-                    print(f"[调试] 持仓API获取最新净值: {pos.asset_code} = {current_nav}")
-                else:
-                    print(f"[调试] 持仓API获取失败，使用数据库净值: {pos.asset_code}")
-            except Exception as e:
-                print(f"[调试] 持仓API获取净值异常: {pos.asset_code}, {e}")
-            
-            # 如果API获取失败，使用数据库净值
-            if current_nav is None:
-                latest_nav = FundNavService.get_latest_nav(db, pos.asset_code)
-                current_nav = latest_nav.nav if latest_nav else pos.current_price
-                print(f"[调试] 持仓使用数据库净值: {pos.asset_code} = {current_nav}")
+            # 使用批量查询的结果
+            current_nav = latest_nav_map.get(pos.asset_code, float(pos.current_price))
+            print(f"[调试] 持仓使用净值: {pos.asset_code} = {current_nav}")
             
             # 重新计算当前市值和收益
             current_value = pos.quantity * current_nav
@@ -607,23 +593,61 @@ class FundOperationService:
     
     @staticmethod
     def get_position_summary(db: Session) -> dict:
-        """获取持仓汇总信息"""
-        positions = FundOperationService.get_fund_positions(db)
+        """获取持仓汇总信息 - 优化版本（避免重复查询）"""
+        # 直接查询数据库计算汇总，避免调用get_fund_positions造成重复
+        positions_data = db.query(AssetPosition).filter(
+            AssetPosition.asset_type == "基金"
+        ).all()
         
-        total_invested = sum(p.total_invested for p in positions)
-        total_value = sum(p.current_value for p in positions)
-        total_profit = sum(p.total_profit for p in positions)
+        if not positions_data:
+            return {
+                "total_invested": 0,
+                "total_value": 0,
+                "total_profit": 0,
+                "total_profit_rate": 0,
+                "asset_count": 0,
+                "profitable_count": 0,
+                "loss_count": 0
+            }
+        
+        # 批量获取最新净值
+        fund_codes = list(set(pos.asset_code for pos in positions_data))
+        latest_nav_map = {}
+        
+        if fund_codes:
+            for fund_code in fund_codes:
+                latest_nav_obj = FundNavService.get_latest_nav(db, fund_code)
+                if latest_nav_obj and latest_nav_obj.nav:
+                    latest_nav_map[fund_code] = float(latest_nav_obj.nav)
+        
+        # 计算汇总数据
+        total_invested = Decimal("0")
+        total_value = Decimal("0")
+        profitable_count = 0
+        loss_count = 0
+        
+        for pos in positions_data:
+            current_nav = latest_nav_map.get(pos.asset_code, float(pos.current_price))
+            current_value = pos.quantity * current_nav
+            total_profit = current_value - pos.total_invested
+            
+            total_invested += pos.total_invested
+            total_value += current_value
+            
+            if total_profit > 0:
+                profitable_count += 1
+            elif total_profit < 0:
+                loss_count += 1
+        
+        total_profit = total_value - total_invested
         total_profit_rate = total_profit / total_invested if total_invested > 0 else Decimal("0")
-        
-        profitable_count = len([p for p in positions if p.total_profit > 0])
-        loss_count = len([p for p in positions if p.total_profit < 0])
         
         return {
             "total_invested": total_invested,
             "total_value": total_value,
             "total_profit": total_profit,
             "total_profit_rate": total_profit_rate,
-            "asset_count": len(positions),
+            "asset_count": len(positions_data),
             "profitable_count": profitable_count,
             "loss_count": loss_count
         }
