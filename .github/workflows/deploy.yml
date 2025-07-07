@@ -49,8 +49,7 @@ jobs:
       - name: Deploy Frontend to Railway
         run: |
           cd frontend
-          railway login --token ${{ secrets.RAILWAY_TOKEN }}
-          railway deploy --service frontend
+          railway up --service frontend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
@@ -69,7 +68,6 @@ jobs:
       - name: Deploy Backend to Railway
         run: |
           cd backend
-          railway login --token ${{ secrets.RAILWAY_TOKEN }}
-          railway deploy --service backend
+          railway up --service backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }} 
