@@ -9,7 +9,8 @@ import {
     PieChartOutlined,
     SettingOutlined,
     GlobalOutlined,
-    BankOutlined
+    BankOutlined,
+    PayCircleOutlined
 } from '@ant-design/icons'
 
 const { Sider, Content } = AntLayout
@@ -27,6 +28,7 @@ const navigation = [
     { name: '分析', href: '/analysis', icon: PieChartOutlined },
     { name: 'OKX管理', href: '/okx', icon: SettingOutlined },
     { name: 'Wise管理', href: '/wise', icon: BankOutlined },
+    { name: 'PayPal管理', href: '/paypal', icon: PayCircleOutlined },
 ]
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {

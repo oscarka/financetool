@@ -31,6 +31,11 @@ class BaseConfig(BaseSettings):
     wise_api_token: str = ""
     wise_api_base_url: str = "https://api.transferwise.com"
     
+    # PayPal API配置
+    paypal_client_id: str = ""
+    paypal_client_secret: str = ""
+    paypal_api_base_url: str = "https://api-m.sandbox.paypal.com"  # 沙盒环境
+    
     # 定时任务配置
     scheduler_timezone: str = "Asia/Shanghai"
     

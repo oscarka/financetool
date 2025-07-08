@@ -18,4 +18,8 @@ class TestConfig(BaseConfig):
     okx_sandbox: bool = os.getenv("OKX_SANDBOX", "true").lower() == "true"
     
     # Wise API配置
-    wise_api_token: str = os.getenv("WISE_API_TOKEN", "") 
+    wise_api_token: str = os.getenv("WISE_API_TOKEN", "")
+    
+    # PayPal API配置
+    paypal_client_id: str = os.getenv("PAYPAL_CLIENT_ID", "")
+    paypal_client_secret: str = os.getenv("PAYPAL_CLIENT_SECRET", "") 
