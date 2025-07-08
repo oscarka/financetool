@@ -544,4 +544,187 @@ class WiseAPIService:
             db.rollback()
             return {"success": False, "message": f"同步失败: {e}"}
         finally:
-            db.close() 
+            db.close()
+
+    async def sync_all_balances_to_db(self) -> Dict[str, Any]:
+        """同步所有账户余额到数据库"""
+        from app.utils.database import SessionLocal
+        from app.models.database import WiseBalance
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            balances = await self.get_all_account_balances()
+            if not balances:
+                return {"success": False, "message": "未获取到余额数据"}
+            
+            updated_count = 0
+            for balance_data in balances:
+                account_id = balance_data.get('account_id')
+                if not account_id:
+                    continue
+                
+                # 检查是否已存在
+                existing = db.query(WiseBalance).filter_by(account_id=account_id).first()
+                
+                if existing:
+                    # 更新现有记录
+                    existing.currency = balance_data.get('currency')
+                    existing.available_balance = balance_data.get('available_balance', 0.0)
+                    existing.reserved_balance = balance_data.get('reserved_balance', 0.0)
+                    existing.cash_amount = balance_data.get('cash_amount', 0.0)
+                    existing.total_worth = balance_data.get('total_worth', 0.0)
+                    existing.type = balance_data.get('type')
+                    existing.name = balance_data.get('name')
+                    existing.icon = balance_data.get('icon')
+                    existing.investment_state = balance_data.get('investment_state')
+                    existing.creation_time = balance_data.get('creation_time')
+                    existing.modification_time = balance_data.get('modification_time')
+                    existing.visible = balance_data.get('visible')
+                    existing.primary = balance_data.get('primary')
+                    existing.updated_at = datetime.now()
+                else:
+                    # 创建新记录
+                    new_balance = WiseBalance(
+                        account_id=account_id,
+                        currency=balance_data.get('currency'),
+                        available_balance=balance_data.get('available_balance', 0.0),
+                        reserved_balance=balance_data.get('reserved_balance', 0.0),
+                        cash_amount=balance_data.get('cash_amount', 0.0),
+                        total_worth=balance_data.get('total_worth', 0.0),
+                        type=balance_data.get('type'),
+                        name=balance_data.get('name'),
+                        icon=balance_data.get('icon'),
+                        investment_state=balance_data.get('investment_state'),
+                        creation_time=balance_data.get('creation_time'),
+                        modification_time=balance_data.get('modification_time'),
+                        visible=balance_data.get('visible'),
+                        primary=balance_data.get('primary')
+                    )
+                    db.add(new_balance)
+                
+                updated_count += 1
+            
+            db.commit()
+            return {"success": True, "message": f"同步完成，更新{updated_count}条余额记录"}
+        except Exception as e:
+            db.rollback()
+            logger.error(f"同步余额失败: {e}")
+            return {"success": False, "message": f"同步失败: {e}"}
+        finally:
+            db.close()
+
+    async def sync_exchange_rates_to_db(self, currency_pairs: List[tuple] = None) -> Dict[str, Any]:
+        """同步汇率数据到数据库"""
+        from app.utils.database import SessionLocal
+        from app.models.database import WiseExchangeRate
+        from datetime import datetime
+        
+        if currency_pairs is None:
+            # 默认的主要货币对
+            currency_pairs = [
+                ("USD", "CNY"),
+                ("EUR", "CNY"),
+                ("GBP", "CNY"),
+                ("AUD", "CNY"),
+                ("JPY", "CNY"),
+                ("USD", "EUR"),
+                ("GBP", "USD"),
+                ("AUD", "USD")
+            ]
+        
+        db = SessionLocal()
+        try:
+            updated_count = 0
+            for source, target in currency_pairs:
+                try:
+                    rate_data = await self.get_exchange_rates(source, target)
+                    if not rate_data:
+                        continue
+                    
+                    # 解析汇率数据
+                    rate_value = None
+                    if isinstance(rate_data, list) and len(rate_data) > 0:
+                        rate_info = rate_data[0]
+                        rate_value = rate_info.get('rate')
+                    elif isinstance(rate_data, dict):
+                        rate_value = rate_data.get('rate')
+                    
+                    if rate_value is None:
+                        continue
+                    
+                    # 检查今天是否已有记录
+                    today = datetime.now().date()
+                    existing = db.query(WiseExchangeRate).filter_by(
+                        source_currency=source,
+                        target_currency=target,
+                        time=today
+                    ).first()
+                    
+                    if existing:
+                        # 更新现有记录
+                        existing.rate = float(rate_value)
+                        existing.updated_at = datetime.now()
+                    else:
+                        # 创建新记录
+                        new_rate = WiseExchangeRate(
+                            source_currency=source,
+                            target_currency=target,
+                            rate=float(rate_value),
+                            time=today
+                        )
+                        db.add(new_rate)
+                    
+                    updated_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"同步汇率 {source}->{target} 失败: {e}")
+                    continue
+            
+            db.commit()
+            return {"success": True, "message": f"同步完成，更新{updated_count}条汇率记录"}
+        except Exception as e:
+            db.rollback()
+            logger.error(f"同步汇率失败: {e}")
+            return {"success": False, "message": f"同步失败: {e}"}
+        finally:
+            db.close()
+
+    async def sync_all_data_to_db(self, days: int = 7) -> Dict[str, Any]:
+        """综合同步所有Wise数据到数据库"""
+        results = {
+            "transactions": {"success": False, "message": "未执行"},
+            "balances": {"success": False, "message": "未执行"},
+            "exchange_rates": {"success": False, "message": "未执行"}
+        }
+        
+        try:
+            # 同步交易记录
+            logger.info("[Wise] 开始同步交易记录...")
+            results["transactions"] = await self.sync_all_transactions_to_db(days)
+            
+            # 同步余额
+            logger.info("[Wise] 开始同步余额...")
+            results["balances"] = await self.sync_all_balances_to_db()
+            
+            # 同步汇率
+            logger.info("[Wise] 开始同步汇率...")
+            results["exchange_rates"] = await self.sync_exchange_rates_to_db()
+            
+            # 统计总体结果
+            success_count = sum(1 for r in results.values() if r["success"])
+            overall_success = success_count == len(results)
+            
+            return {
+                "success": overall_success,
+                "message": f"同步完成，{success_count}/{len(results)}个任务成功",
+                "details": results
+            }
+            
+        except Exception as e:
+            logger.error(f"综合同步失败: {e}")
+            return {
+                "success": False,
+                "message": f"综合同步失败: {e}",
+                "details": results
+            } 

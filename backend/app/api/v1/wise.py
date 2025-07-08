@@ -506,4 +506,85 @@ async def get_exchange_rate_history(
         for r in q.all()
     ]
     db.close()
-    return {"success": True, "data": data} 
+    return {"success": True, "data": data}
+
+
+@router.post("/sync-balances")
+async def sync_balances():
+    """主动同步Wise所有账户余额到数据库"""
+    try:
+        result = await wise_service.sync_all_balances_to_db()
+        return result
+    except Exception as e:
+        logger.error(f"同步Wise余额失败: {e}")
+        raise HTTPException(status_code=500, detail=f"同步Wise余额失败: {str(e)}")
+
+
+@router.post("/sync-exchange-rates")
+async def sync_exchange_rates():
+    """主动同步Wise汇率数据到数据库"""
+    try:
+        result = await wise_service.sync_exchange_rates_to_db()
+        return result
+    except Exception as e:
+        logger.error(f"同步Wise汇率失败: {e}")
+        raise HTTPException(status_code=500, detail=f"同步Wise汇率失败: {str(e)}")
+
+
+@router.post("/sync-all")
+async def sync_all_data(
+    days: int = Query(7, ge=1, le=365, description="同步最近几天的交易记录")
+):
+    """主动同步所有Wise数据到数据库（交易、余额、汇率）"""
+    try:
+        result = await wise_service.sync_all_data_to_db(days)
+        return result
+    except Exception as e:
+        logger.error(f"综合同步Wise数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"综合同步Wise数据失败: {str(e)}")
+
+
+@router.get("/db-status")
+async def get_db_status():
+    """获取数据库中Wise数据的状态统计"""
+    try:
+        from app.models.database import WiseTransaction, WiseBalance, WiseExchangeRate
+        
+        db = SessionLocal()
+        try:
+            # 统计各类数据的数量和最新更新时间
+            transaction_count = db.query(WiseTransaction).count()
+            balance_count = db.query(WiseBalance).count()
+            rate_count = db.query(WiseExchangeRate).count()
+            
+            # 获取最新的记录时间
+            latest_transaction = db.query(WiseTransaction).order_by(WiseTransaction.created_at.desc()).first()
+            latest_balance = db.query(WiseBalance).order_by(WiseBalance.updated_at.desc()).first()
+            latest_rate = db.query(WiseExchangeRate).order_by(WiseExchangeRate.updated_at.desc()).first()
+            
+            status = {
+                "transactions": {
+                    "count": transaction_count,
+                    "latest_update": latest_transaction.created_at.isoformat() if latest_transaction else None
+                },
+                "balances": {
+                    "count": balance_count,
+                    "latest_update": latest_balance.updated_at.isoformat() if latest_balance else None
+                },
+                "exchange_rates": {
+                    "count": rate_count,
+                    "latest_update": latest_rate.updated_at.isoformat() if latest_rate else None
+                },
+                "overall_status": "有数据" if (transaction_count + balance_count + rate_count) > 0 else "暂无数据"
+            }
+            
+            return {
+                "success": True,
+                "data": status
+            }
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"获取数据库状态失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取数据库状态失败: {str(e)}") 

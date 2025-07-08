@@ -175,36 +175,20 @@ class SchedulerService:
             # 初始化Wise服务
             wise_service = WiseAPIService()
             
-            # 同步账户余额
-            balances = await wise_service.get_all_account_balances()
-            if balances:
-                logger.info(f"成功获取Wise账户余额，共 {len(balances)} 个账户")
-                # TODO: 将余额数据保存到数据库
-                for balance in balances:
-                    logger.debug(f"账户 {balance['account_id']} - {balance['currency']}: {balance['available_balance']}")
-            else:
-                logger.warning("获取Wise账户余额失败")
+            # 使用综合同步方法，同步所有数据到数据库
+            result = await wise_service.sync_all_data_to_db(days=7)  # 同步最近7天的交易
             
-            # 同步最近交易记录
-            transactions = await wise_service.get_recent_transactions(1)  # 获取最近1天的交易
-            if transactions:
-                logger.info(f"成功获取Wise交易记录，共 {len(transactions)} 条")
-                # TODO: 将交易记录保存到数据库
-                for transaction in transactions[:5]:  # 只记录前5条
-                    logger.debug(f"交易: {transaction['type']} - {transaction['amount']} {transaction['currency']}")
+            if result["success"]:
+                logger.info(f"Wise数据同步成功: {result['message']}")
+                for data_type, detail in result["details"].items():
+                    if detail["success"]:
+                        logger.info(f"  - {data_type}: {detail['message']}")
+                    else:
+                        logger.warning(f"  - {data_type}: {detail['message']}")
             else:
-                logger.info("没有新的Wise交易记录")
-            
-            # 同步汇率数据
-            try:
-                rates = await wise_service.get_exchange_rates("USD", "CNY")
-                if rates:
-                    logger.info("成功获取Wise汇率数据")
-                    # TODO: 将汇率数据保存到数据库
-                else:
-                    logger.warning("获取Wise汇率数据失败")
-            except Exception as e:
-                logger.error(f"获取Wise汇率数据时出错: {e}")
+                logger.error(f"Wise数据同步失败: {result['message']}")
+                for data_type, detail in result["details"].items():
+                    logger.error(f"  - {data_type}: {detail['message']}")
             
             logger.info("Wise数据同步任务完成")
             

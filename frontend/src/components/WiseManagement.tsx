@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Tabs, Badge, Alert, Select, Row, Col, Statistic, Tag, Tooltip, DatePicker, message } from 'antd';
-import { ReloadOutlined, BankOutlined, ClockCircleOutlined, DollarCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Tabs, Badge, Alert, Select, Row, Col, Statistic, Tag, Tooltip, DatePicker, message, Space, Divider, Modal } from 'antd';
+import { ReloadOutlined, BankOutlined, ClockCircleOutlined, DollarCircleOutlined, DatabaseOutlined, SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import api from '../services/api';
 import { Line } from '@ant-design/charts';
 import dayjs from 'dayjs';
@@ -43,6 +43,12 @@ const WiseManagement: React.FC = () => {
     const [rateLoading, setRateLoading] = useState(false);
     const [dateRange, setDateRange] = useState<[moment.Moment, moment.Moment]>([moment().subtract(30, 'days'), moment()]);
     const [latestRate, setLatestRate] = useState<number | null>(null);
+
+    // 新增：数据库同步相关状态
+    const [dbStatus, setDbStatus] = useState<any>(null);
+    const [dbLoading, setDbLoading] = useState(false);
+    const [syncLoading, setSyncLoading] = useState(false);
+    const [syncModalVisible, setSyncModalVisible] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -102,6 +108,107 @@ const WiseManagement: React.FC = () => {
         } catch (e: any) {
             setSummaryError(e.response?.data?.detail || '账户汇总获取失败');
         } finally { setSummaryLoading(false); }
+    };
+
+    // 新增：获取数据库状态
+    const fetchDbStatus = async () => {
+        setDbLoading(true);
+        try {
+            const response = await api.get('/wise/db-status');
+            setDbStatus(response.data.data);
+        } catch (err: any) {
+            message.error('获取数据库状态失败：' + (err.response?.data?.detail || err.message));
+        } finally {
+            setDbLoading(false);
+        }
+    };
+
+    // 新增：同步所有数据到数据库
+    const syncAllToDatabase = async (days: number = 7) => {
+        setSyncLoading(true);
+        try {
+            const response = await api.post(`/wise/sync-all?days=${days}`);
+            if (response.data.success) {
+                message.success('数据同步成功：' + response.data.message);
+                // 刷新数据库状态
+                await fetchDbStatus();
+                // 显示详细结果
+                const details = response.data.details;
+                Modal.success({
+                    title: '同步结果',
+                    content: (
+                        <div>
+                            <p><strong>总体状态：</strong>{response.data.message}</p>
+                            <div style={{ marginTop: 12 }}>
+                                <p><CheckCircleOutlined style={{ color: 'green' }} /> <strong>交易记录：</strong>{details.transactions.message}</p>
+                                <p><CheckCircleOutlined style={{ color: 'green' }} /> <strong>账户余额：</strong>{details.balances.message}</p>
+                                <p><CheckCircleOutlined style={{ color: 'green' }} /> <strong>汇率数据：</strong>{details.exchange_rates.message}</p>
+                            </div>
+                        </div>
+                    ),
+                    width: 500,
+                });
+            } else {
+                message.error('数据同步失败：' + response.data.message);
+            }
+        } catch (err: any) {
+            message.error('数据同步失败：' + (err.response?.data?.detail || err.message));
+        } finally {
+            setSyncLoading(false);
+            setSyncModalVisible(false);
+        }
+    };
+
+    // 新增：分别同步不同类型的数据
+    const syncTransactions = async () => {
+        setSyncLoading(true);
+        try {
+            const response = await api.post('/wise/sync-transactions');
+            if (response.success) {
+                message.success('交易记录同步成功：' + response.message);
+            } else {
+                message.error('交易记录同步失败：' + response.message);
+            }
+            await fetchDbStatus();
+        } catch (err: any) {
+            message.error('交易记录同步失败：' + (err.response?.data?.detail || err.message));
+        } finally {
+            setSyncLoading(false);
+        }
+    };
+
+    const syncBalances = async () => {
+        setSyncLoading(true);
+        try {
+            const response = await api.post('/wise/sync-balances');
+            if (response.data.success) {
+                message.success('余额数据同步成功：' + response.data.message);
+            } else {
+                message.error('余额数据同步失败：' + response.data.message);
+            }
+            await fetchDbStatus();
+        } catch (err: any) {
+            message.error('余额数据同步失败：' + (err.response?.data?.detail || err.message));
+        } finally {
+            setSyncLoading(false);
+        }
+    };
+
+    const syncExchangeRates = async () => {
+        setSyncLoading(true);
+        try {
+            const response = await api.post('/wise/sync-exchange-rates');
+            if (response.data.success) {
+                message.success('汇率数据同步成功：' + response.data.message);
+            } else {
+                message.error('汇率数据同步失败：' + response.data.message);
+            }
+            await fetchDbStatus();
+        } catch (err: any) {
+            message.error('汇率数据同步失败：' + (err.response?.data?.detail || err.message));
+        } finally {
+            setSyncLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -188,6 +295,11 @@ const WiseManagement: React.FC = () => {
         }
         // eslint-disable-next-line
     }, [selectedPair]);
+
+    // 新增：页面加载时获取数据库状态
+    useEffect(() => {
+        fetchDbStatus();
+    }, []);
 
     const formatCurrency = (amount: number, currency: string) => {
         return new Intl.NumberFormat('zh-CN', {
@@ -343,10 +455,162 @@ const WiseManagement: React.FC = () => {
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <h1 style={{ fontSize: 24, fontWeight: 700 }}>Wise多币种账户管理</h1>
-                <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading} type="primary">刷新数据</Button>
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>刷新数据</Button>
+                    <Button 
+                        type="primary" 
+                        icon={<DatabaseOutlined />} 
+                        onClick={() => setSyncModalVisible(true)}
+                        loading={syncLoading}
+                    >
+                        同步到数据库
+                    </Button>
+                </Space>
             </div>
 
             {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
+
+            {/* 数据库状态卡片 */}
+            <Card style={{ marginBottom: 24 }} loading={dbLoading}>
+                <Row gutter={16}>
+                    <Col span={6}>
+                        <Statistic 
+                            title="数据库交易记录" 
+                            value={dbStatus?.transactions?.count || 0} 
+                            prefix={<DatabaseOutlined />}
+                            suffix="条"
+                        />
+                        {dbStatus?.transactions?.latest_update && (
+                            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                                最后更新：{new Date(dbStatus.transactions.latest_update).toLocaleString('zh-CN')}
+                            </div>
+                        )}
+                    </Col>
+                    <Col span={6}>
+                        <Statistic 
+                            title="数据库余额记录" 
+                            value={dbStatus?.balances?.count || 0} 
+                            prefix={<BankOutlined />}
+                            suffix="条"
+                        />
+                        {dbStatus?.balances?.latest_update && (
+                            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                                最后更新：{new Date(dbStatus.balances.latest_update).toLocaleString('zh-CN')}
+                            </div>
+                        )}
+                    </Col>
+                    <Col span={6}>
+                        <Statistic 
+                            title="数据库汇率记录" 
+                            value={dbStatus?.exchange_rates?.count || 0} 
+                            prefix={<DollarCircleOutlined />}
+                            suffix="条"
+                        />
+                        {dbStatus?.exchange_rates?.latest_update && (
+                            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                                最后更新：{new Date(dbStatus.exchange_rates.latest_update).toLocaleString('zh-CN')}
+                            </div>
+                        )}
+                    </Col>
+                    <Col span={6}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8 }}>
+                                数据库状态
+                            </div>
+                            <Badge 
+                                status={dbStatus?.overall_status === '有数据' ? 'success' : 'warning'}
+                                text={dbStatus?.overall_status || '未知'}
+                            />
+                            <div style={{ marginTop: 8 }}>
+                                <Button 
+                                    size="small" 
+                                    icon={<ReloadOutlined />} 
+                                    onClick={fetchDbStatus}
+                                    loading={dbLoading}
+                                >
+                                    刷新状态
+                                </Button>
+                            </div>
+                        </div>
+                    </Col>
+                </Row>
+            </Card>
+
+            {/* 同步操作模态框 */}
+            <Modal
+                title="数据库同步操作"
+                open={syncModalVisible}
+                onCancel={() => setSyncModalVisible(false)}
+                footer={null}
+                width={600}
+            >
+                <div style={{ padding: '16px 0' }}>
+                    <Alert
+                        message="数据同步说明"
+                        description="将从Wise API获取的数据保存到本地数据库，用于历史记录查询和分析。已存在的数据会被自动跳过或更新。"
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 24 }}
+                    />
+                    
+                    <div style={{ marginBottom: 16 }}>
+                        <h4><SyncOutlined /> 综合同步（推荐）</h4>
+                        <p>一次性同步所有数据：交易记录、账户余额、汇率数据</p>
+                        <Space>
+                            <Button 
+                                type="primary" 
+                                onClick={() => syncAllToDatabase(7)}
+                                loading={syncLoading}
+                                icon={<SyncOutlined />}
+                            >
+                                同步最近7天数据
+                            </Button>
+                            <Button 
+                                onClick={() => syncAllToDatabase(30)}
+                                loading={syncLoading}
+                            >
+                                同步最近30天数据
+                            </Button>
+                            <Button 
+                                onClick={() => syncAllToDatabase(365)}
+                                loading={syncLoading}
+                            >
+                                同步全年数据
+                            </Button>
+                        </Space>
+                    </div>
+
+                    <Divider />
+
+                    <div>
+                        <h4><DatabaseOutlined /> 分别同步</h4>
+                        <p>分别同步不同类型的数据</p>
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Button 
+                                onClick={syncTransactions}
+                                loading={syncLoading}
+                                block
+                            >
+                                只同步交易记录
+                            </Button>
+                            <Button 
+                                onClick={syncBalances}
+                                loading={syncLoading}
+                                block
+                            >
+                                只同步账户余额
+                            </Button>
+                            <Button 
+                                onClick={syncExchangeRates}
+                                loading={syncLoading}
+                                block
+                            >
+                                只同步汇率数据
+                            </Button>
+                        </Space>
+                    </div>
+                </div>
+            </Modal>
 
             {/* 顶部统计卡片区 */}
             <Row gutter={16} style={{ marginBottom: 24 }}>
