@@ -45,9 +45,12 @@ export const OKXManagement: React.FC = () => {
     const [instrumentsData, setInstrumentsData] = useState<any>(null);
     const [billsData, setBillsData] = useState<any>(null);
     const [selectedInstrument, setSelectedInstrument] = useState('BTC-USDT');
-    const [activeTab, setActiveTab] = useState('1');
+    const [activeTab, setActiveTab] = useState('7'); // 默认显示存储的账户余额
     const [assetBalances, setAssetBalances] = useState<any[]>([]);
     const [savingsBalances, setSavingsBalances] = useState<any[]>([]);
+    const [storedBalances, setStoredBalances] = useState<any[]>([]);
+    const [storedMarketData, setStoredMarketData] = useState<any[]>([]);
+    const [syncLogs, setSyncLogs] = useState<any[]>([]);
 
     // 获取配置信息
     const fetchConfig = async () => {
@@ -182,37 +185,112 @@ export const OKXManagement: React.FC = () => {
         }
     };
 
+    // 获取存储的账户余额
+    const fetchStoredBalances = async () => {
+        try {
+            const response = await okxAPI.getStoredBalances();
+            console.log('[OKX] 存储的账户余额：', response);
+            if (response.success) {
+                setStoredBalances(response.data || []);
+            }
+        } catch (error) {
+            console.error('获取存储的账户余额失败:', error);
+        }
+    };
+
+    // 获取存储的市场数据
+    const fetchStoredMarketData = async () => {
+        try {
+            const response = await okxAPI.getStoredMarketData();
+            console.log('[OKX] 存储的市场数据：', response);
+            if (response.success) {
+                setStoredMarketData(response.data || []);
+            }
+        } catch (error) {
+            console.error('获取存储的市场数据失败:', error);
+        }
+    };
+
+    // 获取同步日志
+    const fetchSyncLogs = async () => {
+        try {
+            const response = await okxAPI.getSyncLogs();
+            console.log('[OKX] 同步日志：', response);
+            if (response.success) {
+                setSyncLogs(response.data || []);
+            }
+        } catch (error) {
+            console.error('获取同步日志失败:', error);
+        }
+    };
+
+    // 手动触发数据同步
+    const handleManualSync = async () => {
+        setLoading(true);
+        try {
+            const response = await okxAPI.manualSync();
+            if (response.success) {
+                message.success('手动同步已触发！');
+                // 重新获取数据
+                fetchStoredBalances();
+                fetchStoredMarketData();
+                fetchSyncLogs();
+            } else {
+                message.error(response.message || '手动同步失败');
+            }
+        } catch (error) {
+            message.error('手动同步失败');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchConfig();
         testConnection();
+        // 自动获取存储的数据
+        fetchStoredBalances();
+        fetchStoredMarketData();
+        fetchSyncLogs();
     }, []);
 
     const renderConfigCard = () => (
         <Card title={<><SettingOutlined /> OKX API 配置</>} style={{ marginBottom: 16 }}>
             <Row gutter={16}>
-                <Col span={6}>
+                <Col span={4}>
                     <Statistic
                         title="API状态"
                         value={config?.api_configured ? "已配置" : "未配置"}
                         valueStyle={{ color: config?.api_configured ? '#3f8600' : '#cf1322' }}
                     />
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                     <Statistic
                         title="环境模式"
                         value={config?.sandbox_mode ? "沙盒" : "正式"}
                         valueStyle={{ color: config?.sandbox_mode ? '#fa8c16' : '#3f8600' }}
                     />
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                     <Statistic
                         title="API Key"
                         value={config?.api_key_prefix || "未配置"}
                     />
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
+                    <Statistic
+                        title="数据库状态"
+                        value={storedBalances.length > 0 ? "已有数据" : "无数据"}
+                        valueStyle={{ color: storedBalances.length > 0 ? '#3f8600' : '#cf1322' }}
+                        suffix={storedBalances.length > 0 ? `(${storedBalances.length}条)` : ''}
+                    />
+                </Col>
+                <Col span={8}>
                     <Button type="primary" onClick={testConnection} loading={loading} icon={<ReloadOutlined />}>
                         测试连接
+                    </Button>
+                    <Button style={{marginLeft: 8}} onClick={handleManualSync} loading={loading}>
+                        同步数据
                     </Button>
                 </Col>
             </Row>
@@ -385,6 +463,162 @@ export const OKXManagement: React.FC = () => {
         );
     };
 
+    const renderStoredBalancesTable = () => {
+        const columns = [
+            { title: '账户类型', dataIndex: 'account_type', key: 'account_type', render: (val: string) => <Tag color={val === 'trading' ? 'blue' : 'green'}>{val}</Tag> },
+            { title: '币种', dataIndex: 'ccy', key: 'ccy' },
+            {
+                title: '余额',
+                dataIndex: 'bal',
+                key: 'bal',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: '可用余额',
+                dataIndex: 'avail_bal',
+                key: 'avail_bal',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: '冻结余额',
+                dataIndex: 'frozen_bal',
+                key: 'frozen_bal',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            { 
+                title: '更新时间', 
+                dataIndex: 'created_at', 
+                key: 'created_at',
+                render: (val: string) => val ? new Date(val).toLocaleString() : '-'
+            },
+        ];
+
+        return (
+            <Table
+                columns={columns}
+                dataSource={storedBalances}
+                rowKey={(row) => `${row.account_type}-${row.ccy}`}
+                pagination={false}
+                size="small"
+            />
+        );
+    };
+
+    const renderStoredMarketDataTable = () => {
+        const columns = [
+            { title: '交易对', dataIndex: 'inst_id', key: 'inst_id' },
+            {
+                title: '最新价格',
+                dataIndex: 'last_price',
+                key: 'last_price',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(2);
+                }
+            },
+            {
+                title: '24h最高',
+                dataIndex: 'high_24h',
+                key: 'high_24h',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(2);
+                }
+            },
+            {
+                title: '24h最低',
+                dataIndex: 'low_24h',
+                key: 'low_24h',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(2);
+                }
+            },
+            {
+                title: '24h成交量',
+                dataIndex: 'vol_24h',
+                key: 'vol_24h',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(2);
+                }
+            },
+            { 
+                title: '数据时间', 
+                dataIndex: 'created_at', 
+                key: 'created_at',
+                render: (val: string) => val ? new Date(val).toLocaleString() : '-'
+            },
+        ];
+
+        return (
+            <Table
+                columns={columns}
+                dataSource={storedMarketData}
+                rowKey={(row) => row.inst_id}
+                pagination={false}
+                size="small"
+            />
+        );
+    };
+
+    const renderSyncLogsTable = () => {
+        const columns = [
+            { title: 'ID', dataIndex: 'id', key: 'id', width: 50 },
+            { 
+                title: '同步类型', 
+                dataIndex: 'sync_type', 
+                key: 'sync_type',
+                render: (val: string) => {
+                    const colorMap: any = {
+                        'balance': 'blue',
+                        'market_data': 'green',
+                        'manual': 'orange'
+                    };
+                    return <Tag color={colorMap[val] || 'default'}>{val}</Tag>;
+                }
+            },
+            { title: '账户类型', dataIndex: 'account_type', key: 'account_type' },
+            { 
+                title: '状态', 
+                dataIndex: 'status', 
+                key: 'status',
+                render: (val: string) => (
+                    <Tag color={val === 'success' ? 'success' : 'error'}>
+                        {val === 'success' ? '成功' : '失败'}
+                    </Tag>
+                )
+            },
+            { title: '消息', dataIndex: 'message', key: 'message' },
+            { title: '数据条数', dataIndex: 'data_count', key: 'data_count' },
+            { 
+                title: '同步时间', 
+                dataIndex: 'sync_time', 
+                key: 'sync_time',
+                render: (val: string) => val ? new Date(val).toLocaleString() : '-'
+            },
+        ];
+
+        return (
+            <Table
+                columns={columns}
+                dataSource={syncLogs}
+                rowKey={(row) => row.id}
+                pagination={{ pageSize: 10 }}
+                size="small"
+            />
+        );
+    };
+
     return (
         <div>
             {renderConfigCard()}
@@ -455,6 +689,54 @@ export const OKXManagement: React.FC = () => {
                             </Button>
                         </Space>
                         {savingsBalances.length > 0 && renderSavingsBalancesTable()}
+                    </TabPane>
+
+                    <TabPane tab="💾 存储的账户余额" key="7">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchStoredBalances} loading={loading} icon={<ReloadOutlined />}>
+                                刷新存储数据
+                            </Button>
+                            <Button onClick={handleManualSync} loading={loading}>
+                                手动同步数据
+                            </Button>
+                        </Space>
+                        {storedBalances.length > 0 ? renderStoredBalancesTable() : (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                                📊 暂无存储的账户余额数据
+                                <br />
+                                <small>请先运行数据同步或点击"手动同步数据"按钮</small>
+                            </div>
+                        )}
+                    </TabPane>
+
+                    <TabPane tab="📈 存储的市场数据" key="8">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchStoredMarketData} loading={loading} icon={<ReloadOutlined />}>
+                                刷新市场数据
+                            </Button>
+                        </Space>
+                        {storedMarketData.length > 0 ? renderStoredMarketDataTable() : (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                                📈 暂无存储的市场数据
+                                <br />
+                                <small>请先运行数据同步或点击"手动同步数据"按钮</small>
+                            </div>
+                        )}
+                    </TabPane>
+
+                    <TabPane tab="📝 同步日志" key="9">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchSyncLogs} loading={loading} icon={<ReloadOutlined />}>
+                                刷新日志
+                            </Button>
+                        </Space>
+                        {syncLogs.length > 0 ? renderSyncLogsTable() : (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                                📝 暂无同步日志
+                                <br />
+                                <small>请先运行数据同步</small>
+                            </div>
+                        )}
                     </TabPane>
                 </Tabs>
             </Card>

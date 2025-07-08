@@ -267,6 +267,23 @@ export const okxAPI = {
     // 获取储蓄账户余额
     getSavingsBalance: (params?: any): Promise<APIResponse> =>
         api.get('/funds/okx/savings-balance', { params }),
+
+    // 新增：获取存储的OKX数据（从数据库读取）
+    // 获取存储的账户余额
+    getStoredBalances: (): Promise<APIResponse> =>
+        api.get('/funds/okx/stored-balances'),
+
+    // 获取存储的市场数据
+    getStoredMarketData: (): Promise<APIResponse> =>
+        api.get('/funds/okx/stored-market-data'),
+
+    // 获取同步日志
+    getSyncLogs: (): Promise<APIResponse> =>
+        api.get('/funds/okx/sync-logs'),
+
+    // 手动触发数据同步
+    manualSync: (): Promise<APIResponse> =>
+        api.post('/funds/okx/manual-sync'),
 }
 
 // 汇率相关API
