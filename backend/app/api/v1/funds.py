@@ -20,6 +20,7 @@ from app.services.fund_service import FundOperationService, FundInfoService, Fun
 from app.services.fund_api_service import FundSyncService, FundAPIService
 from app.services.scheduler_service import scheduler_service
 from app.services.okx_api_service import OKXAPIService
+from app.services.okx_data_service import OKXDataService
 
 router = APIRouter()
 
@@ -1388,4 +1389,324 @@ def get_batch_latest_nav(
         )
     except Exception as e:
         print(f"[调试] 批量获取净值异常: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ==================== OKX数据管理API ====================
+
+@router.post("/okx/sync/all", response_model=BaseResponse)
+async def sync_all_okx_data(db: Session = Depends(get_db)):
+    """手动同步所有OKX数据"""
+    try:
+        okx_service = OKXDataService()
+        sync_results = await okx_service.sync_all_data(db)
+        
+        success_count = sum(1 for result in sync_results.values() if isinstance(result, bool) and result)
+        total_count = len([k for k in sync_results.keys() if k != 'errors'])
+        
+        if sync_results['errors']:
+            return BaseResponse(
+                success=False,
+                message=f"OKX数据同步部分成功，成功 {success_count}/{total_count} 项",
+                data=sync_results
+            )
+        else:
+            return BaseResponse(
+                success=True,
+                message=f"OKX数据同步成功，成功 {success_count}/{total_count} 项",
+                data=sync_results
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/okx/sync/balance", response_model=BaseResponse)
+async def sync_okx_balance(db: Session = Depends(get_db)):
+    """手动同步OKX账户余额"""
+    try:
+        okx_service = OKXDataService()
+        balance_data = await okx_service.api_service.get_account_balance()
+        
+        if balance_data:
+            success = okx_service.save_account_balance(db, balance_data)
+            if success:
+                return BaseResponse(success=True, message="OKX账户余额同步成功")
+            else:
+                return BaseResponse(success=False, message="OKX账户余额保存失败")
+        else:
+            return BaseResponse(success=False, message="获取OKX账户余额失败")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/okx/sync/positions", response_model=BaseResponse)
+async def sync_okx_positions(db: Session = Depends(get_db)):
+    """手动同步OKX持仓数据"""
+    try:
+        okx_service = OKXDataService()
+        position_data = await okx_service.api_service.get_account_positions()
+        
+        if position_data:
+            success = okx_service.save_positions(db, position_data)
+            if success:
+                return BaseResponse(success=True, message="OKX持仓数据同步成功")
+            else:
+                return BaseResponse(success=False, message="OKX持仓数据保存失败")
+        else:
+            return BaseResponse(success=False, message="获取OKX持仓数据失败")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/okx/sync/transactions", response_model=BaseResponse)
+async def sync_okx_transactions(
+    limit: int = Query(100, ge=1, le=100, description="同步交易记录数量"),
+    db: Session = Depends(get_db)
+):
+    """手动同步OKX交易记录"""
+    try:
+        okx_service = OKXDataService()
+        transaction_data = await okx_service.api_service.get_bills(limit=limit)
+        
+        if transaction_data:
+            success = okx_service.save_transactions(db, transaction_data)
+            if success:
+                return BaseResponse(success=True, message="OKX交易记录同步成功")
+            else:
+                return BaseResponse(success=False, message="OKX交易记录保存失败")
+        else:
+            return BaseResponse(success=False, message="获取OKX交易记录失败")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/okx/sync/market", response_model=BaseResponse)
+async def sync_okx_market_data(
+    inst_type: str = Query("SPOT", description="产品类型"),
+    db: Session = Depends(get_db)
+):
+    """手动同步OKX行情数据"""
+    try:
+        okx_service = OKXDataService()
+        market_data = await okx_service.api_service.get_all_tickers(inst_type)
+        
+        if market_data:
+            success = okx_service.save_market_data(db, market_data)
+            if success:
+                return BaseResponse(success=True, message="OKX行情数据同步成功")
+            else:
+                return BaseResponse(success=False, message="OKX行情数据保存失败")
+        else:
+            return BaseResponse(success=False, message="获取OKX行情数据失败")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/data/balance", response_model=BaseResponse)
+def get_okx_stored_balance(
+    currency: Optional[str] = Query(None, description="币种"),
+    db: Session = Depends(get_db)
+):
+    """获取存储的OKX账户余额数据"""
+    try:
+        okx_service = OKXDataService()
+        balances = okx_service.get_latest_balance(db, currency)
+        
+        balance_data = []
+        for balance in balances:
+            balance_data.append({
+                "currency": balance.currency,
+                "equity": float(balance.equity),
+                "available_balance": float(balance.available_balance),
+                "frozen_balance": float(balance.frozen_balance),
+                "position_value": float(balance.position_value),
+                "unrealized_pnl": float(balance.unrealized_pnl),
+                "interest": float(balance.interest),
+                "margin_required": float(balance.margin_required),
+                "borrowed": float(balance.borrowed),
+                "data_timestamp": balance.data_timestamp.isoformat(),
+                "updated_at": balance.updated_at.isoformat()
+            })
+        
+        return BaseResponse(
+            success=True,
+            message="获取OKX存储余额数据成功",
+            data={"balances": balance_data}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/data/positions", response_model=BaseResponse)
+def get_okx_stored_positions(
+    inst_id: Optional[str] = Query(None, description="产品ID"),
+    db: Session = Depends(get_db)
+):
+    """获取存储的OKX持仓数据"""
+    try:
+        okx_service = OKXDataService()
+        positions = okx_service.get_latest_positions(db, inst_id)
+        
+        position_data = []
+        for position in positions:
+            position_data.append({
+                "inst_id": position.inst_id,
+                "inst_type": position.inst_type,
+                "position_side": position.position_side,
+                "currency": position.currency,
+                "quantity": float(position.quantity),
+                "available_quantity": float(position.available_quantity),
+                "avg_price": float(position.avg_price),
+                "mark_price": float(position.mark_price),
+                "notional_value": float(position.notional_value),
+                "unrealized_pnl": float(position.unrealized_pnl),
+                "unrealized_pnl_ratio": float(position.unrealized_pnl_ratio),
+                "data_timestamp": position.data_timestamp.isoformat(),
+                "updated_at": position.updated_at.isoformat()
+            })
+        
+        return BaseResponse(
+            success=True,
+            message="获取OKX存储持仓数据成功",
+            data={"positions": position_data}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/data/transactions", response_model=BaseResponse)
+def get_okx_stored_transactions(
+    days: int = Query(7, ge=1, le=30, description="获取天数"),
+    currency: Optional[str] = Query(None, description="币种"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    db: Session = Depends(get_db)
+):
+    """获取存储的OKX交易记录"""
+    try:
+        okx_service = OKXDataService()
+        transactions = okx_service.get_recent_transactions(db, days, currency)
+        
+        # 分页处理
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_transactions = transactions[start_idx:end_idx]
+        
+        transaction_data = []
+        for transaction in paginated_transactions:
+            transaction_data.append({
+                "bill_id": transaction.bill_id,
+                "inst_id": transaction.inst_id,
+                "inst_type": transaction.inst_type,
+                "currency": transaction.currency,
+                "bill_type": transaction.bill_type,
+                "bill_sub_type": transaction.bill_sub_type,
+                "amount": float(transaction.amount),
+                "balance": float(transaction.balance),
+                "fee": float(transaction.fee),
+                "fill_price": float(transaction.fill_price) if transaction.fill_price else None,
+                "fill_quantity": float(transaction.fill_quantity) if transaction.fill_quantity else None,
+                "trade_id": transaction.trade_id,
+                "order_id": transaction.order_id,
+                "bill_time": transaction.bill_time.isoformat(),
+                "created_at": transaction.created_at.isoformat()
+            })
+        
+        return BaseResponse(
+            success=True,
+            message="获取OKX存储交易记录成功",
+            data={
+                "transactions": transaction_data,
+                "total": len(transactions),
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (len(transactions) + page_size - 1) // page_size
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/data/market", response_model=BaseResponse)
+def get_okx_stored_market_data(
+    inst_id: Optional[str] = Query(None, description="产品ID"),
+    db: Session = Depends(get_db)
+):
+    """获取存储的OKX行情数据"""
+    try:
+        okx_service = OKXDataService()
+        market_data = okx_service.get_latest_market_data(db, inst_id)
+        
+        market_list = []
+        for market in market_data:
+            market_list.append({
+                "inst_id": market.inst_id,
+                "inst_type": market.inst_type,
+                "last_price": float(market.last_price),
+                "best_bid": float(market.best_bid) if market.best_bid else None,
+                "best_ask": float(market.best_ask) if market.best_ask else None,
+                "open_24h": float(market.open_24h) if market.open_24h else None,
+                "high_24h": float(market.high_24h) if market.high_24h else None,
+                "low_24h": float(market.low_24h) if market.low_24h else None,
+                "volume_24h": float(market.volume_24h) if market.volume_24h else None,
+                "volume_currency_24h": float(market.volume_currency_24h) if market.volume_currency_24h else None,
+                "change_24h": float(market.change_24h) if market.change_24h else None,
+                "data_timestamp": market.data_timestamp.isoformat()
+            })
+        
+        return BaseResponse(
+            success=True,
+            message="获取OKX存储行情数据成功",
+            data={"market_data": market_list}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/okx/sync-logs", response_model=BaseResponse)
+def get_okx_sync_logs(
+    sync_type: Optional[str] = Query(None, description="同步类型"),
+    limit: int = Query(50, ge=1, le=100, description="返回记录数"),
+    db: Session = Depends(get_db)
+):
+    """获取OKX数据同步日志"""
+    try:
+        okx_service = OKXDataService()
+        logs = okx_service.get_sync_logs(db, sync_type, limit)
+        
+        log_data = []
+        for log in logs:
+            log_data.append({
+                "id": log.id,
+                "sync_type": log.sync_type,
+                "sync_status": log.sync_status,
+                "start_time": log.start_time.isoformat(),
+                "end_time": log.end_time.isoformat() if log.end_time else None,
+                "duration": log.duration,
+                "records_processed": log.records_processed,
+                "records_success": log.records_success,
+                "records_failed": log.records_failed,
+                "error_message": log.error_message,
+                "sync_params": log.sync_params
+            })
+        
+        return BaseResponse(
+            success=True,
+            message="获取OKX同步日志成功",
+            data={"logs": log_data}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/scheduler/okx-sync", response_model=BaseResponse)
+async def manual_sync_okx():
+    """手动执行OKX数据同步任务"""
+    try:
+        await scheduler_service._sync_okx_data()
+        return BaseResponse(
+            success=True,
+            message="手动OKX数据同步任务执行完成"
+        )
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) 

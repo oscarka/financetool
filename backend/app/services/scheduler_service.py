@@ -9,6 +9,7 @@ from app.utils.database import get_db
 from app.services.fund_service import FundOperationService, DCAService
 from app.services.fund_api_service import FundAPIService
 from app.services.wise_api_service import WiseAPIService
+from app.services.okx_data_service import OKXDataService
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,15 @@ class SchedulerService:
             CronTrigger(hour=16, minute=30),
             id='sync_wise_data',
             name='同步Wise数据',
+            replace_existing=True
+        )
+        
+        # OKX数据同步任务 - 每天16:45执行
+        self.scheduler.add_job(
+            self._sync_okx_data,
+            CronTrigger(hour=16, minute=45),
+            id='sync_okx_data',
+            name='同步OKX数据',
             replace_existing=True
         )
     
@@ -210,6 +220,38 @@ class SchedulerService:
             
         except Exception as e:
             logger.error(f"Wise数据同步任务执行失败: {e}")
+    
+    async def _sync_okx_data(self):
+        """同步OKX数据"""
+        logger.info("开始执行OKX数据同步任务")
+        try:
+            db = next(get_db())
+            
+            # 初始化OKX数据服务
+            okx_service = OKXDataService()
+            
+            # 执行数据同步
+            sync_results = await okx_service.sync_all_data(db)
+            
+            # 统计结果
+            success_count = sum(1 for result in sync_results.values() if isinstance(result, bool) and result)
+            total_count = len([k for k in sync_results.keys() if k != 'errors'])
+            
+            if sync_results['errors']:
+                logger.warning(f"OKX数据同步完成，成功 {success_count}/{total_count} 项，存在错误: {sync_results['errors']}")
+            else:
+                logger.info(f"OKX数据同步完成，成功 {success_count}/{total_count} 项")
+            
+            # 记录详细结果
+            for data_type, success in sync_results.items():
+                if data_type != 'errors' and isinstance(success, bool):
+                    status = "成功" if success else "失败"
+                    logger.info(f"OKX {data_type} 同步: {status}")
+            
+        except Exception as e:
+            logger.error(f"OKX数据同步任务执行失败: {e}")
+        finally:
+            db.close()
     
     async def start_async(self):
         """异步启动调度器"""
