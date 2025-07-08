@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime, date
 from decimal import Decimal
@@ -451,4 +451,154 @@ class WiseBalanceResponse(BaseResponse):
 
 
 class WiseBalanceListResponse(BaseResponse):
-    data: Optional[List[WiseBalance]] = None 
+    data: Optional[List[WiseBalance]] = None
+
+
+# IBKR相关模型
+class IBKRSyncRequest(BaseModel):
+    account_id: str = Field(..., min_length=1, max_length=50, description="IBKR账户ID")
+    timestamp: str = Field(..., description="数据时间戳 ISO 8601格式")
+    balances: dict = Field(..., description="账户余额信息")
+    positions: List[dict] = Field(default_factory=list, description="持仓信息列表")
+    
+    @field_validator('timestamp')
+    @classmethod
+    def validate_timestamp(cls, v):
+        try:
+            datetime.fromisoformat(v.replace('Z', '+00:00'))
+            return v
+        except ValueError:
+            raise ValueError('时间戳格式无效，请使用ISO 8601格式')
+    
+    @field_validator('balances')
+    @classmethod
+    def validate_balances(cls, v):
+        required_fields = ['total_cash', 'net_liquidation', 'buying_power', 'currency']
+        for field in required_fields:
+            if field not in v:
+                raise ValueError(f'余额信息缺少必需字段: {field}')
+        return v
+
+
+class IBKRSyncResponse(BaseModel):
+    status: str
+    message: str
+    received_at: str
+    records_updated: dict
+    sync_id: Optional[int] = None
+    errors: List[str] = Field(default_factory=list)
+
+
+class IBKRAccountBase(BaseModel):
+    account_id: str
+    account_name: str
+    account_type: str = "INDIVIDUAL"
+    base_currency: str = "USD"
+    status: str = "ACTIVE"
+
+
+class IBKRAccount(IBKRAccountBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class IBKRBalanceBase(BaseModel):
+    account_id: str
+    total_cash: Decimal
+    net_liquidation: Decimal
+    buying_power: Decimal
+    currency: str = "USD"
+    snapshot_date: date
+    snapshot_time: datetime
+    sync_source: str = "gcp_scheduler"
+
+
+class IBKRBalance(IBKRBalanceBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class IBKRPositionBase(BaseModel):
+    account_id: str
+    symbol: str
+    quantity: Decimal
+    market_value: Decimal
+    average_cost: Decimal
+    unrealized_pnl: Optional[Decimal] = None
+    realized_pnl: Optional[Decimal] = None
+    currency: str = "USD"
+    asset_class: str = "STK"
+    snapshot_date: date
+    snapshot_time: datetime
+    sync_source: str = "gcp_scheduler"
+
+
+class IBKRPosition(IBKRPositionBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class IBKRSyncLogBase(BaseModel):
+    account_id: Optional[str] = None
+    sync_type: str
+    status: str
+    request_data: Optional[str] = None
+    response_data: Optional[str] = None
+    error_message: Optional[str] = None
+    records_processed: int = 0
+    records_updated: int = 0
+    records_inserted: int = 0
+    source_ip: Optional[str] = None
+    user_agent: Optional[str] = None
+    sync_duration_ms: Optional[int] = None
+
+
+class IBKRSyncLog(IBKRSyncLogBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# IBKR响应模型
+class IBKRAccountResponse(BaseResponse):
+    data: Optional[IBKRAccount] = None
+
+
+class IBKRAccountListResponse(BaseResponse):
+    data: Optional[List[IBKRAccount]] = None
+
+
+class IBKRBalanceResponse(BaseResponse):
+    data: Optional[IBKRBalance] = None
+
+
+class IBKRBalanceListResponse(BaseResponse):
+    data: Optional[List[IBKRBalance]] = None
+
+
+class IBKRPositionResponse(BaseResponse):
+    data: Optional[IBKRPosition] = None
+
+
+class IBKRPositionListResponse(BaseResponse):
+    data: Optional[List[IBKRPosition]] = None
+
+
+class IBKRSyncLogResponse(BaseResponse):
+    data: Optional[IBKRSyncLog] = None
+
+
+class IBKRSyncLogListResponse(BaseResponse):
+    data: Optional[List[IBKRSyncLog]] = None 

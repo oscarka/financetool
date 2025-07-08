@@ -2,7 +2,6 @@ import time
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date
 from decimal import Decimal
-from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, func
 from loguru import logger
@@ -10,40 +9,7 @@ from loguru import logger
 from app.config import settings
 from app.utils.database import SessionLocal
 from app.models.database import IBKRAccount, IBKRBalance, IBKRPosition, IBKRSyncLog
-
-
-class IBKRSyncRequest(BaseModel):
-    """IBKR同步请求数据模型"""
-    account_id: str = Field(..., min_length=1, max_length=50, description="IBKR账户ID")
-    timestamp: str = Field(..., description="数据时间戳 ISO 8601格式")
-    balances: Dict[str, Any] = Field(..., description="账户余额信息")
-    positions: List[Dict[str, Any]] = Field(default_factory=list, description="持仓信息列表")
-    
-    @validator('timestamp')
-    def validate_timestamp(cls, v):
-        try:
-            datetime.fromisoformat(v.replace('Z', '+00:00'))
-            return v
-        except ValueError:
-            raise ValueError('时间戳格式无效，请使用ISO 8601格式')
-    
-    @validator('balances')
-    def validate_balances(cls, v):
-        required_fields = ['total_cash', 'net_liquidation', 'buying_power', 'currency']
-        for field in required_fields:
-            if field not in v:
-                raise ValueError(f'余额信息缺少必需字段: {field}')
-        return v
-
-
-class IBKRSyncResponse(BaseModel):
-    """IBKR同步响应数据模型"""
-    status: str
-    message: str
-    received_at: str
-    records_updated: Dict[str, int]
-    sync_id: Optional[int] = None
-    errors: List[str] = Field(default_factory=list)
+from app.models.schemas import IBKRSyncRequest, IBKRSyncResponse
 
 
 class IBKRAPIService:

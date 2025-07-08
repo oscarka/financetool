@@ -3,7 +3,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from loguru import logger
 
-from app.services.ibkr_api_service import IBKRAPIService, IBKRSyncRequest, IBKRSyncResponse
+from app.services.ibkr_api_service import IBKRAPIService
+from app.models.schemas import IBKRSyncRequest, IBKRSyncResponse
 
 router = APIRouter(prefix="/ibkr", tags=["IBKR API"])
 
