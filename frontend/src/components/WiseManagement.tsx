@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Tabs, Badge, Alert, Select, Row, Col, Statistic, Tag, Tooltip, DatePicker, message, Space, Divider, Modal } from 'antd';
-import { ReloadOutlined, BankOutlined, ClockCircleOutlined, DollarCircleOutlined, DatabaseOutlined, SyncOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { ReloadOutlined, BankOutlined, ClockCircleOutlined, DollarCircleOutlined, DatabaseOutlined, SyncOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import api from '../services/api';
 import { Line } from '@ant-design/charts';
 import dayjs from 'dayjs';
@@ -164,10 +164,10 @@ const WiseManagement: React.FC = () => {
         setSyncLoading(true);
         try {
             const response = await api.post('/wise/sync-transactions');
-            if (response.success) {
-                message.success('交易记录同步成功：' + response.message);
+            if (response.data.success) {
+                message.success('交易记录同步成功：' + response.data.message);
             } else {
-                message.error('交易记录同步失败：' + response.message);
+                message.error('交易记录同步失败：' + response.data.message);
             }
             await fetchDbStatus();
         } catch (err: any) {
