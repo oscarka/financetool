@@ -169,7 +169,8 @@ class WiseAPIService:
                 logger.error("[Wise] 配置无效，无法获取账户余额")
                 return []
             profiles = await self.get_profile()
-            logger.info(f"[Wise] 获取到profiles: {profiles}")
+            logger.info(f"[Wise] 获取到{len(profiles) if profiles else 0}个profile")
+            logger.debug(f"[Wise] profiles详情: {profiles}")
             if not profiles:
                 logger.warning("[Wise] profiles为空")
                 return []
@@ -182,7 +183,8 @@ class WiseAPIService:
                     continue
                 for types in types_list:
                     balances = await self.get_balances(profile_id, types=types)
-                    logger.info(f"[Wise] profile_id={profile_id} types={types} 获取到balances: {balances}")
+                    logger.info(f"[Wise] profile_id={profile_id} types={types} 获取到{len(balances) if balances else 0}个余额")
+                    logger.debug(f"[Wise] balances详情: {balances}")
                     if not balances:
                         continue
                     for balance in balances:
