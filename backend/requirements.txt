@@ -1,5 +1,5 @@
 aiohappyeyeballs==2.6.1 ; python_version >= "3.9" and python_version < "4.0"
-aiohttp==3.12.13 ; python_version >= "3.9" and python_version < "4.0"
+aiohttp>=3.8.0 ; python_version >= "3.9" and python_version < "4.0"
 aiosignal==1.4.0 ; python_version >= "3.9" and python_version < "4.0"
 akracer==0.0.13 ; python_version >= "3.9" and python_version < "4.0" and platform_system == "Linux"
 akshare==1.17.16 ; python_version >= "3.9" and python_version < "4.0"
@@ -81,3 +81,4 @@ websockets==15.0.1 ; python_version >= "3.9" and python_version < "4.0"
 win32-setctime==1.2.0 ; python_version >= "3.9" and python_version < "4.0" and sys_platform == "win32"
 xlrd==2.0.2 ; python_version >= "3.9" and python_version < "4.0"
 yarl==1.20.1 ; python_version >= "3.9" and python_version < "4.0"
+rich>=13.0.0
