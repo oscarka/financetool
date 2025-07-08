@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日志管理中心</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .filter-group input, .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .logs-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .logs-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logs-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .log-count {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .logs-content {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+
+        .log-entry:hover {
+            background-color: #f8f9fa;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .log-level {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .log-level.debug { background: #d1ecf1; color: #0c5460; }
+        .log-level.info { background: #d4edda; color: #155724; }
+        .log-level.warning { background: #fff3cd; color: #856404; }
+        .log-level.error { background: #f8d7da; color: #721c24; }
+        .log-level.critical { background: #f5c6cb; color: #721c24; }
+
+        .log-category {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .log-timestamp {
+            font-size: 12px;
+            color: #666;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        .log-message {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #333;
+            word-break: break-word;
+        }
+
+        .log-details {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            display: none;
+        }
+
+        .log-details.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+            background: #f8d7da;
+            margin: 20px;
+            border-radius: 6px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toggle-details {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: underline;
+        }
+
+        .toggle-details:hover {
+            color: #5a6fd8;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .log-meta {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 日志管理中心</h1>
+            <p>实时查看和分析应用日志，支持多种过滤和搜索功能</p>
+        </div>
+
+        <div class="stats" id="stats">
+            <!-- 统计信息将在这里显示 -->
+        </div>
+
+        <div class="filters">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label for="level">日志级别</label>
+                    <select id="level">
+                        <option value="">全部级别</option>
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="category">日志分类</label>
+                    <select id="category">
+                        <option value="">全部分类</option>
+                        <option value="api">API</option>
+                        <option value="database">数据库</option>
+                        <option value="scheduler">定时任务</option>
+                        <option value="external">外部调用</option>
+                        <option value="business">业务逻辑</option>
+                        <option value="error">错误</option>
+                        <option value="system">系统</option>
+                        <option value="security">安全</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="search">搜索关键词</label>
+                    <input type="text" id="search" placeholder="输入搜索关键词...">
+                </div>
+
+                <div class="filter-group">
+                    <label for="limit">显示数量</label>
+                    <select id="limit">
+                        <option value="50">50条</option>
+                        <option value="100" selected>100条</option>
+                        <option value="200">200条</option>
+                        <option value="500">500条</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="loadLogs()">🔄 刷新日志</button>
+                <button class="btn btn-secondary" onclick="clearFilters()">🧹 清除过滤</button>
+                <button class="btn btn-danger" onclick="cleanupLogs()">🗑️ 清理旧日志</button>
+                <button class="btn btn-primary" onclick="autoRefresh()">⏰ 自动刷新</button>
+            </div>
+        </div>
+
+        <div class="logs-container">
+            <div class="logs-header">
+                <div class="logs-title">📋 日志列表</div>
+                <div class="log-count" id="logCount">加载中...</div>
+            </div>
+            <div class="logs-content" id="logsContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    正在加载日志...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let currentPage = 1;
+        const API_BASE = '/api/v1';
+
+        // 加载统计信息
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/logs/stats`);
+                const stats = await response.json();
+                
+                const statsHtml = `
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.total_logs}</div>
+                        <div class="stat-label">总日志数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${stats.recent_errors.length}</div>
+                        <div class="stat-label">近期错误</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${Object.keys(stats.level_counts).length}</div>
+                        <div class="stat-label">日志级别</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${Object.keys(stats.category_counts).length}</div>
+                        <div class="stat-label">日志分类</div>
+                    </div>
+                `;
+                
+                document.getElementById('stats').innerHTML = statsHtml;
+            } catch (error) {
+                console.error('加载统计信息失败:', error);
+            }
+        }
+
+        // 加载日志
+        async function loadLogs() {
+            const level = document.getElementById('level').value;
+            const category = document.getElementById('category').value;
+            const search = document.getElementById('search').value;
+            const limit = document.getElementById('limit').value;
+
+            const params = new URLSearchParams();
+            if (level) params.append('level', level);
+            if (category) params.append('category', category);
+            if (search) params.append('search', search);
+            if (limit) params.append('limit', limit);
+
+            const logsContent = document.getElementById('logsContent');
+            logsContent.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    正在加载日志...
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE}/logs?${params}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const logs = await response.json();
+                
+                if (logs.length === 0) {
+                    logsContent.innerHTML = `
+                        <div class="loading">
+                            😔 没有找到匹配的日志
+                        </div>
+                    `;
+                    document.getElementById('logCount').textContent = '0条日志';
+                    return;
+                }
+
+                const logsHtml = logs.map((log, index) => `
+                    <div class="log-entry">
+                        <div class="log-meta">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span class="log-level ${log.level.toLowerCase()}">${log.level}</span>
+                                <span class="log-category">${log.category}</span>
+                                ${log.request_id ? `<span style="font-size: 12px; color: #666;">ID: ${log.request_id.substring(0, 8)}</span>` : ''}
+                            </div>
+                            <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
+                        </div>
+                        <div class="log-message">${escapeHtml(log.message)}</div>
+                        ${(log.extra_data || log.exception) ? `
+                            <button class="toggle-details" onclick="toggleDetails(${index})">
+                                查看详情
+                            </button>
+                            <div class="log-details" id="details-${index}">
+                                ${log.extra_data ? `<strong>额外信息:</strong><br><pre>${JSON.stringify(log.extra_data, null, 2)}</pre>` : ''}
+                                ${log.exception ? `<strong>异常信息:</strong><br><pre>${escapeHtml(log.exception)}</pre>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+
+                logsContent.innerHTML = logsHtml;
+                document.getElementById('logCount').textContent = `${logs.length}条日志`;
+
+            } catch (error) {
+                logsContent.innerHTML = `
+                    <div class="error">
+                        ❌ 加载日志失败: ${error.message}
+                    </div>
+                `;
+                document.getElementById('logCount').textContent = '加载失败';
+            }
+        }
+
+        // 切换详情显示
+        function toggleDetails(index) {
+            const details = document.getElementById(`details-${index}`);
+            details.classList.toggle('show');
+        }
+
+        // 格式化时间戳
+        function formatTimestamp(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            } catch (error) {
+                return timestamp;
+            }
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 清除过滤器
+        function clearFilters() {
+            document.getElementById('level').value = '';
+            document.getElementById('category').value = '';
+            document.getElementById('search').value = '';
+            document.getElementById('limit').value = '100';
+            loadLogs();
+        }
+
+        // 清理旧日志
+        async function cleanupLogs() {
+            if (!confirm('确定要清理7天前的日志文件吗？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/logs/cleanup`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                alert(result.message);
+                loadLogs();
+                loadStats();
+            } catch (error) {
+                alert('清理日志失败: ' + error.message);
+            }
+        }
+
+        // 自动刷新
+        function autoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                event.target.textContent = '⏰ 自动刷新';
+                event.target.classList.remove('btn-danger');
+                event.target.classList.add('btn-primary');
+            } else {
+                autoRefreshInterval = setInterval(() => {
+                    loadLogs();
+                    loadStats();
+                }, 5000);
+                event.target.textContent = '⏹️ 停止刷新';
+                event.target.classList.remove('btn-primary');
+                event.target.classList.add('btn-danger');
+            }
+        }
+
+        // 回车搜索
+        document.getElementById('search').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadLogs();
+            }
+        });
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadLogs();
+        });
+    </script>
+</body>
+</html>
