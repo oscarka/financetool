@@ -15,6 +15,7 @@ import { OKXManagementPage } from './pages/OKXManagement'
 import ExchangeRates from './pages/ExchangeRates'
 import WiseManagementPage from './pages/WiseManagement'
 import PayPalManagementPage from './pages/PayPalManagement'
+import IBKRManagementPage from './pages/IBKRManagement'
 import React from 'react'
 
 function App() {
@@ -114,6 +115,7 @@ function App() {
                         <Route path="/okx" element={<OKXManagementPage />} />
                         <Route path="/wise" element={<WiseManagementPage />} />
                         <Route path="/paypal" element={<PayPalManagementPage />} />
+                        <Route path="/ibkr" element={<IBKRManagementPage />} />
                     </Routes>
                 </LayoutComponent>
             </div>

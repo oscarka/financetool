@@ -296,4 +296,75 @@ export const exchangeRateAPI = {
         api.get(`/exchange-rates/convert?amount=${amount}&from_currency=${fromCurrency}&to_currency=${toCurrency}`),
 }
 
+// IBKR相关API
+export const ibkrAPI = {
+    // 获取IBKR配置信息
+    getConfig: (): Promise<APIResponse> =>
+        api.get('/ibkr/config'),
+
+    // 测试IBKR连接
+    testConnection: (): Promise<APIResponse> =>
+        api.get('/ibkr/test'),
+
+    // 获取IBKR账户信息
+    getAccount: (accountId: string): Promise<APIResponse> =>
+        api.get(`/ibkr/accounts/${accountId}`),
+
+    // 获取IBKR账户余额
+    getBalances: (accountId?: string): Promise<APIResponse> => {
+        const url = accountId ? `/ibkr/balances?account_id=${accountId}` : '/ibkr/balances';
+        return api.get(url);
+    },
+
+    // 获取IBKR持仓信息
+    getPositions: (accountId?: string): Promise<APIResponse> => {
+        const url = accountId ? `/ibkr/positions?account_id=${accountId}` : '/ibkr/positions';
+        return api.get(url);
+    },
+
+    // 获取IBKR同步日志
+    getLogs: (params?: {
+        account_id?: string;
+        limit?: number;
+        status?: string;
+    }): Promise<APIResponse> =>
+        api.get('/ibkr/logs', { params }),
+
+    // 获取IBKR汇总信息
+    getSummary: (): Promise<APIResponse> =>
+        api.get('/ibkr/summary'),
+
+    // 获取IBKR健康检查
+    getHealth: (): Promise<APIResponse> =>
+        api.get('/ibkr/health'),
+
+    // 获取最近请求记录（调试用）
+    getRecentRequests: (limit: number = 20): Promise<APIResponse> =>
+        api.get(`/ibkr/debug/recent-requests?limit=${limit}`),
+
+    // 手动触发数据同步（测试用）
+    syncData: (data: {
+        account_id: string;
+        timestamp: string;
+        balances: {
+            total_cash: number;
+            net_liquidation: number;
+            buying_power: number;
+            currency: string;
+        };
+        positions: Array<{
+            symbol: string;
+            quantity: number;
+            market_value: number;
+            average_cost: number;
+            currency: string;
+        }>;
+    }): Promise<APIResponse> =>
+        api.post('/ibkr/sync', data, {
+            headers: {
+                'X-API-Key': (import.meta as any).env?.VITE_IBKR_API_KEY || 'test_key'
+            }
+        }),
+}
+
 export default api 

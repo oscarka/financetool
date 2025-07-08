@@ -11,7 +11,8 @@ import {
     GlobalOutlined,
     BankOutlined,
     PayCircleOutlined,
-    MenuOutlined
+    MenuOutlined,
+    StockOutlined
 } from '@ant-design/icons'
 
 const { Header, Content } = AntLayout
@@ -30,6 +31,7 @@ const navigation = [
     { name: 'OKX', href: '/okx', icon: SettingOutlined },
     { name: 'Wise', href: '/wise', icon: BankOutlined },
     { name: 'PayPal', href: '/paypal', icon: PayCircleOutlined },
+    { name: 'IBKR', href: '/ibkr', icon: StockOutlined },
 ]
 
 const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
