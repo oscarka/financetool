@@ -451,4 +451,310 @@ class WiseBalanceResponse(BaseResponse):
 
 
 class WiseBalanceListResponse(BaseResponse):
-    data: Optional[List[WiseBalance]] = None 
+    data: Optional[List[WiseBalance]] = None
+
+
+# ============ 保险相关模型 ============
+
+# 保险产品相关模型
+class InsuranceProductBase(BaseModel):
+    product_code: str = Field(..., description="产品代码")
+    product_name: str = Field(..., description="产品名称")
+    insurance_company: str = Field(..., description="保险公司")
+    product_type: str = Field(..., description="产品类型")
+    currency: str = Field(..., description="币种")
+    min_premium: Optional[Decimal] = None
+    max_premium: Optional[Decimal] = None
+    payment_frequency: Optional[str] = None
+    initial_charge_rate: Optional[Decimal] = None
+    management_fee_rate: Optional[Decimal] = None
+    surrender_charge_rate: Optional[Decimal] = None
+    guaranteed_rate: Optional[Decimal] = None
+    current_rate: Optional[Decimal] = None
+    rate_type: Optional[str] = None
+
+
+class InsuranceProductCreate(InsuranceProductBase):
+    pass
+
+
+class InsuranceProductUpdate(BaseModel):
+    product_name: Optional[str] = None
+    current_rate: Optional[Decimal] = None
+    management_fee_rate: Optional[Decimal] = None
+    guaranteed_rate: Optional[Decimal] = None
+
+
+class InsuranceProduct(InsuranceProductBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# 保险保单相关模型
+class InsurancePolicyBase(BaseModel):
+    policy_number: str = Field(..., description="保单号")
+    product_code: str = Field(..., description="产品代码")
+    product_name: str = Field(..., description="产品名称")
+    insurance_company: str = Field(..., description="保险公司")
+    policy_holder: str = Field(..., description="投保人")
+    insured_person: str = Field(..., description="被保人")
+    beneficiary: Optional[str] = None
+    policy_start_date: date = Field(..., description="保单生效日期")
+    policy_end_date: Optional[date] = None
+    payment_start_date: date = Field(..., description="缴费开始日期")
+    payment_end_date: Optional[date] = None
+    sum_insured: Decimal = Field(..., description="保险金额")
+    annual_premium: Decimal = Field(..., description="年保费")
+    payment_frequency: str = Field(..., description="缴费频率")
+    currency: str = Field(..., description="币种")
+
+
+class InsurancePolicyCreate(InsurancePolicyBase):
+    current_cash_value: Optional[Decimal] = Decimal("0")
+    guaranteed_cash_value: Optional[Decimal] = Decimal("0")
+    account_value: Optional[Decimal] = Decimal("0")
+
+
+class InsurancePolicyUpdate(BaseModel):
+    policy_holder: Optional[str] = None
+    insured_person: Optional[str] = None
+    beneficiary: Optional[str] = None
+    policy_end_date: Optional[date] = None
+    payment_end_date: Optional[date] = None
+    annual_premium: Optional[Decimal] = None
+    status: Optional[str] = None
+    current_cash_value: Optional[Decimal] = None
+    guaranteed_cash_value: Optional[Decimal] = None
+    account_value: Optional[Decimal] = None
+
+
+class PolicyValueUpdate(BaseModel):
+    current_cash_value: Optional[Decimal] = None
+    guaranteed_cash_value: Optional[Decimal] = None
+    account_value: Optional[Decimal] = None
+    valuation_date: date = Field(..., description="估值日期")
+    notes: Optional[str] = None
+
+
+class InsurancePolicy(InsurancePolicyBase):
+    id: int
+    status: str = "active"
+    current_cash_value: Decimal = Decimal("0")
+    guaranteed_cash_value: Decimal = Decimal("0")
+    account_value: Decimal = Decimal("0")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# 保险操作相关模型
+class InsuranceOperationBase(BaseModel):
+    policy_id: int
+    operation_date: datetime
+    operation_type: str = Field(..., description="操作类型")
+    amount: Decimal = Field(..., description="金额")
+    currency: str = Field(..., description="币种")
+    exchange_rate: Optional[Decimal] = None
+    amount_cny: Optional[Decimal] = None
+    description: Optional[str] = None
+    notes: Optional[str] = None
+    reference_number: Optional[str] = None
+
+
+class InsuranceOperationCreate(InsuranceOperationBase):
+    cash_value_before: Optional[Decimal] = None
+    cash_value_after: Optional[Decimal] = None
+    account_value_before: Optional[Decimal] = None
+    account_value_after: Optional[Decimal] = None
+    initial_charge: Optional[Decimal] = Decimal("0")
+    management_fee: Optional[Decimal] = Decimal("0")
+    insurance_cost: Optional[Decimal] = Decimal("0")
+
+
+class PremiumPaymentCreate(BaseModel):
+    payment_date: datetime
+    amount: Decimal
+    payment_method: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class TopUpCreate(BaseModel):
+    topup_date: datetime
+    amount: Decimal
+    notes: Optional[str] = None
+
+
+class WithdrawalCreate(BaseModel):
+    withdrawal_date: datetime
+    amount: Decimal
+    withdrawal_reason: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class InsuranceOperation(InsuranceOperationBase):
+    id: int
+    policy_number: str
+    cash_value_before: Optional[Decimal] = None
+    cash_value_after: Optional[Decimal] = None
+    account_value_before: Optional[Decimal] = None
+    account_value_after: Optional[Decimal] = None
+    initial_charge: Decimal = Decimal("0")
+    management_fee: Decimal = Decimal("0")
+    insurance_cost: Decimal = Decimal("0")
+    status: str = "confirmed"
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# 保险收益相关模型
+class InsuranceReturnBase(BaseModel):
+    policy_id: int
+    return_date: date
+    return_type: str = Field(..., description="收益类型")
+    return_amount: Decimal = Field(..., description="收益金额")
+    return_rate: Optional[Decimal] = None
+    base_amount: Optional[Decimal] = None
+    currency: str = Field(..., description="币种")
+    distribution_method: Optional[str] = None
+    description: Optional[str] = None
+
+
+class InsuranceReturnCreate(InsuranceReturnBase):
+    cash_value_change: Optional[Decimal] = Decimal("0")
+    account_value_change: Optional[Decimal] = Decimal("0")
+    source: str = "manual"
+
+
+class DividendProcessCreate(BaseModel):
+    dividend_date: date
+    dividend_rate: Decimal
+    dividend_year: int
+    distribution_method: str = "reinvest"  # reinvest, cash, premium_offset
+    notes: Optional[str] = None
+
+
+class InsuranceReturn(InsuranceReturnBase):
+    id: int
+    policy_number: str
+    cash_value_change: Decimal = Decimal("0")
+    account_value_change: Decimal = Decimal("0")
+    source: str = "manual"
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# 保险分红历史相关模型
+class InsuranceDividendHistoryBase(BaseModel):
+    product_code: str
+    policy_year: int
+    dividend_year: int
+    dividend_rate: Optional[Decimal] = None
+    dividend_amount_per_1000: Optional[Decimal] = None
+    bonus_rate: Optional[Decimal] = None
+    announcement_date: Optional[date] = None
+    distribution_date: Optional[date] = None
+    description: Optional[str] = None
+
+
+class InsuranceDividendHistoryCreate(InsuranceDividendHistoryBase):
+    source: str = "company_announcement"
+
+
+class InsuranceDividendHistory(InsuranceDividendHistoryBase):
+    id: int
+    source: str = "company_announcement"
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# 保险统计相关模型
+class InsuranceStatistics(BaseModel):
+    total_policies: int
+    total_invested: Decimal
+    total_current_value: Decimal
+    total_profit: Decimal
+    total_profit_rate: Decimal
+    universal_life_count: int
+    whole_life_count: int
+    endowment_count: int
+
+
+class PolicyPerformance(BaseModel):
+    policy_id: int
+    policy_number: str
+    total_premium_paid: Decimal
+    current_value: Decimal
+    total_profit: Decimal
+    profit_rate: Decimal
+    irr: Optional[Decimal] = None  # 内部收益率
+    years_held: Decimal
+
+
+# 响应模型
+class InsuranceProductResponse(BaseResponse):
+    data: Optional[InsuranceProduct] = None
+
+
+class InsuranceProductListResponse(BaseResponse):
+    data: Optional[List[InsuranceProduct]] = None
+    total: int = 0
+    page: int = 1
+    page_size: int = 20
+
+
+class InsurancePolicyResponse(BaseResponse):
+    data: Optional[InsurancePolicy] = None
+
+
+class InsurancePolicyListResponse(BaseResponse):
+    data: Optional[List[InsurancePolicy]] = None
+    total: int = 0
+    page: int = 1
+    page_size: int = 20
+
+
+class InsuranceOperationResponse(BaseResponse):
+    data: Optional[InsuranceOperation] = None
+
+
+class InsuranceOperationListResponse(BaseResponse):
+    data: Optional[List[InsuranceOperation]] = None
+    total: int = 0
+    page: int = 1
+    page_size: int = 20
+
+
+class InsuranceReturnResponse(BaseResponse):
+    data: Optional[InsuranceReturn] = None
+
+
+class InsuranceReturnListResponse(BaseResponse):
+    data: Optional[List[InsuranceReturn]] = None
+    total: int = 0
+    page: int = 1
+    page_size: int = 20
+
+
+class InsuranceStatisticsResponse(BaseResponse):
+    data: Optional[InsuranceStatistics] = None
+
+
+class PolicyPerformanceResponse(BaseResponse):
+    data: Optional[PolicyPerformance] = None
+
+
+class ReturnsAnalysisResponse(BaseResponse):
+    data: Optional[dict] = None 

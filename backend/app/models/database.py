@@ -276,4 +276,189 @@ Index('idx_exchange_rates_date', ExchangeRate.rate_date)
 Index('idx_exchange_rates_currency', ExchangeRate.from_currency, ExchangeRate.to_currency)
 
 Index('idx_fund_dividend_code', FundDividend.fund_code)
-Index('idx_fund_dividend_date', FundDividend.dividend_date) 
+Index('idx_fund_dividend_date', FundDividend.dividend_date)
+
+
+class InsuranceProduct(Base):
+    """保险产品信息表"""
+    __tablename__ = "insurance_products"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    product_code = Column(String(50), unique=True, nullable=False, index=True)
+    product_name = Column(String(200), nullable=False)
+    insurance_company = Column(String(100), nullable=False)
+    product_type = Column(String(50), nullable=False)  # universal(万能险), whole_life(终身寿险), endowment(养老险)
+    currency = Column(String(10), nullable=False)
+    
+    # 产品特性
+    min_premium = Column(DECIMAL(15, 4))  # 最低保费
+    max_premium = Column(DECIMAL(15, 4))  # 最高保费
+    payment_frequency = Column(String(20))  # 缴费频率: monthly, quarterly, annually, single
+    
+    # 费用结构
+    initial_charge_rate = Column(DECIMAL(5, 4))  # 初始费用率
+    management_fee_rate = Column(DECIMAL(5, 4))  # 管理费率
+    surrender_charge_rate = Column(DECIMAL(5, 4))  # 退保费用率
+    
+    # 收益相关
+    guaranteed_rate = Column(DECIMAL(5, 4))  # 保证利率
+    current_rate = Column(DECIMAL(5, 4))  # 当前结算利率
+    rate_type = Column(String(20))  # 结算类型: monthly(月结), annually(年结)
+    
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class InsurancePolicy(Base):
+    """保险保单表"""
+    __tablename__ = "insurance_policies"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    policy_number = Column(String(100), unique=True, nullable=False, index=True)
+    product_code = Column(String(50), nullable=False, index=True)
+    product_name = Column(String(200), nullable=False)
+    insurance_company = Column(String(100), nullable=False)
+    
+    # 保单基本信息
+    policy_holder = Column(String(100), nullable=False)  # 投保人
+    insured_person = Column(String(100), nullable=False)  # 被保人
+    beneficiary = Column(String(200))  # 受益人
+    
+    # 保单时间
+    policy_start_date = Column(Date, nullable=False)
+    policy_end_date = Column(Date)
+    payment_start_date = Column(Date, nullable=False)
+    payment_end_date = Column(Date)
+    
+    # 保单金额
+    sum_insured = Column(DECIMAL(15, 4), nullable=False)  # 保险金额
+    annual_premium = Column(DECIMAL(15, 4), nullable=False)  # 年保费
+    payment_frequency = Column(String(20), nullable=False)  # 缴费频率
+    currency = Column(String(10), nullable=False)
+    
+    # 保单状态
+    status = Column(String(20), default="active")  # active, suspended, surrendered, matured
+    
+    # 当前价值
+    current_cash_value = Column(DECIMAL(15, 4), default=0)  # 当前现金价值
+    guaranteed_cash_value = Column(DECIMAL(15, 4), default=0)  # 保证现金价值
+    account_value = Column(DECIMAL(15, 4), default=0)  # 账户价值（万能险）
+    
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class InsuranceOperation(Base):
+    """保险操作记录表"""
+    __tablename__ = "insurance_operations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    policy_id = Column(Integer, nullable=False, index=True)
+    policy_number = Column(String(100), nullable=False, index=True)
+    
+    operation_date = Column(DateTime, nullable=False, index=True)
+    operation_type = Column(String(50), nullable=False)  # premium_payment, top_up, partial_withdrawal, dividend_received, interest_credited, fee_charged
+    
+    # 金额信息
+    amount = Column(DECIMAL(15, 4), nullable=False)
+    currency = Column(String(10), nullable=False)
+    exchange_rate = Column(DECIMAL(15, 6))  # 汇率（如有）
+    amount_cny = Column(DECIMAL(15, 4))  # 人民币金额
+    
+    # 详细信息
+    description = Column(Text)
+    notes = Column(Text)
+    reference_number = Column(String(100))  # 参考号码
+    
+    # 影响的价值
+    cash_value_before = Column(DECIMAL(15, 4))  # 操作前现金价值
+    cash_value_after = Column(DECIMAL(15, 4))  # 操作后现金价值
+    account_value_before = Column(DECIMAL(15, 4))  # 操作前账户价值
+    account_value_after = Column(DECIMAL(15, 4))  # 操作后账户价值
+    
+    # 费用明细
+    initial_charge = Column(DECIMAL(15, 4), default=0)  # 初始费用
+    management_fee = Column(DECIMAL(15, 4), default=0)  # 管理费
+    insurance_cost = Column(DECIMAL(15, 4), default=0)  # 保险成本
+    
+    status = Column(String(20), default="confirmed")  # pending, confirmed, cancelled
+    
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class InsuranceReturn(Base):
+    """保险收益记录表"""
+    __tablename__ = "insurance_returns"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    policy_id = Column(Integer, nullable=False, index=True)
+    policy_number = Column(String(100), nullable=False, index=True)
+    
+    return_date = Column(Date, nullable=False, index=True)
+    return_type = Column(String(50), nullable=False)  # interest(利息), dividend(分红), bonus(特别红利)
+    
+    # 收益信息
+    return_amount = Column(DECIMAL(15, 4), nullable=False)
+    return_rate = Column(DECIMAL(8, 6))  # 收益率
+    base_amount = Column(DECIMAL(15, 4))  # 计息基数
+    currency = Column(String(10), nullable=False)
+    
+    # 处理方式
+    distribution_method = Column(String(50))  # reinvest(再投资), cash(现金), premium_offset(抵扣保费)
+    
+    # 价值变化
+    cash_value_change = Column(DECIMAL(15, 4), default=0)
+    account_value_change = Column(DECIMAL(15, 4), default=0)
+    
+    description = Column(Text)
+    source = Column(String(50), default="manual")  # manual, api, calculated
+    
+    created_at = Column(DateTime, default=func.now())
+
+
+class InsuranceDividendHistory(Base):
+    """保险分红历史表"""
+    __tablename__ = "insurance_dividend_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    product_code = Column(String(50), nullable=False, index=True)
+    policy_year = Column(Integer, nullable=False)  # 保单年度
+    dividend_year = Column(Integer, nullable=False, index=True)  # 分红年度
+    
+    # 分红信息
+    dividend_rate = Column(DECIMAL(8, 6))  # 分红率
+    dividend_amount_per_1000 = Column(DECIMAL(10, 4))  # 每1000元保额分红
+    bonus_rate = Column(DECIMAL(8, 6))  # 特别红利率
+    
+    announcement_date = Column(Date)  # 公布日期
+    distribution_date = Column(Date)  # 派发日期
+    
+    description = Column(Text)
+    source = Column(String(50), default="company_announcement")
+    
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('product_code', 'policy_year', 'dividend_year', name='uq_dividend_history'),
+    )
+
+
+# 保险相关索引
+Index('idx_insurance_product_company', InsuranceProduct.insurance_company)
+Index('idx_insurance_product_type', InsuranceProduct.product_type)
+
+Index('idx_insurance_policy_company', InsurancePolicy.insurance_company)
+Index('idx_insurance_policy_status', InsurancePolicy.status)
+Index('idx_insurance_policy_start_date', InsurancePolicy.policy_start_date)
+
+Index('idx_insurance_operation_date', InsuranceOperation.operation_date)
+Index('idx_insurance_operation_type', InsuranceOperation.operation_type)
+Index('idx_insurance_operation_policy', InsuranceOperation.policy_id)
+
+Index('idx_insurance_return_date', InsuranceReturn.return_date)
+Index('idx_insurance_return_type', InsuranceReturn.return_type)
+Index('idx_insurance_return_policy', InsuranceReturn.policy_id)
+
+Index('idx_insurance_dividend_product', InsuranceDividendHistory.product_code)
+Index('idx_insurance_dividend_year', InsuranceDividendHistory.dividend_year) 
