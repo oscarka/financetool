@@ -4,6 +4,7 @@ import os
 class ProdConfig(BaseConfig):
     app_env: str = "prod"
     debug: bool = False
+    # 生产环境始终使用主数据库
     database_url: str = "sqlite:///./data/personalfinance.db"
     cors_origins: str = '["https://yourdomain.com"]'
     log_level: str = "INFO"

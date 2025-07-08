@@ -4,10 +4,12 @@ import os
 class TestConfig(BaseConfig):
     app_env: str = "test"
     debug: bool = True
-    database_url: str = "sqlite:///./data/personalfinance.db"
+    # 使用环境变量来区分不同分支的数据库
+    branch_name = os.getenv("BRANCH_NAME", "main")
+    database_url: str = f"sqlite:///./data/personalfinance_{branch_name}.db"
     cors_origins: str = '["http://localhost:3000", "http://localhost:5173"]'
     log_level: str = "DEBUG"
-    log_file: str = "./logs/app_test.log"
+    log_file: str = f"./logs/app_test_{branch_name}.log"
     fund_api_timeout: int = 5
     fund_api_retry_times: int = 2
     
