@@ -359,14 +359,23 @@
                     <label for="category">日志分类</label>
                     <select id="category">
                         <option value="">全部分类</option>
-                        <option value="api">API</option>
-                        <option value="database">数据库</option>
-                        <option value="scheduler">定时任务</option>
-                        <option value="external">外部调用</option>
-                        <option value="business">业务逻辑</option>
-                        <option value="error">错误</option>
-                        <option value="system">系统</option>
-                        <option value="security">安全</option>
+                        <optgroup label="基础分类">
+                            <option value="api">🌐 API接口</option>
+                            <option value="database">🗄️ 数据库</option>
+                            <option value="scheduler">⏰ 定时任务</option>
+                            <option value="business">💼 业务逻辑</option>
+                            <option value="error">❌ 错误日志</option>
+                            <option value="system">🖥️ 系统运行</option>
+                            <option value="security">🔒 安全监控</option>
+                        </optgroup>
+                        <optgroup label="外部服务">
+                            <option value="fund_api">📈 基金API</option>
+                            <option value="okx_api">₿ OKX交易所</option>
+                            <option value="wise_api">💳 Wise金融</option>
+                            <option value="paypal_api">💰 PayPal支付</option>
+                            <option value="exchange_api">💱 汇率服务</option>
+                            <option value="external_other">🔗 其他外部</option>
+                        </optgroup>
                     </select>
                 </div>
 

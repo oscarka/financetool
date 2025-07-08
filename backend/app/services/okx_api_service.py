@@ -5,7 +5,7 @@ import base64
 import hashlib
 from typing import Optional, Dict, Any, List
 from app.config import settings
-from loguru import logger
+from app.utils.logger import log_okx_api
 
 class OKXAPIService:
     """OKX API集成服务"""
@@ -25,12 +25,12 @@ class OKXAPIService:
         self.base_url = 'https://www.okx.com'
         
         # 打印调试信息
-        logger.info(f"OKX API初始化: api_key={self.api_key[:10] if self.api_key else 'None'}..., sandbox={self.sandbox}")
+        log_okx_api(f"OKX API初始化: api_key={self.api_key[:10] if self.api_key else 'None'}..., sandbox={self.sandbox}", level="INFO")
 
     def _validate_config(self) -> bool:
         """验证API配置是否完整"""
         if not all([self.api_key, self.secret_key, self.passphrase]):
-            logger.error("OKX API配置不完整，请检查环境变量")
+            log_okx_api("OKX API配置不完整，请检查环境变量", level="ERROR")
             return False
         return True
 

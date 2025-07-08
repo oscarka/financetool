@@ -9,14 +9,22 @@ from enum import Enum
 
 class LogCategory(str, Enum):
     """日志分类"""
+    # 基础分类
     API = "api"          # API请求相关
     DATABASE = "database" # 数据库操作
     SCHEDULER = "scheduler" # 定时任务
-    EXTERNAL = "external"  # 外部API调用
     BUSINESS = "business"  # 业务逻辑
     ERROR = "error"       # 错误日志
     SYSTEM = "system"     # 系统运行
     SECURITY = "security" # 安全相关
+    
+    # 外部服务分类
+    FUND_API = "fund_api"     # 基金API调用
+    OKX_API = "okx_api"       # OKX加密货币API
+    WISE_API = "wise_api"     # Wise金融API
+    PAYPAL_API = "paypal_api" # PayPal支付API
+    EXCHANGE_API = "exchange_api" # 汇率API
+    EXTERNAL_OTHER = "external_other" # 其他外部API
 
 class StructuredFormatter(logging.Formatter):
     """结构化日志格式化器"""
@@ -156,9 +164,29 @@ def log_scheduler(message: str, level: str = "INFO", **kwargs):
     """记录定时任务相关日志"""
     app_logger.log(LogCategory.SCHEDULER, level, message, **kwargs)
 
-def log_external(message: str, level: str = "INFO", **kwargs):
-    """记录外部API调用相关日志"""
-    app_logger.log(LogCategory.EXTERNAL, level, message, **kwargs)
+def log_fund_api(message: str, level: str = "INFO", **kwargs):
+    """记录基金API调用相关日志"""
+    app_logger.log(LogCategory.FUND_API, level, message, **kwargs)
+
+def log_okx_api(message: str, level: str = "INFO", **kwargs):
+    """记录OKX API调用相关日志"""
+    app_logger.log(LogCategory.OKX_API, level, message, **kwargs)
+
+def log_wise_api(message: str, level: str = "INFO", **kwargs):
+    """记录Wise API调用相关日志"""
+    app_logger.log(LogCategory.WISE_API, level, message, **kwargs)
+
+def log_paypal_api(message: str, level: str = "INFO", **kwargs):
+    """记录PayPal API调用相关日志"""
+    app_logger.log(LogCategory.PAYPAL_API, level, message, **kwargs)
+
+def log_exchange_api(message: str, level: str = "INFO", **kwargs):
+    """记录汇率API调用相关日志"""
+    app_logger.log(LogCategory.EXCHANGE_API, level, message, **kwargs)
+
+def log_external_other(message: str, level: str = "INFO", **kwargs):
+    """记录其他外部API调用相关日志"""
+    app_logger.log(LogCategory.EXTERNAL_OTHER, level, message, **kwargs)
 
 def log_business(message: str, level: str = "INFO", **kwargs):
     """记录业务逻辑相关日志"""
