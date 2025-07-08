@@ -266,6 +266,7 @@ class OKXAccountBalance(Base):
     __tablename__ = "okx_account_balances"
     
     id = Column(Integer, primary_key=True, index=True)
+    account_type = Column(String(20), nullable=False, index=True)  # 账户类型：funding/trading/margin/futures/earn等
     currency = Column(String(20), nullable=False, index=True)  # 币种
     equity = Column(DECIMAL(20, 8), nullable=False, default=0)  # 币种权益
     available_balance = Column(DECIMAL(20, 8), nullable=False, default=0)  # 可用余额
@@ -276,14 +277,23 @@ class OKXAccountBalance(Base):
     margin_required = Column(DECIMAL(20, 8), nullable=False, default=0)  # 保证金要求
     borrowed = Column(DECIMAL(20, 8), nullable=False, default=0)  # 借币量
     
+    # 新增字段支持更多账户类型
+    cash_amount = Column(DECIMAL(20, 8), nullable=False, default=0)  # 现金金额
+    cross_liab = Column(DECIMAL(20, 8), nullable=False, default=0)  # 全仓负债
+    isolated_liab = Column(DECIMAL(20, 8), nullable=False, default=0)  # 逐仓负债
+    margin_ratio = Column(DECIMAL(10, 6))  # 保证金率
+    max_loan = Column(DECIMAL(20, 8))  # 最大可借
+    strategy_equity = Column(DECIMAL(20, 8))  # 策略权益
+    spot_in_use = Column(DECIMAL(20, 8))  # 现货挂单占用
+    
     # 元数据
     data_timestamp = Column(DateTime, nullable=False, index=True)  # 数据时间戳
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
     __table_args__ = (
-        UniqueConstraint('currency', 'data_timestamp', name='uq_okx_balance'),
-        Index('idx_okx_balance_currency_time', 'currency', 'data_timestamp'),
+        UniqueConstraint('account_type', 'currency', 'data_timestamp', name='uq_okx_balance'),
+        Index('idx_okx_balance_account_currency_time', 'account_type', 'currency', 'data_timestamp'),
     )
 
 
@@ -292,17 +302,39 @@ class OKXPosition(Base):
     __tablename__ = "okx_positions"
     
     id = Column(Integer, primary_key=True, index=True)
+    account_type = Column(String(20), nullable=False, index=True)  # 账户类型
     inst_id = Column(String(50), nullable=False, index=True)  # 产品ID
-    inst_type = Column(String(20), nullable=False)  # 产品类型 SPOT/SWAP/FUTURES/MARGIN等
-    position_side = Column(String(10), nullable=False)  # 持仓方向 long/short
+    inst_type = Column(String(20), nullable=False)  # 产品类型 SPOT/SWAP/FUTURES/MARGIN/OPTION等
+    position_side = Column(String(10), nullable=False)  # 持仓方向 long/short/net
+    margin_mode = Column(String(10))  # 保证金模式 cross/isolated
     currency = Column(String(20), nullable=False)  # 币种
     quantity = Column(DECIMAL(20, 8), nullable=False, default=0)  # 持仓数量
     available_quantity = Column(DECIMAL(20, 8), nullable=False, default=0)  # 可用数量
     avg_price = Column(DECIMAL(20, 8), nullable=False, default=0)  # 开仓均价
     mark_price = Column(DECIMAL(20, 8), nullable=False, default=0)  # 标记价格
+    last_price = Column(DECIMAL(20, 8))  # 最新价格
     notional_value = Column(DECIMAL(20, 8), nullable=False, default=0)  # 名义价值
+    notional_usd = Column(DECIMAL(20, 8))  # 美元名义价值
+    
+    # 盈亏相关
     unrealized_pnl = Column(DECIMAL(20, 8), nullable=False, default=0)  # 未实现盈亏
     unrealized_pnl_ratio = Column(DECIMAL(8, 4), nullable=False, default=0)  # 未实现盈亏比例
+    realized_pnl = Column(DECIMAL(20, 8), nullable=False, default=0)  # 已实现盈亏
+    
+    # 保证金相关
+    initial_margin = Column(DECIMAL(20, 8))  # 初始保证金
+    maintenance_margin = Column(DECIMAL(20, 8))  # 维持保证金
+    margin_ratio = Column(DECIMAL(10, 6))  # 保证金率
+    
+    # 期权特有字段
+    delta = Column(DECIMAL(10, 6))  # Delta
+    gamma = Column(DECIMAL(10, 6))  # Gamma
+    theta = Column(DECIMAL(10, 6))  # Theta
+    vega = Column(DECIMAL(10, 6))  # Vega
+    
+    # 合约特有字段
+    leverage = Column(DECIMAL(10, 2))  # 杠杆倍数
+    liquidation_price = Column(DECIMAL(20, 8))  # 强平价格
     
     # 元数据
     data_timestamp = Column(DateTime, nullable=False, index=True)  # 数据时间戳
@@ -310,8 +342,9 @@ class OKXPosition(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
     __table_args__ = (
-        UniqueConstraint('inst_id', 'position_side', 'data_timestamp', name='uq_okx_position'),
-        Index('idx_okx_position_inst_time', 'inst_id', 'data_timestamp'),
+        UniqueConstraint('account_type', 'inst_id', 'position_side', 'data_timestamp', name='uq_okx_position'),
+        Index('idx_okx_position_account_inst_time', 'account_type', 'inst_id', 'data_timestamp'),
+        Index('idx_okx_position_inst_type', 'inst_type'),
     )
 
 
@@ -320,6 +353,7 @@ class OKXTransaction(Base):
     __tablename__ = "okx_transactions"
     
     id = Column(Integer, primary_key=True, index=True)
+    account_type = Column(String(20), nullable=False, index=True)  # 账户类型
     bill_id = Column(String(50), unique=True, nullable=False, index=True)  # 账单ID
     inst_id = Column(String(50), nullable=False, index=True)  # 产品ID
     inst_type = Column(String(20), nullable=False)  # 产品类型
@@ -328,6 +362,7 @@ class OKXTransaction(Base):
     bill_sub_type = Column(String(50))  # 账单子类型
     amount = Column(DECIMAL(20, 8), nullable=False)  # 变动数量
     balance = Column(DECIMAL(20, 8), nullable=False)  # 余额
+    balance_change = Column(DECIMAL(20, 8), nullable=False)  # 余额变动
     fee = Column(DECIMAL(20, 8), nullable=False, default=0)  # 手续费
     
     # 交易相关
@@ -335,6 +370,16 @@ class OKXTransaction(Base):
     fill_quantity = Column(DECIMAL(20, 8))  # 成交数量
     trade_id = Column(String(50))  # 交易ID
     order_id = Column(String(50))  # 订单ID
+    client_id = Column(String(50))  # 客户自定义ID
+    
+    # 保证金相关
+    margin_mode = Column(String(10))  # 保证金模式
+    position_side = Column(String(10))  # 持仓方向
+    
+    # 资金相关
+    interest = Column(DECIMAL(20, 8))  # 利息
+    from_account = Column(String(20))  # 转出账户
+    to_account = Column(String(20))  # 转入账户
     
     # 时间信息
     bill_time = Column(DateTime, nullable=False, index=True)  # 账单时间
@@ -345,9 +390,10 @@ class OKXTransaction(Base):
     
     __table_args__ = (
         UniqueConstraint('bill_id', name='uq_okx_transaction'),
-        Index('idx_okx_transaction_time', 'bill_time'),
+        Index('idx_okx_transaction_account_time', 'account_type', 'bill_time'),
         Index('idx_okx_transaction_currency', 'currency'),
         Index('idx_okx_transaction_type', 'bill_type'),
+        Index('idx_okx_transaction_inst_type', 'inst_type'),
     )
 
 
@@ -361,12 +407,32 @@ class OKXMarketData(Base):
     last_price = Column(DECIMAL(20, 8), nullable=False)  # 最新价格
     best_bid = Column(DECIMAL(20, 8))  # 最优买价
     best_ask = Column(DECIMAL(20, 8))  # 最优卖价
+    bid_size = Column(DECIMAL(20, 8))  # 最优买量
+    ask_size = Column(DECIMAL(20, 8))  # 最优卖量
+    
+    # 24小时统计
     open_24h = Column(DECIMAL(20, 8))  # 24小时开盘价
     high_24h = Column(DECIMAL(20, 8))  # 24小时最高价
     low_24h = Column(DECIMAL(20, 8))  # 24小时最低价
     volume_24h = Column(DECIMAL(20, 8))  # 24小时成交量
     volume_currency_24h = Column(DECIMAL(20, 8))  # 24小时成交额
     change_24h = Column(DECIMAL(8, 4))  # 24小时涨跌幅
+    
+    # 期权特有字段
+    delta = Column(DECIMAL(10, 6))  # Delta
+    gamma = Column(DECIMAL(10, 6))  # Gamma
+    theta = Column(DECIMAL(10, 6))  # Theta
+    vega = Column(DECIMAL(10, 6))  # Vega
+    implied_volatility = Column(DECIMAL(10, 6))  # 隐含波动率
+    mark_volatility = Column(DECIMAL(10, 6))  # 标记波动率
+    
+    # 合约特有字段
+    funding_rate = Column(DECIMAL(10, 8))  # 资金费率
+    next_funding_time = Column(DateTime)  # 下次资金费用时间
+    mark_price = Column(DECIMAL(20, 8))  # 标记价格
+    index_price = Column(DECIMAL(20, 8))  # 指数价格
+    open_interest = Column(DECIMAL(20, 8))  # 持仓量
+    open_interest_currency = Column(DECIMAL(20, 8))  # 持仓量（计价币）
     
     # 时间信息
     data_timestamp = Column(DateTime, nullable=False, index=True)  # 数据时间戳
@@ -377,6 +443,48 @@ class OKXMarketData(Base):
     __table_args__ = (
         UniqueConstraint('inst_id', 'data_timestamp', name='uq_okx_market_data'),
         Index('idx_okx_market_inst_time', 'inst_id', 'data_timestamp'),
+        Index('idx_okx_market_inst_type', 'inst_type'),
+    )
+
+
+class OKXInstrument(Base):
+    """OKX交易产品信息表"""
+    __tablename__ = "okx_instruments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    inst_id = Column(String(50), unique=True, nullable=False, index=True)  # 产品ID
+    inst_type = Column(String(20), nullable=False, index=True)  # 产品类型
+    uly = Column(String(50))  # 标的指数
+    category = Column(String(20))  # 币种类别
+    base_currency = Column(String(20))  # 交易货币币种
+    quote_currency = Column(String(20))  # 计价货币币种
+    settle_currency = Column(String(20))  # 盈亏结算和保证金币种
+    
+    # 交易规则
+    contract_value = Column(DECIMAL(20, 8))  # 合约面值
+    min_size = Column(DECIMAL(20, 8))  # 最小下单数量
+    lot_size = Column(DECIMAL(20, 8))  # 下单数量精度
+    tick_size = Column(DECIMAL(20, 8))  # 下单价格精度
+    
+    # 期权特有
+    option_type = Column(String(10))  # 期权类型 C/P
+    strike_price = Column(DECIMAL(20, 8))  # 行权价格
+    
+    # 合约特有
+    listing_time = Column(DateTime)  # 上线时间
+    expiry_time = Column(DateTime)  # 交割时间
+    lever = Column(String(100))  # 杠杆倍数
+    
+    # 状态
+    state = Column(String(20))  # 产品状态
+    
+    # 元数据
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        Index('idx_okx_instrument_type', 'inst_type'),
+        Index('idx_okx_instrument_base_quote', 'base_currency', 'quote_currency'),
     )
 
 
@@ -385,7 +493,10 @@ class OKXSyncLog(Base):
     __tablename__ = "okx_sync_logs"
     
     id = Column(Integer, primary_key=True, index=True)
-    sync_type = Column(String(50), nullable=False, index=True)  # 同步类型：balance/position/transaction/market
+    sync_type = Column(String(50), nullable=False, index=True)  # 同步类型：balance/position/transaction/market/instrument
+    sync_scope = Column(String(50))  # 同步范围：all/funding/trading/futures等
+    account_type = Column(String(20))  # 具体账户类型
+    inst_type = Column(String(20))  # 具体产品类型
     sync_status = Column(String(20), nullable=False)  # 同步状态：success/failed/running
     start_time = Column(DateTime, nullable=False)  # 开始时间
     end_time = Column(DateTime)  # 结束时间
@@ -400,6 +511,7 @@ class OKXSyncLog(Base):
     
     __table_args__ = (
         Index('idx_okx_sync_log_type_time', 'sync_type', 'start_time'),
+        Index('idx_okx_sync_log_account_type', 'account_type'),
     )
 
 
