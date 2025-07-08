@@ -36,7 +36,8 @@ class WiseAPIService:
             if params:
                 url += "?" + "&".join([f"{k}={v}" for k, v in params.items()])
             
-            logger.info(f"请求Wise接口: {method} {url}")
+            # 只在debug模式下记录请求详情
+            logger.debug(f"请求Wise接口: {method} {url}")
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 if method.upper() == 'GET':
@@ -46,7 +47,11 @@ class WiseAPIService:
                 else:
                     raise ValueError(f"不支持的HTTP方法: {method}")
                 
-                logger.info(f"Wise接口响应状态: {resp.status_code}")
+                # 只在非200状态或debug模式下记录响应状态
+                if resp.status_code != 200:
+                    logger.warning(f"Wise接口响应状态: {resp.status_code}")
+                else:
+                    logger.debug(f"Wise接口响应状态: {resp.status_code}")
                 
                 if resp.status_code == 200:
                     data = resp.json()

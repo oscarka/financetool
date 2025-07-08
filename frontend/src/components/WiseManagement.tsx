@@ -53,25 +53,39 @@ const WiseManagement: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         setError(null);
+        setConfigLoading(true);
+        setTestLoading(true); 
+        setSummaryLoading(true);
+        setConfigError(null);
+        setTestError(null);
+        setSummaryError(null);
+        
         try {
-            const [configRes, statusRes, summaryRes, balancesRes, transactionsRes, ratesRes] = await Promise.all([
+            const [configRes, statusRes, summaryRes, balancesRes, transactionsRes, ratesRes, dbStatusRes] = await Promise.all([
                 api.get('/wise/config'),
                 api.get('/wise/test'),
                 api.get('/wise/summary'),
                 api.get('/wise/all-balances'),
                 api.get(`/wise/recent-transactions?days=${transactionDays}`),
                 api.get(`/wise/exchange-rates?source=${sourceCurrency}&target=${targetCurrency}`),
+                api.get('/wise/db-status'), // 一次性获取数据库状态
             ]);
+            
             setConfig(configRes.data.data);
             setConnectionStatus(statusRes.data.data);
             setSummary(summaryRes.data.data);
             setBalances((balancesRes.data && balancesRes.data.data) ? balancesRes.data.data : (balancesRes.data || []));
             setTransactions((transactionsRes.data && transactionsRes.data.data) ? transactionsRes.data.data : (transactionsRes.data || []));
             setExchangeRates(ratesRes.data.data);
+            setDbStatus(dbStatusRes.data.data); // 设置数据库状态
+            
         } catch (err: any) {
             setError(err.response?.data?.detail || '获取数据失败');
         } finally {
             setLoading(false);
+            setConfigLoading(false);
+            setTestLoading(false);
+            setSummaryLoading(false);
         }
     };
 
@@ -87,28 +101,7 @@ const WiseManagement: React.FC = () => {
         }
     };
 
-    const fetchCardData = async () => {
-        setConfigLoading(true); setTestLoading(true); setSummaryLoading(true);
-        setConfigError(null); setTestError(null); setSummaryError(null);
-        try {
-            const configRes = await api.get('/wise/config');
-            setConfig(configRes.data?.data || configRes.data);
-        } catch (e: any) {
-            setConfigError(e.response?.data?.detail || 'API配置获取失败');
-        } finally { setConfigLoading(false); }
-        try {
-            const testRes = await api.get('/wise/test');
-            setConnectionStatus(testRes.data?.data || testRes.data);
-        } catch (e: any) {
-            setTestError(e.response?.data?.detail || '连接状态获取失败');
-        } finally { setTestLoading(false); }
-        try {
-            const summaryRes = await api.get('/wise/summary');
-            setSummary(summaryRes.data?.data || summaryRes.data);
-        } catch (e: any) {
-            setSummaryError(e.response?.data?.detail || '账户汇总获取失败');
-        } finally { setSummaryLoading(false); }
-    };
+    // fetchCardData函数已合并到fetchData中，提高性能
 
     // 新增：获取数据库状态
     const fetchDbStatus = async () => {
@@ -212,8 +205,8 @@ const WiseManagement: React.FC = () => {
     };
 
     useEffect(() => {
+        // 只调用一次fetchData，它已包含所有需要的数据
         fetchData();
-        fetchCardData();
         // eslint-disable-next-line
     }, []);
 
@@ -296,10 +289,7 @@ const WiseManagement: React.FC = () => {
         // eslint-disable-next-line
     }, [selectedPair]);
 
-    // 新增：页面加载时获取数据库状态
-    useEffect(() => {
-        fetchDbStatus();
-    }, []);
+    // 数据库状态现在在fetchData中一起获取，不需要单独调用
 
     const formatCurrency = (amount: number, currency: string) => {
         return new Intl.NumberFormat('zh-CN', {
@@ -471,14 +461,40 @@ const WiseManagement: React.FC = () => {
             {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
 
             {/* 数据库状态卡片 */}
-            <Card style={{ marginBottom: 24 }} loading={dbLoading}>
+            <Card 
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <DatabaseOutlined />
+                        <span>数据库状态</span>
+                        <Badge 
+                            status={dbStatus?.overall_status === '有数据' ? 'success' : 'warning'}
+                            text={dbStatus?.overall_status === '有数据' ? '已入库' : '暂无数据'}
+                        />
+                    </div>
+                }
+                extra={
+                    <Button 
+                        size="small" 
+                        icon={<ReloadOutlined />} 
+                        onClick={fetchDbStatus}
+                        loading={dbLoading}
+                    >
+                        刷新状态
+                    </Button>
+                }
+                style={{ marginBottom: 24 }} 
+                loading={dbLoading}
+            >
                 <Row gutter={16}>
-                    <Col span={6}>
+                    <Col span={8}>
                         <Statistic 
-                            title="数据库交易记录" 
+                            title="交易记录" 
                             value={dbStatus?.transactions?.count || 0} 
                             prefix={<DatabaseOutlined />}
                             suffix="条"
+                            valueStyle={{ 
+                                color: (dbStatus?.transactions?.count || 0) > 0 ? '#52c41a' : '#d9d9d9' 
+                            }}
                         />
                         {dbStatus?.transactions?.latest_update && (
                             <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
@@ -486,12 +502,15 @@ const WiseManagement: React.FC = () => {
                             </div>
                         )}
                     </Col>
-                    <Col span={6}>
+                    <Col span={8}>
                         <Statistic 
-                            title="数据库余额记录" 
+                            title="余额记录" 
                             value={dbStatus?.balances?.count || 0} 
                             prefix={<BankOutlined />}
                             suffix="条"
+                            valueStyle={{ 
+                                color: (dbStatus?.balances?.count || 0) > 0 ? '#52c41a' : '#d9d9d9' 
+                            }}
                         />
                         {dbStatus?.balances?.latest_update && (
                             <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
@@ -499,39 +518,21 @@ const WiseManagement: React.FC = () => {
                             </div>
                         )}
                     </Col>
-                    <Col span={6}>
+                    <Col span={8}>
                         <Statistic 
-                            title="数据库汇率记录" 
+                            title="汇率记录" 
                             value={dbStatus?.exchange_rates?.count || 0} 
                             prefix={<DollarCircleOutlined />}
                             suffix="条"
+                            valueStyle={{ 
+                                color: (dbStatus?.exchange_rates?.count || 0) > 0 ? '#52c41a' : '#d9d9d9' 
+                            }}
                         />
                         {dbStatus?.exchange_rates?.latest_update && (
                             <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
                                 最后更新：{new Date(dbStatus.exchange_rates.latest_update).toLocaleString('zh-CN')}
                             </div>
                         )}
-                    </Col>
-                    <Col span={6}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8 }}>
-                                数据库状态
-                            </div>
-                            <Badge 
-                                status={dbStatus?.overall_status === '有数据' ? 'success' : 'warning'}
-                                text={dbStatus?.overall_status || '未知'}
-                            />
-                            <div style={{ marginTop: 8 }}>
-                                <Button 
-                                    size="small" 
-                                    icon={<ReloadOutlined />} 
-                                    onClick={fetchDbStatus}
-                                    loading={dbLoading}
-                                >
-                                    刷新状态
-                                </Button>
-                            </div>
-                        </div>
                     </Col>
                 </Row>
             </Card>
