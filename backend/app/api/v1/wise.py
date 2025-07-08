@@ -559,8 +559,8 @@ async def get_db_status():
             
             # 获取最新的记录时间
             latest_transaction = db.query(WiseTransaction).order_by(WiseTransaction.created_at.desc()).first()
-            latest_balance = db.query(WiseBalance).order_by(WiseBalance.updated_at.desc()).first()
-            latest_rate = db.query(WiseExchangeRate).order_by(WiseExchangeRate.updated_at.desc()).first()
+            latest_balance = db.query(WiseBalance).order_by(WiseBalance.update_time.desc()).first()
+            latest_rate = db.query(WiseExchangeRate).order_by(WiseExchangeRate.created_at.desc()).first()
             
             status = {
                 "transactions": {
@@ -569,11 +569,11 @@ async def get_db_status():
                 },
                 "balances": {
                     "count": balance_count,
-                    "latest_update": latest_balance.updated_at.isoformat() if latest_balance else None
+                    "latest_update": latest_balance.update_time.isoformat() if latest_balance else None
                 },
                 "exchange_rates": {
                     "count": rate_count,
-                    "latest_update": latest_rate.updated_at.isoformat() if latest_rate else None
+                    "latest_update": latest_rate.created_at.isoformat() if latest_rate else None
                 },
                 "overall_status": "有数据" if (transaction_count + balance_count + rate_count) > 0 else "暂无数据"
             }

@@ -589,7 +589,7 @@ class WiseAPIService:
                     existing.modification_time = balance_data.get('modification_time')
                     existing.visible = balance_data.get('visible')
                     existing.primary = balance_data.get('primary')
-                    existing.updated_at = datetime.now()
+                    existing.update_time = datetime.now()
                 else:
                     # 创建新记录
                     new_balance = WiseBalance(
@@ -671,7 +671,6 @@ class WiseAPIService:
                     if existing:
                         # 更新现有记录
                         existing.rate = float(rate_value)
-                        existing.updated_at = datetime.now()
                     else:
                         # 创建新记录
                         new_rate = WiseExchangeRate(
