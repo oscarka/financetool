@@ -10,6 +10,7 @@ import {
     SettingOutlined,
     GlobalOutlined,
     BankOutlined,
+    PayCircleOutlined,
     MenuOutlined
 } from '@ant-design/icons'
 
@@ -28,6 +29,7 @@ const navigation = [
     { name: '分析', href: '/analysis', icon: PieChartOutlined },
     { name: 'OKX', href: '/okx', icon: SettingOutlined },
     { name: 'Wise', href: '/wise', icon: BankOutlined },
+    { name: 'PayPal', href: '/paypal', icon: PayCircleOutlined },
 ]
 
 const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
