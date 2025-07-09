@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.utils.database import init_database
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, enhanced_logs, ibkr
 from app.services.scheduler_service import scheduler_service
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
@@ -107,6 +107,13 @@ app.include_router(
     tags=["日志管理"]
 )
 
+# 注册增强日志管理接口
+app.include_router(
+    enhanced_logs.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["增强日志管理"]
+)
+
 
 @app.get("/")
 async def root():
@@ -167,6 +174,18 @@ async def logs_viewer():
             return HTMLResponse(content="<h1>日志查看页面未找到</h1>", status_code=404)
     except Exception as e:
         return HTMLResponse(content=f"<h1>加载日志页面失败: {str(e)}</h1>", status_code=500)
+
+@app.get("/enhanced-logs", response_class=HTMLResponse)
+async def enhanced_logs_viewer():
+    """增强日志查看页面"""
+    try:
+        html_file = Path(__file__).parent / "templates" / "enhanced-logs.html"
+        if html_file.exists():
+            return HTMLResponse(content=html_file.read_text(encoding='utf-8'))
+        else:
+            return HTMLResponse(content="<h1>增强日志查看页面未找到</h1>", status_code=404)
+    except Exception as e:
+        return HTMLResponse(content=f"<h1>加载增强日志页面失败: {str(e)}</h1>", status_code=500)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>详细日志查看器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            align-items: end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+        }
+
+        .control-group select,
+        .control-group input {
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(86, 171, 47, 0.3);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(240, 147, 251, 0.3);
+        }
+
+        .stats {
+            padding: 20px 30px;
+            background: #e3f2fd;
+            border-bottom: 1px solid #e9ecef;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .logs-container {
+            padding: 30px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .log-entry:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .log-header {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .log-header:hover {
+            background: #e9ecef;
+        }
+
+        .log-meta {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .log-level {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .level-info { background: #d1ecf1; color: #0c5460; }
+        .level-warning { background: #fff3cd; color: #856404; }
+        .level-error { background: #f8d7da; color: #721c24; }
+        .level-debug { background: #d4edda; color: #155724; }
+
+        .log-category {
+            background: #e9ecef;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            color: #495057;
+        }
+
+        .log-time {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .log-message {
+            font-weight: 600;
+            color: #495057;
+            flex: 1;
+            margin-left: 15px;
+        }
+
+        .log-toggle {
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            cursor: pointer;
+            color: #6c757d;
+            transition: color 0.3s;
+        }
+
+        .log-toggle:hover {
+            color: #495057;
+        }
+
+        .log-details {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: none;
+        }
+
+        .log-details.show {
+            display: block;
+        }
+
+        .detail-section {
+            margin-bottom: 20px;
+        }
+
+        .detail-section h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .detail-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            color: #495057;
+            word-break: break-word;
+        }
+
+        .json-viewer {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .log-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .log-meta {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 详细日志查看器</h1>
+            <p>实时查看和分析系统日志，支持详细信息和分类过滤</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="category">日志分类</label>
+                <select id="category">
+                    <option value="">所有分类</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="level">日志级别</label>
+                <select id="level">
+                    <option value="">所有级别</option>
+                    <option value="DEBUG">DEBUG</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="search">搜索关键词</label>
+                <input type="text" id="search" placeholder="输入搜索关键词...">
+            </div>
+            
+            <div class="control-group">
+                <label for="limit">返回数量</label>
+                <select id="limit">
+                    <option value="50">50条</option>
+                    <option value="100" selected>100条</option>
+                    <option value="200">200条</option>
+                    <option value="500">500条</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-primary" onclick="loadLogs()">🔍 查询日志</button>
+            </div>
+            
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-success" onclick="testLogs()">🧪 测试日志</button>
+            </div>
+            
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-warning" onclick="loadStats()">📊 刷新统计</button>
+            </div>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalLogs">-</div>
+                <div class="stat-label">总日志数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="errorCount">-</div>
+                <div class="stat-label">错误数量</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="apiCount">-</div>
+                <div class="stat-label">API调用</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="businessCount">-</div>
+                <div class="stat-label">业务操作</div>
+            </div>
+        </div>
+
+        <div class="logs-container" id="logsContainer">
+            <div class="loading">正在加载日志...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCategories();
+            loadStats();
+            loadLogs();
+        });
+
+        // 加载日志分类
+        async function loadCategories() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/logs/detailed/categories`);
+                const data = await response.json();
+                
+                const categorySelect = document.getElementById('category');
+                categorySelect.innerHTML = '<option value="">所有分类</option>';
+                
+                data.categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = `${category} - ${data.category_descriptions[category] || '未知分类'}`;
+                    categorySelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('加载分类失败:', error);
+            }
+        }
+
+        // 加载日志统计
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/logs/detailed/stats`);
+                const data = await response.json();
+                
+                document.getElementById('totalLogs').textContent = data.total_logs;
+                document.getElementById('errorCount').textContent = 
+                    (data.level_counts['ERROR'] || 0) + (data.level_counts['CRITICAL'] || 0);
+                document.getElementById('apiCount').textContent = data.category_counts['api'] || 0;
+                document.getElementById('businessCount').textContent = data.category_counts['business'] || 0;
+            } catch (error) {
+                console.error('加载统计失败:', error);
+            }
+        }
+
+        // 加载日志
+        async function loadLogs() {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '<div class="loading">正在加载日志...</div>';
+            
+            try {
+                const params = new URLSearchParams({
+                    category: document.getElementById('category').value,
+                    level: document.getElementById('level').value,
+                    search: document.getElementById('search').value,
+                    limit: document.getElementById('limit').value
+                });
+                
+                const response = await fetch(`${API_BASE}/api/v1/logs/detailed?${params}`);
+                const logs = await response.json();
+                
+                if (logs.length === 0) {
+                    container.innerHTML = '<div class="loading">暂无日志数据</div>';
+                    return;
+                }
+                
+                container.innerHTML = logs.map(log => createLogEntry(log)).join('');
+                
+                // 添加点击事件
+                document.querySelectorAll('.log-header').forEach(header => {
+                    header.addEventListener('click', function() {
+                        const details = this.nextElementSibling;
+                        const toggle = this.querySelector('.log-toggle');
+                        
+                        if (details.classList.contains('show')) {
+                            details.classList.remove('show');
+                            toggle.textContent = '▶';
+                        } else {
+                            details.classList.add('show');
+                            toggle.textContent = '▼';
+                        }
+                    });
+                });
+                
+            } catch (error) {
+                container.innerHTML = `<div class="error">加载日志失败: ${error.message}</div>`;
+            }
+        }
+
+        // 创建日志条目HTML
+        function createLogEntry(log) {
+            const levelClass = `level-${log.level.toLowerCase()}`;
+            const time = new Date(log.timestamp).toLocaleString('zh-CN');
+            
+            let detailsHtml = '';
+            if (log.details || log.exception) {
+                detailsHtml = `
+                    <div class="log-details">
+                        ${log.details ? `
+                            <div class="detail-section">
+                                <h4>📋 详细信息</h4>
+                                <div class="detail-grid">
+                                    ${Object.entries(log.details).map(([key, value]) => `
+                                        <div class="detail-item">
+                                            <div class="detail-label">${key}</div>
+                                            <div class="detail-value">${formatValue(value)}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${log.exception ? `
+                            <div class="detail-section">
+                                <h4>❌ 异常信息</h4>
+                                <div class="detail-item">
+                                    <div class="detail-label">异常类型</div>
+                                    <div class="detail-value">${log.exception.type || 'Unknown'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">异常消息</div>
+                                    <div class="detail-value">${log.exception.message || 'No message'}</div>
+                                </div>
+                                ${log.exception.traceback ? `
+                                    <div class="detail-item">
+                                        <div class="detail-label">堆栈跟踪</div>
+                                        <div class="json-viewer">${log.exception.traceback.join('')}</div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="log-entry">
+                    <div class="log-header">
+                        <div class="log-meta">
+                            <span class="log-level ${levelClass}">${log.level}</span>
+                            <span class="log-category">${log.category}</span>
+                            <span class="log-time">${time}</span>
+                        </div>
+                        <div class="log-message">${log.message}</div>
+                        <button class="log-toggle">▶</button>
+                    </div>
+                    ${detailsHtml}
+                </div>
+            `;
+        }
+
+        // 格式化值显示
+        function formatValue(value) {
+            if (value === null || value === undefined) {
+                return '<em>null</em>';
+            }
+            if (typeof value === 'object') {
+                return `<div class="json-viewer">${JSON.stringify(value, null, 2)}</div>`;
+            }
+            if (typeof value === 'string' && value.length > 100) {
+                return value.substring(0, 100) + '...';
+            }
+            return String(value);
+        }
+
+        // 测试日志
+        async function testLogs() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/logs/detailed/test`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('测试日志生成成功！', 'success');
+                    setTimeout(() => {
+                        loadLogs();
+                        loadStats();
+                    }, 1000);
+                } else {
+                    showMessage('测试日志生成失败: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('测试日志失败: ' + error.message, 'error');
+            }
+        }
+
+        // 显示消息
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(messageDiv, container.firstChild);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        // 搜索框回车事件
+        document.getElementById('search').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadLogs();
+            }
+        });
+    </script>
+</body>
+</html>
