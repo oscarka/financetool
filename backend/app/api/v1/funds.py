@@ -30,45 +30,80 @@ def create_fund_operation(
     db: Session = Depends(get_db)
 ):
     """创建基金操作记录"""
-    from app.utils.auto_logger import log_context
-    from app.utils.logger import log_business, log_error
+    from app.utils.enhanced_logger import log_business_detailed, log_error_detailed, log_fund_operation, log_database_operation
+    import time
     
-    with log_context("business", f"创建基金操作记录: {operation.asset_code}"):
-        try:
-            # 记录操作详情
-            log_business("开始创建基金操作记录", extra_data={
+    start_time = time.time()
+    
+    try:
+        # 记录API请求
+        log_business_detailed("开始创建基金操作记录", extra_data={
+            "fund_code": operation.asset_code,
+            "operation_type": operation.operation_type,
+            "amount": operation.amount,
+            "quantity": operation.quantity,
+            "price": operation.price,
+            "platform": operation.platform,
+            "currency": operation.currency,
+            "strategy": operation.strategy
+        })
+        
+        # 执行数据库操作
+        result = FundOperationService.create_operation(db, operation)
+        
+        execution_time = time.time() - start_time
+        
+        # 记录基金操作详情
+        log_fund_operation(
+            operation_type=operation.operation_type,
+            fund_code=operation.asset_code,
+            amount=float(operation.amount) if operation.amount else 0.0,
+            quantity=float(operation.quantity) if operation.quantity else 0.0,
+            price=float(operation.price) if operation.price else 0.0,
+            platform=operation.platform,
+            operation_id=result.id,
+            execution_time=execution_time
+        )
+        
+        # 记录数据库操作详情
+        log_database_operation(
+            operation="INSERT",
+            table="fund_operations",
+            record_id=result.id,
+            data={
                 "fund_code": operation.asset_code,
                 "operation_type": operation.operation_type,
                 "amount": operation.amount,
-                "quantity": operation.quantity,
-                "price": operation.price,
-                "platform": operation.platform
-            })
-            
-            result = FundOperationService.create_operation(db, operation)
-            
-            # 记录成功结果
-            log_business("基金操作记录创建成功", extra_data={
-                "operation_id": result.id,
-                "fund_code": result.asset_code,
-                "operation_type": result.operation_type,
-                "amount": result.amount,
-                "quantity": result.quantity
-            })
-            
-            return FundOperationResponse(
-                success=True,
-                message="基金操作记录创建成功",
-                data=result
-            )
-        except Exception as e:
-            log_error(f"创建基金操作记录失败: {operation.asset_code}", extra_data={
-                "fund_code": operation.asset_code,
-                "operation_type": operation.operation_type,
-                "amount": operation.amount,
-                "error": str(e)
-            })
-            raise HTTPException(status_code=400, detail=str(e))
+                "quantity": operation.quantity
+            },
+            execution_time=execution_time
+        )
+        
+        # 记录成功结果
+        log_business_detailed("基金操作记录创建成功", extra_data={
+            "operation_id": result.id,
+            "fund_code": result.asset_code,
+            "operation_type": result.operation_type,
+            "amount": result.amount,
+            "quantity": result.quantity,
+            "execution_time": execution_time
+        })
+        
+        return FundOperationResponse(
+            success=True,
+            message="基金操作记录创建成功",
+            data=result
+        )
+    except Exception as e:
+        execution_time = time.time() - start_time
+        log_error_detailed(f"创建基金操作记录失败: {operation.asset_code}", extra_data={
+            "fund_code": operation.asset_code,
+            "operation_type": operation.operation_type,
+            "amount": operation.amount,
+            "error": str(e),
+            "execution_time": execution_time
+        })
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/operations", response_model=FundOperationListResponse)
@@ -389,21 +424,53 @@ async def sync_fund_nav(
     db: Session = Depends(get_db)
 ):
     """同步基金净值"""
+    from app.utils.enhanced_logger import log_fund_api_detailed, log_error_detailed, log_business_detailed
+    import time
+    
+    start_time = time.time()
+    
     try:
+        # 记录开始同步
+        log_fund_api_detailed("开始同步基金净值", extra_data={
+            "fund_code": fund_code,
+            "nav_date": str(nav_date),
+            "sync_type": "manual"
+        })
+        
         sync_service = FundSyncService()
         success = await sync_service.sync_fund_nav(db, fund_code, nav_date)
         
+        execution_time = time.time() - start_time
+        
         if success:
+            log_business_detailed("基金净值同步成功", extra_data={
+                "fund_code": fund_code,
+                "nav_date": str(nav_date),
+                "execution_time": execution_time
+            })
+            
             return BaseResponse(
                 success=True,
                 message="基金净值同步成功"
             )
         else:
+            log_error_detailed("基金净值同步失败", extra_data={
+                "fund_code": fund_code,
+                "nav_date": str(nav_date),
+                "execution_time": execution_time
+            })
             raise HTTPException(status_code=400, detail="基金净值同步失败")
             
     except HTTPException:
         raise
     except Exception as e:
+        execution_time = time.time() - start_time
+        log_error_detailed("基金净值同步异常", extra_data={
+            "fund_code": fund_code,
+            "nav_date": str(nav_date),
+            "error": str(e),
+            "execution_time": execution_time
+        })
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -1256,13 +1323,44 @@ async def manual_update_navs():
 @router.get("/okx/account", response_model=BaseResponse)
 async def get_okx_account():
     """获取OKX账户资产信息"""
+    from app.utils.enhanced_logger import log_okx_api_detailed, log_error_detailed
+    import time
+    
+    start_time = time.time()
+    
     try:
+        log_okx_api_detailed("开始获取OKX账户资产信息", extra_data={
+            "endpoint": "/api/v5/account/balance",
+            "request_time": time.strftime("%Y-%m-%d %H:%M:%S")
+        })
+        
         service = OKXAPIService()
         data = await service.get_account_balance()
+        
+        execution_time = time.time() - start_time
+        
         if data is None:
+            log_error_detailed("OKX账户资产获取失败", extra_data={
+                "endpoint": "/api/v5/account/balance",
+                "error": "API返回空数据",
+                "execution_time": execution_time
+            })
             return BaseResponse(success=False, message="OKX账户资产获取失败，请检查API配置", data=None)
+        
+        log_okx_api_detailed("OKX账户资产获取成功", extra_data={
+            "endpoint": "/api/v5/account/balance",
+            "response_data": data,
+            "execution_time": execution_time
+        })
+        
         return BaseResponse(success=True, message="OKX账户资产获取成功", data=data)
     except Exception as e:
+        execution_time = time.time() - start_time
+        log_error_detailed("OKX账户资产获取异常", extra_data={
+            "endpoint": "/api/v5/account/balance",
+            "error": str(e),
+            "execution_time": execution_time
+        })
         raise HTTPException(status_code=500, detail=str(e))
 
 
