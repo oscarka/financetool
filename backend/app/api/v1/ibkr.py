@@ -267,12 +267,13 @@ async def ibkr_health_check():
         db_info = {}
         try:
             from app.utils.database import SessionLocal
+            from sqlalchemy import text
             db = SessionLocal()
             # 检查IBKR相关表
-            ibkr_accounts_count = db.execute("SELECT COUNT(*) FROM ibkr_accounts").scalar()
-            ibkr_balances_count = db.execute("SELECT COUNT(*) FROM ibkr_balances").scalar()
-            ibkr_positions_count = db.execute("SELECT COUNT(*) FROM ibkr_positions").scalar()
-            ibkr_sync_logs_count = db.execute("SELECT COUNT(*) FROM ibkr_sync_logs").scalar()
+            ibkr_accounts_count = db.execute(text("SELECT COUNT(*) FROM ibkr_accounts")).scalar()
+            ibkr_balances_count = db.execute(text("SELECT COUNT(*) FROM ibkr_balances")).scalar()
+            ibkr_positions_count = db.execute(text("SELECT COUNT(*) FROM ibkr_positions")).scalar()
+            ibkr_sync_logs_count = db.execute(text("SELECT COUNT(*) FROM ibkr_sync_logs")).scalar()
             db.close()
             
             db_info = {
