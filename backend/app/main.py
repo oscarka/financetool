@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.utils.database import init_database
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr
 from app.services.scheduler_service import scheduler_service
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
@@ -83,6 +83,13 @@ app.include_router(
     paypal.router,
     prefix=f"{settings.api_v1_prefix}",
     tags=["PayPal管理"]
+)
+
+# IBKR API接口
+app.include_router(
+    ibkr.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["IBKR管理"]
 )
 
 # 临时：注册数据库上传接口

@@ -15,6 +15,7 @@ import { OKXManagementPage } from './pages/OKXManagement'
 import ExchangeRates from './pages/ExchangeRates'
 import WiseManagementPage from './pages/WiseManagement'
 import PayPalManagementPage from './pages/PayPalManagement'
+import IBKRManagementPage from './pages/IBKRManagement'
 import React from 'react'
 
 function App() {
@@ -30,6 +31,13 @@ function App() {
         userAgent: navigator.userAgent,
         timestamp: new Date().toISOString()
     })
+    
+    // IBKR路由调试日志
+    console.log('🎯 [App] IBKR相关调试信息:')
+    console.log('- IBKRManagementPage 组件已导入:', typeof IBKRManagementPage !== 'undefined' ? 'YES ✅' : 'NO ❌')
+    console.log('- /ibkr 路由将被渲染:', '<Route path="/ibkr" element={<IBKRManagementPage />} />')
+    console.log('- 当前路径:', window.location.pathname)
+    console.log('- 如果看到此日志，说明App.tsx已更新! 🎉')
     
     // 根据设备类型选择布局组件和页面组件
     const LayoutComponent = deviceInfo.isMobile ? MobileLayout : Layout
@@ -103,6 +111,21 @@ function App() {
                     </div>
                 )}
                 
+                {/* 版本调试信息 - 显示在所有环境 */}
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    right: 0,
+                    background: 'rgba(0,128,0,0.8)',
+                    color: 'white',
+                    padding: '4px 8px',
+                    fontSize: '10px',
+                    zIndex: 9999,
+                    borderRadius: '0 0 0 4px'
+                }}>
+                    IBKR-v2.1 | {new Date().toLocaleTimeString()}
+                </div>
+                
                 <LayoutComponent>
                     <Routes>
                         <Route path="/" element={<DashboardComponent />} />
@@ -114,6 +137,7 @@ function App() {
                         <Route path="/okx" element={<OKXManagementPage />} />
                         <Route path="/wise" element={<WiseManagementPage />} />
                         <Route path="/paypal" element={<PayPalManagementPage />} />
+                        <Route path="/ibkr" element={<IBKRManagementPage />} />
                     </Routes>
                 </LayoutComponent>
             </div>

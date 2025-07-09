@@ -11,7 +11,8 @@ import {
     GlobalOutlined,
     BankOutlined,
     PayCircleOutlined,
-    MenuOutlined
+    MenuOutlined,
+    StockOutlined
 } from '@ant-design/icons'
 
 const { Header, Content } = AntLayout
@@ -30,7 +31,12 @@ const navigation = [
     { name: 'OKX', href: '/okx', icon: SettingOutlined },
     { name: 'Wise', href: '/wise', icon: BankOutlined },
     { name: 'PayPal', href: '/paypal', icon: PayCircleOutlined },
+    { name: 'IBKR', href: '/ibkr', icon: StockOutlined },
 ]
+
+// 调试日志  
+console.log('📱 [MobileLayout] Navigation menu loaded:', navigation.map(item => `${item.name} (${item.href})`))
+console.log('🎯 [MobileLayout] IBKR menu item exists:', navigation.find(item => item.href === '/ibkr') ? 'YES ✅' : 'NO ❌')
 
 const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
     const location = useLocation()

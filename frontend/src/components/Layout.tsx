@@ -10,7 +10,8 @@ import {
     SettingOutlined,
     GlobalOutlined,
     BankOutlined,
-    PayCircleOutlined
+    PayCircleOutlined,
+    StockOutlined
 } from '@ant-design/icons'
 
 const { Sider, Content } = AntLayout
@@ -29,7 +30,12 @@ const navigation = [
     { name: 'OKX管理', href: '/okx', icon: SettingOutlined },
     { name: 'Wise管理', href: '/wise', icon: BankOutlined },
     { name: 'PayPal管理', href: '/paypal', icon: PayCircleOutlined },
+    { name: 'IBKR管理', href: '/ibkr', icon: StockOutlined },
 ]
+
+// 调试日志
+console.log('🔍 [Layout] Navigation menu loaded:', navigation.map(item => `${item.name} (${item.href})`))
+console.log('🎯 [Layout] IBKR menu item exists:', navigation.find(item => item.href === '/ibkr') ? 'YES ✅' : 'NO ❌')
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
     const location = useLocation()
