@@ -161,15 +161,17 @@ async def get_ibkr_balances(
     account_id: Optional[str] = Query(None, description="账户ID，不提供则返回所有账户")
 ):
     """获取IBKR账户余额"""
+    logger.info(f"🌐 收到获取IBKR余额请求 - account_id: {account_id}")
     try:
         balances = await ibkr_service.get_latest_balances(account_id)
+        logger.info(f"✅ 成功返回余额数据 - 数量: {len(balances)}")
         return {
             "success": True,
             "data": balances,
             "count": len(balances)
         }
     except Exception as e:
-        logger.error(f"获取IBKR余额失败: {e}")
+        logger.error(f"❌ 获取IBKR余额失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取余额失败: {str(e)}")
 
 
@@ -178,15 +180,17 @@ async def get_ibkr_positions(
     account_id: Optional[str] = Query(None, description="账户ID，不提供则返回所有账户")
 ):
     """获取IBKR持仓信息"""
+    logger.info(f"🌐 收到获取IBKR持仓请求 - account_id: {account_id}")
     try:
         positions = await ibkr_service.get_latest_positions(account_id)
+        logger.info(f"✅ 成功返回持仓数据 - 数量: {len(positions)}")
         return {
             "success": True,
             "data": positions,
             "count": len(positions)
         }
     except Exception as e:
-        logger.error(f"获取IBKR持仓失败: {e}")
+        logger.error(f"❌ 获取IBKR持仓失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取持仓失败: {str(e)}")
 
 

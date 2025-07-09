@@ -325,11 +325,29 @@ class IBKRAPIService:
     
     async def get_latest_balances(self, account_id: str = None) -> List[Dict[str, Any]]:
         """获取最新的账户余额"""
+        logger.info(f"🔍 开始获取IBKR余额数据 - account_id: {account_id}")
         db = SessionLocal()
         try:
+            # 检查数据库连接
+            try:
+                db.execute("SELECT 1")
+                logger.info("✅ 数据库连接正常")
+            except Exception as e:
+                logger.error(f"❌ 数据库连接失败: {e}")
+                return []
+            
+            # 检查表是否存在
+            try:
+                table_count = db.query(IBKRBalance).count()
+                logger.info(f"📊 IBKRBalance表记录总数: {table_count}")
+            except Exception as e:
+                logger.error(f"❌ 查询IBKRBalance表失败: {e}")
+                return []
+            
             query = db.query(IBKRBalance)
             if account_id:
                 query = query.filter(IBKRBalance.account_id == account_id)
+                logger.info(f"🔍 过滤账户: {account_id}")
             
             # 获取每个账户的最新余额记录
             subquery = db.query(
@@ -337,6 +355,7 @@ class IBKRAPIService:
                 func.max(IBKRBalance.snapshot_time).label('max_time')
             ).group_by(IBKRBalance.account_id).subquery()
             
+            logger.info("🔍 执行余额查询...")
             balances = query.join(
                 subquery,
                 and_(
@@ -345,7 +364,9 @@ class IBKRAPIService:
                 )
             ).all()
             
-            return [
+            logger.info(f"📊 查询到 {len(balances)} 条余额记录")
+            
+            result = [
                 {
                     "account_id": balance.account_id,
                     "total_cash": float(balance.total_cash),
@@ -358,16 +379,35 @@ class IBKRAPIService:
                 }
                 for balance in balances
             ]
+            
+            logger.info(f"✅ 成功返回 {len(result)} 条余额数据")
+            for balance in result:
+                logger.info(f"💰 账户 {balance['account_id']}: 现金 ${balance['total_cash']:.2f}, 净值 ${balance['net_liquidation']:.2f}")
+            
+            return result
+        except Exception as e:
+            logger.error(f"❌ 获取余额数据失败: {e}")
+            return []
         finally:
             db.close()
     
     async def get_latest_positions(self, account_id: str = None) -> List[Dict[str, Any]]:
         """获取最新的持仓信息"""
+        logger.info(f"🔍 开始获取IBKR持仓数据 - account_id: {account_id}")
         db = SessionLocal()
         try:
+            # 检查表是否存在
+            try:
+                table_count = db.query(IBKRPosition).count()
+                logger.info(f"📊 IBKRPosition表记录总数: {table_count}")
+            except Exception as e:
+                logger.error(f"❌ 查询IBKRPosition表失败: {e}")
+                return []
+            
             query = db.query(IBKRPosition)
             if account_id:
                 query = query.filter(IBKRPosition.account_id == account_id)
+                logger.info(f"🔍 过滤账户: {account_id}")
             
             # 获取每个账户每个符号的最新持仓记录
             subquery = db.query(
@@ -376,6 +416,7 @@ class IBKRAPIService:
                 func.max(IBKRPosition.snapshot_time).label('max_time')
             ).group_by(IBKRPosition.account_id, IBKRPosition.symbol).subquery()
             
+            logger.info("🔍 执行持仓查询...")
             positions = query.join(
                 subquery,
                 and_(
@@ -385,7 +426,9 @@ class IBKRAPIService:
                 )
             ).filter(IBKRPosition.quantity != 0).all()  # 过滤掉空仓
             
-            return [
+            logger.info(f"📊 查询到 {len(positions)} 条持仓记录")
+            
+            result = [
                 {
                     "account_id": position.account_id,
                     "symbol": position.symbol,
@@ -402,6 +445,15 @@ class IBKRAPIService:
                 }
                 for position in positions
             ]
+            
+            logger.info(f"✅ 成功返回 {len(result)} 条持仓数据")
+            for position in result:
+                logger.info(f"📈 持仓 {position['symbol']}: 数量 {position['quantity']}, 市值 ${position['market_value']:.2f}")
+            
+            return result
+        except Exception as e:
+            logger.error(f"❌ 获取持仓数据失败: {e}")
+            return []
         finally:
             db.close()
     
