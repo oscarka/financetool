@@ -44,6 +44,11 @@ def parse_log_line(line: str) -> Optional[LogEntry]:
     try:
         # 尝试解析JSON格式的日志
         log_data = json.loads(line.strip())
+        
+        # 确保必要字段存在
+        if not all(key in log_data for key in ['timestamp', 'level', 'category', 'message']):
+            return None
+            
         return LogEntry(**log_data)
     except (json.JSONDecodeError, ValueError, TypeError):
         # 如果不是JSON格式，尝试解析普通格式
@@ -77,16 +82,10 @@ def get_log_files() -> List[Path]:
         return []
     
     log_files = []
-    # 添加分类日志文件
-    for category in LogCategory:
-        log_file = log_dir / f"{category.value}.log"
-        if log_file.exists():
-            log_files.append(log_file)
     
-    # 添加主日志文件
-    main_log = log_dir / "app.log"
-    if main_log.exists():
-        log_files.append(main_log)
+    # 查找所有.log文件
+    for log_file in log_dir.glob("*.log"):
+        log_files.append(log_file)
     
     return log_files
 
@@ -293,3 +292,37 @@ async def test_logging():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成测试日志失败: {str(e)}")
+
+@router.get("/logs/debug")
+async def debug_logs():
+    """调试日志文件内容"""
+    try:
+        log_dir = Path("./logs")
+        if not log_dir.exists():
+            return {"error": "日志目录不存在"}
+        
+        debug_info = {
+            "log_directory": str(log_dir.absolute()),
+            "files": []
+        }
+        
+        for log_file in log_dir.glob("*.log"):
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    debug_info["files"].append({
+                        "filename": log_file.name,
+                        "size": log_file.stat().st_size,
+                        "line_count": len(lines),
+                        "first_line": lines[0].strip() if lines else None,
+                        "last_line": lines[-1].strip() if lines else None
+                    })
+            except Exception as e:
+                debug_info["files"].append({
+                    "filename": log_file.name,
+                    "error": str(e)
+                })
+        
+        return debug_info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"调试日志失败: {str(e)}")
