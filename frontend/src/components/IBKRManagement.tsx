@@ -83,11 +83,11 @@ const IBKRManagement: React.FC = () => {
                 ibkrAPI.getRecentRequests(20).catch(() => ({ data: { data: [] } }))
             ]);
 
-            setBalances(balancesRes.data?.data || []);
-            setPositions(positionsRes.data?.data || []);
-            setLogs(logsRes.data?.data || []);
-            setSummary(summaryRes.data?.data);
-            setRecentRequests(recentRequestsRes.data?.data || []);
+            setBalances(balancesRes.data || []);
+            setPositions(positionsRes.data || []);
+            setLogs(logsRes.data || []);
+            setSummary(summaryRes.data);
+            setRecentRequests(recentRequestsRes.data || []);
         } catch (err: any) {
             setError(err.response?.data?.detail || '获取IBKR数据失败');
         } finally {
