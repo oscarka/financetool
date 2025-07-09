@@ -12,6 +12,7 @@ from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, lo
 from app.services.scheduler_service import scheduler_service
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
+from app.utils.enhanced_logger import log_system_detailed
 
 
 @asynccontextmanager
@@ -19,23 +20,46 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时执行
     log_system("正在初始化数据库...")
+    log_system_detailed("应用启动 - 初始化数据库", extra_data={
+        "startup_time": datetime.now().isoformat(),
+        "environment": "production" if not settings.debug else "development"
+    })
+    
     init_database()
     
     # 生产环境延迟启动定时任务，避免启动时阻塞
     if os.environ.get("ENABLE_SCHEDULER", "true").lower() == "true":
         log_system("正在启动定时任务...")
+        log_system_detailed("应用启动 - 启动定时任务", extra_data={
+            "scheduler_enabled": True,
+            "scheduler_jobs": ["update_navs", "sync_fund_info"]
+        })
         scheduler_service.start()
     else:
         log_system("定时任务已禁用")
+        log_system_detailed("应用启动 - 定时任务已禁用", extra_data={
+            "scheduler_enabled": False
+        })
     
     log_system("应用启动完成")
+    log_system_detailed("应用启动完成", extra_data={
+        "app_name": settings.app_name,
+        "app_version": settings.app_version,
+        "api_prefix": settings.api_v1_prefix
+    })
     
     yield
     
     # 关闭时执行
     log_system("正在停止定时任务...")
+    log_system_detailed("应用关闭 - 停止定时任务", extra_data={
+        "shutdown_time": datetime.now().isoformat()
+    })
     scheduler_service.stop()
     log_system("应用正在关闭...")
+    log_system_detailed("应用关闭完成", extra_data={
+        "final_shutdown_time": datetime.now().isoformat()
+    })
 
 
 # 创建FastAPI应用
@@ -128,18 +152,49 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查"""
-    return {
+    from app.utils.enhanced_logger import log_api_detailed
+    import time
+    
+    start_time = time.time()
+    
+    log_api_detailed("健康检查请求", extra_data={
+        "endpoint": "/health",
+        "method": "GET",
+        "request_time": datetime.now().isoformat()
+    })
+    
+    response_data = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "version": settings.app_version,
         "environment": "production" if not settings.debug else "development"
     }
+    
+    execution_time = time.time() - start_time
+    
+    log_api_detailed("健康检查响应", extra_data={
+        "endpoint": "/health",
+        "response_data": response_data,
+        "execution_time": execution_time
+    })
+    
+    return response_data
 
 @app.get("/debug")
 async def debug_info():
     """调试信息"""
+    from app.utils.enhanced_logger import log_api_detailed, log_system_detailed
     import os
     from pathlib import Path
+    import time
+    
+    start_time = time.time()
+    
+    log_api_detailed("调试信息请求", extra_data={
+        "endpoint": "/debug",
+        "method": "GET",
+        "request_time": datetime.now().isoformat()
+    })
     
     # 检查日志目录
     log_dir = Path("./logs")
@@ -147,7 +202,7 @@ async def debug_info():
     if log_dir.exists():
         log_files = [f.name for f in log_dir.glob("*.log")]
     
-    return {
+    response_data = {
         "timestamp": datetime.now().isoformat(),
         "working_directory": os.getcwd(),
         "python_path": os.environ.get("PYTHONPATH", "未设置"),
@@ -161,6 +216,17 @@ async def debug_info():
             "RAILWAY_PROJECT_ID": os.environ.get("RAILWAY_PROJECT_ID", "未设置")
         }
     }
+    
+    execution_time = time.time() - start_time
+    
+    log_system_detailed("调试信息响应", extra_data={
+        "endpoint": "/debug",
+        "response_data": response_data,
+        "execution_time": execution_time,
+        "log_files_count": len(log_files)
+    })
+    
+    return response_data
 
 
 @app.get("/logs-viewer", response_class=HTMLResponse)

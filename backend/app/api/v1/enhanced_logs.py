@@ -132,6 +132,19 @@ def read_detailed_logs_from_files(
     log_files = get_log_files()
     
     for log_file in log_files:
+        # 从文件名提取分类信息
+        file_category = None
+        if log_file.name.startswith("LogCategory."):
+            # 处理 LogCategory.API.log 格式
+            file_category = log_file.name.replace("LogCategory.", "").replace(".log", "").lower()
+        else:
+            # 处理 api.log 格式
+            file_category = log_file.name.replace(".log", "").lower()
+        
+        # 如果指定了分类过滤，只处理对应分类的文件
+        if category and file_category != category.lower():
+            continue
+            
         try:
             with open(log_file, 'r', encoding='utf-8') as f:
                 for line in f:
