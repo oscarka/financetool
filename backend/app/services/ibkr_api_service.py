@@ -349,30 +349,38 @@ class IBKRAPIService:
                 query = query.filter(IBKRBalance.account_id == account_id)
                 logger.info(f"🔍 过滤账户: {account_id}")
             
-            # 获取每个账户的最新余额记录
-            subquery = db.query(
-                IBKRBalance.account_id,
-                func.max(IBKRBalance.snapshot_time).label('max_time')
-            ).group_by(IBKRBalance.account_id).subquery()
-            
+            # 简化查询逻辑：直接获取最新记录
             logger.info("🔍 执行余额查询...")
-            # 修复：先应用account_id过滤，再进行JOIN
             if account_id:
-                balances = db.query(IBKRBalance).join(
-                    subquery,
-                    and_(
-                        IBKRBalance.account_id == subquery.c.account_id,
-                        IBKRBalance.snapshot_time == subquery.c.max_time
-                    )
-                ).filter(IBKRBalance.account_id == account_id).all()
+                # 获取指定账户的最新余额
+                latest_time = db.query(func.max(IBKRBalance.snapshot_time)).filter(
+                    IBKRBalance.account_id == account_id
+                ).scalar()
+                if latest_time:
+                    balances = db.query(IBKRBalance).filter(
+                        and_(
+                            IBKRBalance.account_id == account_id,
+                            IBKRBalance.snapshot_time == latest_time
+                        )
+                    ).all()
+                else:
+                    balances = []
             else:
-                balances = db.query(IBKRBalance).join(
-                    subquery,
-                    and_(
-                        IBKRBalance.account_id == subquery.c.account_id,
-                        IBKRBalance.snapshot_time == subquery.c.max_time
-                    )
-                ).all()
+                # 获取所有账户的最新余额
+                balances = []
+                account_ids = db.query(IBKRBalance.account_id).distinct().all()
+                for (account_id,) in account_ids:
+                    latest_time = db.query(func.max(IBKRBalance.snapshot_time)).filter(
+                        IBKRBalance.account_id == account_id
+                    ).scalar()
+                    if latest_time:
+                        account_balances = db.query(IBKRBalance).filter(
+                            and_(
+                                IBKRBalance.account_id == account_id,
+                                IBKRBalance.snapshot_time == latest_time
+                            )
+                        ).all()
+                        balances.extend(account_balances)
             
             logger.info(f"📊 查询到 {len(balances)} 条余额记录")
             
