@@ -288,13 +288,13 @@ async def ibkr_health_check():
 # 安全相关的管理端点（仅用于调试和监控）
 @router.get("/debug/recent-requests")
 async def get_recent_requests(
-    x_api_key: str = Header(..., alias="X-API-Key", description="IBKR API密钥"),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key", description="IBKR API密钥"),
     limit: int = Query(20, ge=1, le=50, description="返回记录数量")
 ):
     """获取最近的请求记录（仅用于调试）"""
     try:
-        # 验证API密钥
-        if not _validate_api_key(x_api_key):
+        # 验证API密钥（可选，用于调试）
+        if x_api_key and not _validate_api_key(x_api_key):
             raise HTTPException(status_code=401, detail="Invalid API key")
         
         # 获取最近的同步日志
