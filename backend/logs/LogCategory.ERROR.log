@@ -1,0 +1,1 @@
+{"timestamp":"2025-07-09T12:19:37.119255","level":"ERROR","category":"error","module":"enhanced_logger","function":"log","line":152,"message":"测试错误日志","details":{"error_type":"ValueError","error_message":"这是一个测试错误","stack_trace":"测试堆栈跟踪"}}
