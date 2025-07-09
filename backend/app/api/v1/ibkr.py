@@ -263,12 +263,34 @@ async def ibkr_health_check():
         config_check = await ibkr_service.get_config()
         connection_check = await ibkr_service.test_connection()
         
+        # 添加数据库诊断信息
+        db_info = {}
+        try:
+            from app.utils.database import SessionLocal
+            db = SessionLocal()
+            # 检查IBKR相关表
+            ibkr_accounts_count = db.execute("SELECT COUNT(*) FROM ibkr_accounts").scalar()
+            ibkr_balances_count = db.execute("SELECT COUNT(*) FROM ibkr_balances").scalar()
+            ibkr_positions_count = db.execute("SELECT COUNT(*) FROM ibkr_positions").scalar()
+            ibkr_sync_logs_count = db.execute("SELECT COUNT(*) FROM ibkr_sync_logs").scalar()
+            db.close()
+            
+            db_info = {
+                "ibkr_accounts_count": ibkr_accounts_count,
+                "ibkr_balances_count": ibkr_balances_count,
+                "ibkr_positions_count": ibkr_positions_count,
+                "ibkr_sync_logs_count": ibkr_sync_logs_count
+            }
+        except Exception as e:
+            db_info = {"error": str(e)}
+        
         health_status = {
             "service": "ibkr",
             "status": "healthy" if connection_check.get("config_valid") and connection_check.get("database_ok") else "unhealthy",
             "config_valid": connection_check.get("config_valid", False),
             "database_ok": connection_check.get("database_ok", False),
             "api_configured": config_check.get("api_configured", False),
+            "database_info": db_info,
             "timestamp": datetime.now().isoformat()
         }
         
