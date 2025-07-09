@@ -341,7 +341,8 @@ class IBKRAPIService:
         try:
             # 检查数据库连接
             try:
-                db.execute("SELECT 1")
+                from sqlalchemy import text
+                db.execute(text("SELECT 1"))
                 logger.info("✅ 数据库连接正常")
             except Exception as e:
                 logger.error(f"❌ 数据库连接失败: {e}")
