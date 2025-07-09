@@ -128,6 +128,33 @@ async def health_check():
         "environment": "production" if not settings.debug else "development"
     }
 
+@app.get("/debug")
+async def debug_info():
+    """调试信息"""
+    import os
+    from pathlib import Path
+    
+    # 检查日志目录
+    log_dir = Path("./logs")
+    log_files = []
+    if log_dir.exists():
+        log_files = [f.name for f in log_dir.glob("*.log")]
+    
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "working_directory": os.getcwd(),
+        "python_path": os.environ.get("PYTHONPATH", "未设置"),
+        "port": os.environ.get("PORT", "未设置"),
+        "debug": settings.debug,
+        "log_directory_exists": log_dir.exists(),
+        "log_files": log_files,
+        "environment_vars": {
+            "APP_ENV": os.environ.get("APP_ENV", "未设置"),
+            "RAILWAY_ENVIRONMENT": os.environ.get("RAILWAY_ENVIRONMENT", "未设置"),
+            "RAILWAY_PROJECT_ID": os.environ.get("RAILWAY_PROJECT_ID", "未设置")
+        }
+    }
+
 
 @app.get("/logs-viewer", response_class=HTMLResponse)
 async def logs_viewer():
