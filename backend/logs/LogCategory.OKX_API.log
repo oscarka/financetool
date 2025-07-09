@@ -1,1 +1,2 @@
 {"timestamp":"2025-07-09T12:19:37.118850","level":"INFO","category":"okx_api","module":"enhanced_logger","function":"log","line":148,"message":"测试OKX API调用","details":{"endpoint":"/api/v5/account/balance","response_data":{"total_balance":"1000.00"},"execution_time":0.3}}
+{"timestamp":"2025-07-09T14:32:42.154284","level":"INFO","category":"okx_api","module":"enhanced_logger","function":"log","line":148,"message":"获取OKX账户余额","details":{"endpoint":"/api/v5/account/balance","total_balance":"10000.00","currency":"USDT","response_time":0.3}}
