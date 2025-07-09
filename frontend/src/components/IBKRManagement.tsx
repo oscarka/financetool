@@ -29,7 +29,6 @@ import {
     SyncOutlined
 } from '@ant-design/icons';
 import { ibkrAPI } from '../services/api';
-import { Line } from '@ant-design/charts';
 import dayjs from 'dayjs';
 
 const { TabPane } = Tabs;
@@ -161,7 +160,7 @@ const IBKRManagement: React.FC = () => {
             };
 
             const response = await ibkrAPI.syncData(syncData);
-            if (response.success || response.status === 'success') {
+            if (response.success || (response as any).status === 'success') {
                 message.success('测试同步成功！');
                 setSyncModalVisible(false);
                 form.resetFields();
