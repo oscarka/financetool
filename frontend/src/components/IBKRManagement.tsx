@@ -34,6 +34,11 @@ import dayjs from 'dayjs';
 const { TabPane } = Tabs;
 
 const IBKRManagement: React.FC = () => {
+    // 调试日志
+    console.log('🎯 [IBKRManagement] IBKR组件已加载! 组件版本: v2.1')
+    console.log('🎯 [IBKRManagement] 当前时间:', new Date().toISOString())
+    console.log('🎯 [IBKRManagement] 如果看到此日志，说明IBKR组件正常工作!')
+    
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [balances, setBalances] = useState<any[]>([]);
