@@ -6,6 +6,7 @@ import os
 from app.config import settings
 from app.utils.database import init_database
 from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router
+from app.api.v1.api_manager import router as api_manager_router
 from app.services.scheduler_service import scheduler_service
 
 
@@ -83,6 +84,12 @@ app.include_router(
     upload_db_router,
     prefix=f"{settings.api_v1_prefix}",
     tags=["临时工具"]
+)
+
+# 注册API管理页面
+app.include_router(
+    api_manager_router,
+    tags=["API管理"]
 )
 
 
