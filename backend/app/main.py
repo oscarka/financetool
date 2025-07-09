@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 import os
 from pathlib import Path
+from datetime import datetime
 
 from app.config import settings
 from app.utils.database import init_database
@@ -120,7 +121,12 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查"""
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": settings.app_version,
+        "environment": "production" if not settings.debug else "development"
+    }
 
 
 @app.get("/logs-viewer", response_class=HTMLResponse)
