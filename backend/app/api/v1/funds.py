@@ -30,15 +30,45 @@ def create_fund_operation(
     db: Session = Depends(get_db)
 ):
     """创建基金操作记录"""
-    try:
-        result = FundOperationService.create_operation(db, operation)
-        return FundOperationResponse(
-            success=True,
-            message="基金操作记录创建成功",
-            data=result
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    from app.utils.auto_logger import log_context
+    from app.utils.logger import log_business, log_error
+    
+    with log_context("business", f"创建基金操作记录: {operation.asset_code}"):
+        try:
+            # 记录操作详情
+            log_business("开始创建基金操作记录", extra_data={
+                "fund_code": operation.asset_code,
+                "operation_type": operation.operation_type,
+                "amount": operation.amount,
+                "quantity": operation.quantity,
+                "price": operation.price,
+                "platform": operation.platform
+            })
+            
+            result = FundOperationService.create_operation(db, operation)
+            
+            # 记录成功结果
+            log_business("基金操作记录创建成功", extra_data={
+                "operation_id": result.id,
+                "fund_code": result.asset_code,
+                "operation_type": result.operation_type,
+                "amount": result.amount,
+                "quantity": result.quantity
+            })
+            
+            return FundOperationResponse(
+                success=True,
+                message="基金操作记录创建成功",
+                data=result
+            )
+        except Exception as e:
+            log_error(f"创建基金操作记录失败: {operation.asset_code}", extra_data={
+                "fund_code": operation.asset_code,
+                "operation_type": operation.operation_type,
+                "amount": operation.amount,
+                "error": str(e)
+            })
+            raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/operations", response_model=FundOperationListResponse)
