@@ -356,13 +356,23 @@ class IBKRAPIService:
             ).group_by(IBKRBalance.account_id).subquery()
             
             logger.info("🔍 执行余额查询...")
-            balances = query.join(
-                subquery,
-                and_(
-                    IBKRBalance.account_id == subquery.c.account_id,
-                    IBKRBalance.snapshot_time == subquery.c.max_time
-                )
-            ).all()
+            # 修复：先应用account_id过滤，再进行JOIN
+            if account_id:
+                balances = db.query(IBKRBalance).join(
+                    subquery,
+                    and_(
+                        IBKRBalance.account_id == subquery.c.account_id,
+                        IBKRBalance.snapshot_time == subquery.c.max_time
+                    )
+                ).filter(IBKRBalance.account_id == account_id).all()
+            else:
+                balances = db.query(IBKRBalance).join(
+                    subquery,
+                    and_(
+                        IBKRBalance.account_id == subquery.c.account_id,
+                        IBKRBalance.snapshot_time == subquery.c.max_time
+                    )
+                ).all()
             
             logger.info(f"📊 查询到 {len(balances)} 条余额记录")
             
