@@ -562,7 +562,8 @@ class IBKRAPIService:
             db_error = None
             try:
                 db = SessionLocal()
-                db.execute("SELECT 1")
+                from sqlalchemy import text
+                db.execute(text("SELECT 1"))
                 db.close()
                 db_ok = True
             except Exception as e:
