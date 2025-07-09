@@ -9,6 +9,7 @@ from app.models.database import WiseExchangeRate, WiseTransaction
 from app.utils.database import SessionLocal
 import httpx
 from sqlalchemy import and_
+from app.utils.auto_logger import auto_log
 
 WISE_API_BASE = "https://api.transferwise.com"
 
@@ -23,6 +24,7 @@ class ExchangeRateService:
         }
 
     @staticmethod
+    @auto_log("exchange")
     def get_currency_list() -> List[Dict[str, Any]]:
         """获取支持的货币列表"""
         try:
@@ -46,6 +48,7 @@ class ExchangeRateService:
             return []
     
     @staticmethod
+    @auto_log("exchange", log_result=True)
     def get_exchange_rate(currency: str = "USD") -> Optional[Dict[str, Any]]:
         """获取指定货币对人民币的汇率"""
         try:
@@ -72,6 +75,7 @@ class ExchangeRateService:
             return None
     
     @staticmethod
+    @auto_log("exchange", log_result=True)
     def get_all_exchange_rates() -> List[Dict[str, Any]]:
         """获取所有货币的汇率"""
         try:
@@ -131,6 +135,7 @@ class ExchangeRateService:
             return []
     
     @staticmethod
+    @auto_log("exchange", log_result=True)
     def convert_currency(amount: float, from_currency: str, to_currency: str = "CNY") -> Optional[float]:
         """货币转换"""
         try:
