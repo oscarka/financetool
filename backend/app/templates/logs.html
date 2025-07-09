@@ -400,6 +400,7 @@
                 <button class="btn btn-secondary" onclick="clearFilters()">🧹 清除过滤</button>
                 <button class="btn btn-danger" onclick="cleanupLogs()">🗑️ 清理旧日志</button>
                 <button class="btn btn-primary" onclick="autoRefresh()">⏰ 自动刷新</button>
+                <button class="btn btn-success" onclick="testLogging()">🧪 测试日志</button>
             </div>
         </div>
 
@@ -602,6 +603,24 @@
                 event.target.textContent = '⏹️ 停止刷新';
                 event.target.classList.remove('btn-primary');
                 event.target.classList.add('btn-danger');
+            }
+        }
+
+        // 测试日志
+        async function testLogging() {
+            try {
+                const response = await fetch(`${API_BASE}/logs/test`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                alert(result.message);
+                // 等待一秒后刷新日志
+                setTimeout(() => {
+                    loadLogs();
+                    loadStats();
+                }, 1000);
+            } catch (error) {
+                alert('测试日志失败: ' + error.message);
             }
         }
 

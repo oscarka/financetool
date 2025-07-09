@@ -255,3 +255,41 @@ async def cleanup_old_logs(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"清理日志失败: {str(e)}")
+
+@router.post("/logs/test")
+async def test_logging():
+    """测试日志系统 - 生成各种类型的日志"""
+    try:
+        from app.utils.logger import (
+            log_api, log_database, log_scheduler, log_business, log_error, log_system, log_security,
+            log_fund_api, log_okx_api, log_wise_api, log_paypal_api, log_exchange_api, log_external_other
+        )
+        from app.utils.auto_logger import quick_log
+        
+        # 生成各种类型的日志
+        log_api("测试API请求", extra_data={"endpoint": "/api/test", "method": "GET"})
+        log_database("测试数据库查询", extra_data={"table": "users", "operation": "SELECT"})
+        log_scheduler("测试定时任务", extra_data={"task": "sync_data", "interval": "1h"})
+        log_business("测试业务逻辑", extra_data={"user_id": 123, "action": "login"})
+        log_error("测试错误日志", extra_data={"error_code": 500, "details": "Internal error"})
+        log_system("测试系统日志", extra_data={"component": "auth", "status": "running"})
+        log_security("测试安全日志", extra_data={"ip": "192.168.1.1", "event": "login_attempt"})
+        
+        # 外部API日志
+        log_fund_api("测试基金API", extra_data={"fund_code": "000001", "source": "tiantian"})
+        log_okx_api("测试OKX API", extra_data={"endpoint": "/balance", "response_time": 150})
+        log_wise_api("测试Wise API", extra_data={"profile_id": "123", "currency": "USD"})
+        log_paypal_api("测试PayPal API", extra_data={"transaction_id": "txn_123", "amount": 100})
+        log_exchange_api("测试汇率API", extra_data={"from": "USD", "to": "CNY", "rate": 7.2})
+        log_external_other("测试其他外部API", extra_data={"service": "weather", "location": "Beijing"})
+        
+        # 快速日志
+        quick_log("快速信息日志", "business")
+        quick_log("快速错误日志", "error", level="ERROR")
+        
+        return {
+            "message": "日志测试完成！已生成各种类型的日志",
+            "generated_logs": 15
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成测试日志失败: {str(e)}")

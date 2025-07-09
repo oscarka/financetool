@@ -101,15 +101,14 @@ class CategoryLogger:
             
             logger.addHandler(console_handler)
             
-            # 文件处理器 - 本地开发时使用
-            if not is_production:
-                file_handler = logging.FileHandler(
-                    log_dir / f"{category}.log", 
-                    encoding='utf-8'
-                )
-                file_handler.setLevel(logging.DEBUG)
-                file_handler.setFormatter(StructuredFormatter())
-                logger.addHandler(file_handler)
+            # 文件处理器 - 总是创建文件，便于日志查看器读取
+            file_handler = logging.FileHandler(
+                log_dir / f"{category}.log", 
+                encoding='utf-8'
+            )
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(StructuredFormatter())
+            logger.addHandler(file_handler)
             
             # 防止日志向上传播
             logger.propagate = False
