@@ -1,1 +1,2 @@
 {"timestamp":"2025-07-09T12:19:37.118704","level":"INFO","category":"fund_api","module":"enhanced_logger","function":"log","line":148,"message":"测试基金API调用","details":{"endpoint":"/api/fund/nav","fund_code":"000001","response_time":0.5,"status_code":200}}
+{"timestamp":"2025-07-09T13:53:40.157035","level":"INFO","category":"fund_api","module":"enhanced_logger","function":"log","line":148,"message":"测试基金API","details":{"endpoint":"/api/fund/nav","fund_code":"000001","response_time":0.5}}
