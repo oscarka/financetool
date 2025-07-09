@@ -276,4 +276,94 @@ Index('idx_exchange_rates_date', ExchangeRate.rate_date)
 Index('idx_exchange_rates_currency', ExchangeRate.from_currency, ExchangeRate.to_currency)
 
 Index('idx_fund_dividend_code', FundDividend.fund_code)
-Index('idx_fund_dividend_date', FundDividend.dividend_date) 
+Index('idx_fund_dividend_date', FundDividend.dividend_date)
+
+
+class IBKRAccount(Base):
+    """IBKR账户信息表"""
+    __tablename__ = "ibkr_accounts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), unique=True, nullable=False, index=True)
+    account_name = Column(String(100))
+    account_type = Column(String(50), default="INDIVIDUAL")
+    base_currency = Column(String(10), default="USD")
+    status = Column(String(20), default="ACTIVE")
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class IBKRBalance(Base):
+    """IBKR余额表"""
+    __tablename__ = "ibkr_balances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    total_cash = Column(DECIMAL(15, 2), nullable=False, default=0)
+    net_liquidation = Column(DECIMAL(15, 2), nullable=False, default=0)
+    buying_power = Column(DECIMAL(15, 2), nullable=False, default=0)
+    currency = Column(String(10), nullable=False, default="USD")
+    snapshot_date = Column(Date, nullable=False, index=True)
+    snapshot_time = Column(DateTime, nullable=False)
+    sync_source = Column(String(50), default="gcp_scheduler")
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('account_id', 'snapshot_date', 'snapshot_time', name='uq_ibkr_balance'),
+    )
+
+
+class IBKRPosition(Base):
+    """IBKR持仓表"""
+    __tablename__ = "ibkr_positions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    symbol = Column(String(20), nullable=False, index=True)
+    quantity = Column(DECIMAL(15, 6), nullable=False, default=0)
+    market_value = Column(DECIMAL(15, 2), nullable=False, default=0)
+    average_cost = Column(DECIMAL(15, 2), nullable=False, default=0)
+    unrealized_pnl = Column(DECIMAL(15, 2), default=0)
+    realized_pnl = Column(DECIMAL(15, 2), default=0)
+    currency = Column(String(10), nullable=False, default="USD")
+    asset_class = Column(String(50), default="STK")
+    snapshot_date = Column(Date, nullable=False, index=True)
+    snapshot_time = Column(DateTime, nullable=False)
+    sync_source = Column(String(50), default="gcp_scheduler")
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('account_id', 'symbol', 'snapshot_date', 'snapshot_time', name='uq_ibkr_position'),
+    )
+
+
+class IBKRSyncLog(Base):
+    """IBKR同步日志表"""
+    __tablename__ = "ibkr_sync_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), index=True)
+    sync_type = Column(String(50), nullable=False)
+    status = Column(String(20), nullable=False, index=True)
+    request_data = Column(Text)
+    response_data = Column(Text)
+    error_message = Column(Text)
+    records_processed = Column(Integer, default=0)
+    records_updated = Column(Integer, default=0)
+    records_inserted = Column(Integer, default=0)
+    source_ip = Column(String(50))
+    user_agent = Column(String(200))
+    sync_duration_ms = Column(Integer)
+    created_at = Column(DateTime, default=func.now(), index=True)
+
+
+# IBKR索引
+Index('idx_ibkr_accounts_id', IBKRAccount.account_id)
+Index('idx_ibkr_balances_account', IBKRBalance.account_id)
+Index('idx_ibkr_balances_date', IBKRBalance.snapshot_date)
+Index('idx_ibkr_positions_account', IBKRPosition.account_id)
+Index('idx_ibkr_positions_symbol', IBKRPosition.symbol)
+Index('idx_ibkr_positions_date', IBKRPosition.snapshot_date)
+Index('idx_ibkr_sync_logs_status', IBKRSyncLog.status)
+Index('idx_ibkr_sync_logs_date', IBKRSyncLog.created_at)
+Index('idx_ibkr_sync_logs_account', IBKRSyncLog.account_id) 

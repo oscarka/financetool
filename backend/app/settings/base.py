@@ -36,6 +36,15 @@ class BaseConfig(BaseSettings):
     paypal_client_secret: str = ""
     paypal_api_base_url: str = "https://api-m.sandbox.paypal.com"  # 沙盒环境
     
+    # IBKR API配置
+    ibkr_api_key: str = ""
+    ibkr_allowed_ips: str = "34.60.247.187"  # Google Cloud VM IP
+    ibkr_sync_timeout: int = 30
+    ibkr_max_request_size: int = 1024 * 1024  # 1MB
+    ibkr_rate_limit_per_minute: int = 60
+    ibkr_enable_ip_whitelist: bool = True
+    ibkr_enable_request_logging: bool = True
+    
     # 定时任务配置
     scheduler_timezone: str = "Asia/Shanghai"
     
