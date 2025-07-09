@@ -101,6 +101,17 @@ class IBKRAPIService:
         try:
             snapshot_date = snapshot_time.date()
             
+            # 详细日志：打印写入时的所有字段和类型
+            logger.info(f"🔍 准备写入余额数据:")
+            logger.info(f"   account_id: '{account_id}' (类型: {type(account_id)})")
+            logger.info(f"   snapshot_time: {snapshot_time} (类型: {type(snapshot_time)})")
+            logger.info(f"   snapshot_date: {snapshot_date} (类型: {type(snapshot_date)})")
+            logger.info(f"   currency: '{balances_data.get('currency')}' (类型: {type(balances_data.get('currency'))})")
+            logger.info(f"   total_cash: {balances_data.get('total_cash')} (类型: {type(balances_data.get('total_cash'))})")
+            logger.info(f"   net_liquidation: {balances_data.get('net_liquidation')} (类型: {type(balances_data.get('net_liquidation'))})")
+            logger.info(f"   buying_power: {balances_data.get('buying_power')} (类型: {type(balances_data.get('buying_power'))})")
+            logger.info(f"   sync_source: '{sync_source}' (类型: {type(sync_source)})")
+            
             # 检查是否已存在相同时间的余额记录
             existing_balance = db.query(IBKRBalance).filter(
                 and_(
@@ -128,11 +139,11 @@ class IBKRAPIService:
             
             db.add(balance)
             db.commit()
-            logger.info(f"成功同步余额数据: {account_id} - {snapshot_time}")
+            logger.info(f"✅ 成功同步余额数据: {account_id} - {snapshot_time}")
             return 1
             
         except Exception as e:
-            logger.error(f"同步余额数据失败: {e}")
+            logger.error(f"❌ 同步余额数据失败: {e}")
             db.rollback()
             raise
     
@@ -353,9 +364,11 @@ class IBKRAPIService:
             logger.info("🔍 执行余额查询...")
             if account_id:
                 # 获取指定账户的最新余额
+                logger.info(f"🔍 查询指定账户: {account_id}")
                 latest_time = db.query(func.max(IBKRBalance.snapshot_time)).filter(
                     IBKRBalance.account_id == account_id
                 ).scalar()
+                logger.info(f"📊 账户 {account_id} 的最新时间: {latest_time} (类型: {type(latest_time)})")
                 if latest_time:
                     balances = db.query(IBKRBalance).filter(
                         and_(
@@ -363,16 +376,21 @@ class IBKRAPIService:
                             IBKRBalance.snapshot_time == latest_time
                         )
                     ).all()
+                    logger.info(f"📊 查询到 {len(balances)} 条余额记录")
                 else:
                     balances = []
+                    logger.info(f"❌ 账户 {account_id} 没有找到最新时间")
             else:
                 # 获取所有账户的最新余额
                 balances = []
                 account_ids = db.query(IBKRBalance.account_id).distinct().all()
+                logger.info(f"📊 所有账户ID: {[aid[0] for aid in account_ids]}")
                 for (account_id,) in account_ids:
+                    logger.info(f"🔍 查询账户: {account_id}")
                     latest_time = db.query(func.max(IBKRBalance.snapshot_time)).filter(
                         IBKRBalance.account_id == account_id
                     ).scalar()
+                    logger.info(f"📊 账户 {account_id} 的最新时间: {latest_time} (类型: {type(latest_time)})")
                     if latest_time:
                         account_balances = db.query(IBKRBalance).filter(
                             and_(
@@ -380,7 +398,10 @@ class IBKRAPIService:
                                 IBKRBalance.snapshot_time == latest_time
                             )
                         ).all()
+                        logger.info(f"📊 账户 {account_id} 查询到 {len(account_balances)} 条余额记录")
                         balances.extend(account_balances)
+                    else:
+                        logger.info(f"❌ 账户 {account_id} 没有找到最新时间")
             
             logger.info(f"📊 查询到 {len(balances)} 条余额记录")
             
@@ -401,6 +422,18 @@ class IBKRAPIService:
             logger.info(f"✅ 成功返回 {len(result)} 条余额数据")
             for balance in result:
                 logger.info(f"💰 账户 {balance['account_id']}: 现金 ${balance['total_cash']:.2f}, 净值 ${balance['net_liquidation']:.2f}")
+            
+            # 打印原始数据的详细信息
+            for balance in balances:
+                logger.info(f"🔍 余额原始数据:")
+                logger.info(f"   account_id: '{balance.account_id}' (类型: {type(balance.account_id)})")
+                logger.info(f"   snapshot_time: {balance.snapshot_time} (类型: {type(balance.snapshot_time)})")
+                logger.info(f"   snapshot_date: {balance.snapshot_date} (类型: {type(balance.snapshot_date)})")
+                logger.info(f"   currency: '{balance.currency}' (类型: {type(balance.currency)})")
+                logger.info(f"   total_cash: {balance.total_cash} (类型: {type(balance.total_cash)})")
+                logger.info(f"   net_liquidation: {balance.net_liquidation} (类型: {type(balance.net_liquidation)})")
+                logger.info(f"   buying_power: {balance.buying_power} (类型: {type(balance.buying_power)})")
+                logger.info(f"   sync_source: '{balance.sync_source}' (类型: {type(balance.sync_source)})")
             
             return result
         except Exception as e:
