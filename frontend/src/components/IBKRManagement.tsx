@@ -16,9 +16,7 @@ import {
     Form,
     Input,
     DatePicker,
-    InputNumber,
-    Collapse,
-    Select
+    InputNumber
 } from 'antd';
 import {
     ReloadOutlined,
@@ -28,17 +26,12 @@ import {
     LineChartOutlined,
     WarningOutlined,
     CheckCircleOutlined,
-    SyncOutlined,
-    DownOutlined,
-    UpOutlined,
-    EyeOutlined
+    SyncOutlined
 } from '@ant-design/icons';
-import { ibkrAPI, logsAPI } from '../services/api';
+import { ibkrAPI } from '../services/api';
 import dayjs from 'dayjs';
 
 const { TabPane } = Tabs;
-const { Option } = Select;
-const { Panel } = Collapse;
 
 const IBKRManagement: React.FC = () => {
     // 调试日志
