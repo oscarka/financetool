@@ -20,7 +20,7 @@ import React from 'react'
 
 function App() {
     const deviceInfo = useDeviceDetection()
-    
+
     // 强制输出调试信息 - 无论什么情况都要看到
     console.log('🔥 APP 组件渲染 - 强制调试信息')
     console.log('🔍 设备检测信息:', {
@@ -31,14 +31,14 @@ function App() {
         userAgent: navigator.userAgent,
         timestamp: new Date().toISOString()
     })
-    
+
     // IBKR路由调试日志
     console.log('🎯 [App] IBKR相关调试信息:')
     console.log('- IBKRManagementPage 组件已导入:', typeof IBKRManagementPage !== 'undefined' ? 'YES ✅' : 'NO ❌')
     console.log('- /ibkr 路由将被渲染:', '<Route path="/ibkr" element={<IBKRManagementPage />} />')
     console.log('- 当前路径:', window.location.pathname)
     console.log('- 如果看到此日志，说明App.tsx已更新! 🎉')
-    
+
     // 根据设备类型选择布局组件和页面组件
     const LayoutComponent = deviceInfo.isMobile ? MobileLayout : Layout
     const DashboardComponent = deviceInfo.isMobile ? MobileDashboard : Dashboard
@@ -76,13 +76,13 @@ function App() {
             宽度: ${deviceInfo.screenWidth}px | 
             时间: ${new Date().toLocaleTimeString()}
         `
-        
+
         // 移除旧的调试信息
         const old = document.getElementById('debug-device-info')
         if (old) old.remove()
-        
+
         document.body.appendChild(debugInfo)
-        
+
         // 5秒后自动隐藏
         setTimeout(() => {
             if (document.getElementById('debug-device-info')) {
@@ -110,7 +110,7 @@ function App() {
                         {deviceInfo.isMobile ? '📱Mobile' : '🖥️Desktop'} | {deviceInfo.screenWidth}px
                     </div>
                 )}
-                
+
                 {/* 版本调试信息 - 显示在所有环境 */}
                 <div style={{
                     position: 'fixed',
@@ -125,7 +125,7 @@ function App() {
                 }}>
                     IBKR-v2.1 | {new Date().toLocaleTimeString()}
                 </div>
-                
+
                 <LayoutComponent>
                     <Routes>
                         <Route path="/" element={<DashboardComponent />} />

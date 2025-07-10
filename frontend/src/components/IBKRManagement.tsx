@@ -1,44 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Card, 
-    Button, 
-    Table, 
-    Tabs, 
-    Badge, 
-    Alert, 
-    Row, 
-    Col, 
-    Statistic, 
-    Tag, 
-    Tooltip, 
+import {
+    Card,
+    Button,
+    Table,
+    Tabs,
+    Badge,
+    Alert,
+    Row,
+    Col,
+    Statistic,
+    Tag,
+    Tooltip,
     message,
     Modal,
     Form,
     Input,
     DatePicker,
-    InputNumber
+    InputNumber,
+    Collapse,
+    Select
 } from 'antd';
-import { 
-    ReloadOutlined, 
-    BankOutlined, 
-    ClockCircleOutlined, 
+import {
+    ReloadOutlined,
+    BankOutlined,
+    ClockCircleOutlined,
     DollarCircleOutlined,
     LineChartOutlined,
     WarningOutlined,
     CheckCircleOutlined,
-    SyncOutlined
+    SyncOutlined,
+    DownOutlined,
+    UpOutlined,
+    EyeOutlined
 } from '@ant-design/icons';
-import { ibkrAPI } from '../services/api';
+import { ibkrAPI, logsAPI } from '../services/api';
 import dayjs from 'dayjs';
 
 const { TabPane } = Tabs;
+const { Option } = Select;
+const { Panel } = Collapse;
 
 const IBKRManagement: React.FC = () => {
     // 调试日志
     console.log('🎯 [IBKRManagement] IBKR组件已加载! 组件版本: v2.1')
     console.log('🎯 [IBKRManagement] 当前时间:', new Date().toISOString())
     console.log('🎯 [IBKRManagement] 如果看到此日志，说明IBKR组件正常工作!')
-    
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [balances, setBalances] = useState<any[]>([]);
@@ -361,9 +368,9 @@ const IBKRManagement: React.FC = () => {
             dataIndex: 'status',
             key: 'status',
             render: (v: string) => (
-                <Badge 
-                    color={getStatusColor(v)} 
-                    text={v} 
+                <Badge
+                    color={getStatusColor(v)}
+                    text={v}
                 />
             )
         },
@@ -407,17 +414,17 @@ const IBKRManagement: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <h1 style={{ fontSize: 24, fontWeight: 700 }}>IBKR 账户管理</h1>
                 <div>
-                    <Button 
-                        icon={<SyncOutlined />} 
+                    <Button
+                        icon={<SyncOutlined />}
                         onClick={() => setSyncModalVisible(true)}
                         style={{ marginRight: 8 }}
                     >
                         测试同步
                     </Button>
-                    <Button 
-                        icon={<ReloadOutlined />} 
-                        onClick={fetchData} 
-                        loading={loading} 
+                    <Button
+                        icon={<ReloadOutlined />}
+                        onClick={fetchData}
+                        loading={loading}
                         type="primary"
                     >
                         刷新数据
@@ -431,43 +438,43 @@ const IBKRManagement: React.FC = () => {
             <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col span={6}>
                     <Card>
-                        <Statistic 
-                            title="总账户数" 
-                            value={summary?.total_accounts || 0} 
-                            prefix={<BankOutlined />} 
-                            loading={summaryLoading} 
+                        <Statistic
+                            title="总账户数"
+                            value={summary?.total_accounts || 0}
+                            prefix={<BankOutlined />}
+                            loading={summaryLoading}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card>
-                        <Statistic 
-                            title="总持仓数" 
-                            value={summary?.total_positions || 0} 
-                            prefix={<LineChartOutlined />} 
-                            loading={summaryLoading} 
+                        <Statistic
+                            title="总持仓数"
+                            value={summary?.total_positions || 0}
+                            prefix={<LineChartOutlined />}
+                            loading={summaryLoading}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card>
-                        <Statistic 
-                            title="净清算价值" 
-                            value={summary?.total_net_liquidation || 0} 
-                            prefix="$" 
+                        <Statistic
+                            title="净清算价值"
+                            value={summary?.total_net_liquidation || 0}
+                            prefix="$"
                             precision={2}
-                            loading={summaryLoading} 
+                            loading={summaryLoading}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card>
-                        <Statistic 
-                            title="总现金" 
-                            value={summary?.total_cash || 0} 
-                            prefix={<DollarCircleOutlined />} 
+                        <Statistic
+                            title="总现金"
+                            value={summary?.total_cash || 0}
+                            prefix={<DollarCircleOutlined />}
                             precision={2}
-                            loading={summaryLoading} 
+                            loading={summaryLoading}
                         />
                     </Card>
                 </Col>
@@ -562,7 +569,7 @@ const IBKRManagement: React.FC = () => {
                         size="small"
                     />
                 </TabPane>
-                
+
                 <TabPane tab="持仓信息" key="positions">
                     <Table
                         dataSource={positions}
@@ -574,7 +581,7 @@ const IBKRManagement: React.FC = () => {
                         size="small"
                     />
                 </TabPane>
-                
+
                 <TabPane tab="同步日志" key="logs">
                     <Table
                         dataSource={logs}
@@ -595,9 +602,9 @@ const IBKRManagement: React.FC = () => {
                                 columns={[
                                     { title: 'ID', dataIndex: 'id', key: 'id' },
                                     { title: '账户ID', dataIndex: 'account_id', key: 'account_id' },
-                                    { 
-                                        title: '状态', 
-                                        dataIndex: 'status', 
+                                    {
+                                        title: '状态',
+                                        dataIndex: 'status',
                                         key: 'status',
                                         render: (v: string) => <Badge color={getStatusColor(v)} text={v} />
                                     },
@@ -605,9 +612,9 @@ const IBKRManagement: React.FC = () => {
                                     { title: '插入记录', dataIndex: 'records_inserted', key: 'records_inserted' },
                                     { title: '来源IP', dataIndex: 'source_ip', key: 'source_ip' },
                                     { title: '耗时(ms)', dataIndex: 'sync_duration_ms', key: 'sync_duration_ms' },
-                                    { 
-                                        title: '时间', 
-                                        dataIndex: 'created_at', 
+                                    {
+                                        title: '时间',
+                                        dataIndex: 'created_at',
                                         key: 'created_at',
                                         render: (v: string) => new Date(v).toLocaleString('zh-CN')
                                     },
@@ -626,12 +633,12 @@ const IBKRManagement: React.FC = () => {
                             <Alert type="info" message="暂无调试信息" />
                         )}
                     </Card>
-                    
+
                     <Card title="原始数据">
-                        <pre style={{ 
-                            maxHeight: 400, 
-                            overflow: 'auto', 
-                            background: '#f6f6f6', 
+                        <pre style={{
+                            maxHeight: 400,
+                            overflow: 'auto',
+                            background: '#f6f6f6',
                             fontSize: 12,
                             padding: 12
                         }}>

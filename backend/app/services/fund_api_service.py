@@ -5,8 +5,9 @@ from datetime import date, datetime
 from decimal import Decimal
 import json
 import re
-from loguru import logger
 from app.config import settings
+from app.utils.logger import log_fund_api, log_error
+from app.utils.auto_logger import auto_log
 
 
 class FundAPIService:
@@ -17,6 +18,7 @@ class FundAPIService:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
     
+    @auto_log("fund", log_result=True)
     async def get_fund_nav_tiantian(self, fund_code: str, nav_date: date) -> Optional[Dict[str, Any]]:
         """从天天基金网获取基金净值"""
         try:
@@ -44,9 +46,10 @@ class FundAPIService:
                         }
                 return None
         except Exception as e:
-            logger.error(f"获取天天基金网净值失败: {fund_code}, {nav_date}, {e}")
+            log_fund_api(f"获取天天基金网净值失败: {fund_code}, {nav_date}, {e}", level="ERROR")
             return None
     
+    @auto_log("fund", log_result=True)
     async def get_fund_nav_xueqiu(self, fund_code: str, nav_date: date) -> Optional[Dict[str, Any]]:
         """从雪球获取基金净值"""
         try:
@@ -79,9 +82,10 @@ class FundAPIService:
                 return None
                 
         except Exception as e:
-            logger.error(f"获取雪球净值失败: {fund_code}, {nav_date}, {e}")
+            log_fund_api(f"获取雪球净值失败: {fund_code}, {nav_date}, {e}", level="ERROR")
             return None
     
+    @auto_log("fund", log_result=True)
     async def get_fund_info_tiantian(self, fund_code: str) -> Optional[Dict[str, Any]]:
         """从天天基金网获取基金信息"""
         try:
@@ -117,9 +121,10 @@ class FundAPIService:
                 return None
                 
         except Exception as e:
-            logger.error(f"获取天天基金网基金信息失败: {fund_code}, {e}")
+            log_fund_api(f"获取天天基金网基金信息失败: {fund_code}, {e}", level="ERROR")
             return None
     
+    @auto_log("fund", log_result=True)
     async def get_fund_nav(self, fund_code: str, nav_date: date) -> Optional[Dict[str, Any]]:
         """获取基金净值（多数据源）"""
         # 尝试天天基金网
@@ -134,6 +139,7 @@ class FundAPIService:
         
         return None
     
+    @auto_log("fund", log_result=True)
     async def get_fund_info(self, fund_code: str) -> Optional[Dict[str, Any]]:
         """获取基金信息（多数据源）"""
         # 尝试天天基金网
@@ -143,6 +149,7 @@ class FundAPIService:
         
         return None
     
+    @auto_log("fund", log_result=True)
     async def batch_get_fund_nav(self, fund_codes: list, nav_date: date) -> Dict[str, Dict[str, Any]]:
         """批量获取基金净值"""
         tasks = []
@@ -157,7 +164,7 @@ class FundAPIService:
             if isinstance(result, dict):
                 nav_data[fund_codes[i]] = result
             else:
-                logger.error(f"获取基金净值失败: {fund_codes[i]}, {result}")
+                log_fund_api(f"获取基金净值失败: {fund_codes[i]}, {result}", level="ERROR")
         
         return nav_data
 
@@ -199,7 +206,7 @@ class FundAPIService:
                 return None
         except Exception as e:
             print(f"[调试] get_fund_nav_latest_tiantian 异常: {e}")
-            logger.error(f"获取天天基金网最新净值失败: {fund_code}, {e}")
+            log_fund_api(f"获取天天基金网最新净值失败: {fund_code}, {e}", level="ERROR")
             return None
 
     async def sync_latest_fund_nav(self, db, fund_code: str):
@@ -223,19 +230,19 @@ class FundAPIService:
                         source=nav_data["source"]
                     )
                     print(f"[调试] 数据库插入成功！")
-                    logger.info(f"同步最新基金净值成功: {fund_code}, {nav_data['nav_date']}, {nav_data['nav']}")
+                    log_fund_api(f"同步最新基金净值成功: {fund_code}, {nav_data['nav_date']}, {nav_data['nav']}", level="INFO")
                     return True
                 except Exception as db_error:
                     print(f"[调试] 数据库插入失败: {db_error}")
-                    logger.error(f"数据库插入失败: {fund_code}, {nav_data['nav_date']}, {db_error}")
+                    log_fund_api(f"数据库插入失败: {fund_code}, {nav_data['nav_date']}, {db_error}", level="ERROR")
                     return False
             else:
                 print(f"[调试] 未获取到最新净值数据")
-                logger.warning(f"未获取到最新基金净值: {fund_code}")
+                log_fund_api(f"未获取到最新基金净值: {fund_code}", level="WARNING")
                 return False
         except Exception as e:
             print(f"[调试] 同步最新基金净值异常: {e}")
-            logger.error(f"同步最新基金净值失败: {fund_code}, {e}")
+            log_fund_api(f"同步最新基金净值失败: {fund_code}, {e}", level="ERROR")
             return False
 
 
@@ -267,19 +274,19 @@ class FundSyncService:
                         source=nav_data["source"]
                     )
                     print(f"[调试] 数据库插入成功！")
-                    logger.info(f"同步基金净值成功: {fund_code}, {nav_data['nav_date']}, {nav_data['nav']}")
+                    log_fund_api(f"同步基金净值成功: {fund_code}, {nav_data['nav_date']}, {nav_data['nav']}", level="INFO")
                     return True
                 except Exception as db_error:
                     print(f"[调试] 数据库插入失败: {db_error}")
-                    logger.error(f"数据库插入失败: {fund_code}, {nav_data['nav_date']}, {db_error}")
+                    log_fund_api(f"数据库插入失败: {fund_code}, {nav_data['nav_date']}, {db_error}", level="ERROR")
                     return False
             else:
                 print(f"[调试] 未获取到净值数据")
-                logger.warning(f"未获取到基金净值: {fund_code}, {nav_date}")
+                log_fund_api(f"未获取到基金净值: {fund_code}, {nav_date}", level="WARNING")
                 return False
         except Exception as e:
             print(f"[调试] 同步基金净值异常: {e}")
-            logger.error(f"同步基金净值失败: {fund_code}, {nav_date}, {e}")
+            log_fund_api(f"同步基金净值失败: {fund_code}, {nav_date}, {e}", level="ERROR")
             return False
     
     async def sync_fund_info(self, db, fund_code: str):
@@ -315,12 +322,12 @@ class FundSyncService:
                         risk_level=fund_info.get("risk_level")
                     )
                 
-                logger.info(f"同步基金信息成功: {fund_code}")
+                log_fund_api(f"同步基金信息成功: {fund_code}", level="INFO")
                 return True
             else:
-                logger.warning(f"未获取到基金信息: {fund_code}")
+                log_fund_api(f"未获取到基金信息: {fund_code}", level="WARNING")
                 return False
                 
         except Exception as e:
-            logger.error(f"同步基金信息失败: {fund_code}, {e}")
+            log_fund_api(f"同步基金信息失败: {fund_code}, {e}", level="ERROR")
             return False 

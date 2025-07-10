@@ -5,7 +5,12 @@ import base64
 import hashlib
 from typing import Optional, Dict, Any, List
 from app.config import settings
-from loguru import logger
+from app.utils.logger import log_okx_api
+from app.utils.auto_logger import auto_log
+import logging
+
+# 创建logger实例
+logger = logging.getLogger(__name__)
 
 class OKXAPIService:
     """OKX API集成服务"""
@@ -25,12 +30,12 @@ class OKXAPIService:
         self.base_url = 'https://www.okx.com'
         
         # 打印调试信息
-        logger.info(f"OKX API初始化: api_key={self.api_key[:10] if self.api_key else 'None'}..., sandbox={self.sandbox}")
+        log_okx_api(f"OKX API初始化: api_key={self.api_key[:10] if self.api_key else 'None'}..., sandbox={self.sandbox}", level="INFO")
 
     def _validate_config(self) -> bool:
         """验证API配置是否完整"""
         if not all([self.api_key, self.secret_key, self.passphrase]):
-            logger.error("OKX API配置不完整，请检查环境变量")
+            log_okx_api("OKX API配置不完整，请检查环境变量", level="ERROR")
             return False
         return True
 
@@ -88,17 +93,20 @@ class OKXAPIService:
             logger.error(f"OKX接口请求异常: {e}")
             return None
 
+    @auto_log("okx", log_result=True)
     async def get_account_balance(self) -> Optional[Dict[str, Any]]:
         """获取账户资产信息"""
         if not self._validate_config():
             return None
         return await self._make_request('GET', '/api/v5/account/balance')
 
+    @auto_log("okx", log_result=True)
     async def get_ticker(self, inst_id: str) -> Optional[Dict[str, Any]]:
         """获取某个币种行情"""
         params = {'instId': inst_id}
         return await self._make_request('GET', '/api/v5/market/ticker', params=params, auth_required=False)
 
+    @auto_log("okx", log_result=True)
     async def get_all_tickers(self, inst_type: str = 'SPOT') -> Optional[Dict[str, Any]]:
         """获取所有币种行情"""
         params = {'instType': inst_type}
@@ -109,6 +117,7 @@ class OKXAPIService:
         params = {'instType': inst_type}
         return await self._make_request('GET', '/api/v5/public/instruments', params=params, auth_required=False)
 
+    @auto_log("okx", log_result=True)
     async def get_account_positions(self) -> Optional[Dict[str, Any]]:
         """获取持仓信息"""
         if not self._validate_config():
@@ -124,6 +133,7 @@ class OKXAPIService:
             params['instType'] = inst_type
         return await self._make_request('GET', '/api/v5/account/bills', params=params)
 
+    @auto_log("system")
     async def get_config(self) -> Dict[str, Any]:
         """获取当前配置信息"""
         return {
@@ -133,6 +143,7 @@ class OKXAPIService:
             "api_key_prefix": self.api_key[:10] + "..." if self.api_key else "未配置"
         }
 
+    @auto_log("system")
     async def test_connection(self) -> Dict[str, Any]:
         """测试连接状态"""
         try:
@@ -165,6 +176,7 @@ class OKXAPIService:
                 "timestamp": time.time()
             }
 
+    @auto_log("okx", log_result=True)
     async def get_asset_balances(self, ccy: str = None) -> Optional[Dict[str, Any]]:
         """获取资金账户余额 (GET /api/v5/asset/balances)"""
         if not self._validate_config():
@@ -174,6 +186,7 @@ class OKXAPIService:
             params['ccy'] = ccy
         return await self._make_request('GET', '/api/v5/asset/balances', params=params)
 
+    @auto_log("okx", log_result=True)
     async def get_savings_balance(self, ccy: str = None) -> Optional[Dict[str, Any]]:
         """获取储蓄账户余额 (GET /api/v5/finance/savings/balance)"""
         if not self._validate_config():

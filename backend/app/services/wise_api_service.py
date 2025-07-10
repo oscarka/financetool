@@ -8,6 +8,7 @@ from app.utils.database import SessionLocal
 from app.models.database import WiseTransaction
 import sqlalchemy
 import re
+from app.utils.auto_logger import auto_log
 
 
 class WiseAPIService:
@@ -60,24 +61,28 @@ class WiseAPIService:
             logger.error(f"Wise接口请求异常: {e}")
             return None
 
+    @auto_log("wise", log_result=True)
     async def get_profile(self) -> Optional[Dict[str, Any]]:
         """获取用户资料信息"""
         if not self._validate_config():
             return None
         return await self._make_request('GET', '/v1/profiles')
 
+    @auto_log("wise", log_result=True)
     async def get_accounts(self, profile_id: str) -> Optional[Dict[str, Any]]:
         """获取账户列表"""
         if not self._validate_config():
             return None
         return await self._make_request('GET', f'/v3/profiles/{profile_id}/borderless-accounts')
 
+    @auto_log("wise", log_result=True)
     async def get_account_balance(self, profile_id: str, account_id: str) -> Optional[Dict[str, Any]]:
         """获取账户余额"""
         if not self._validate_config():
             return None
         return await self._make_request('GET', f'/v3/profiles/{profile_id}/borderless-accounts/{account_id}/balances')
 
+    @auto_log("wise", log_result=True)
     async def get_transactions(self, profile_id: str, account_id: str, limit: int = 50, offset: int = 0) -> Optional[Dict[str, Any]]:
         """获取交易记录"""
         if not self._validate_config():
@@ -88,6 +93,7 @@ class WiseAPIService:
         }
         return await self._make_request('GET', f'/v3/profiles/{profile_id}/borderless-accounts/{account_id}/activities', params=params)
 
+    @auto_log("wise", log_result=True)
     async def get_exchange_rates(self, source: str = "USD", target: str = "CNY") -> Optional[Dict[str, Any]]:
         """获取汇率信息"""
         if not self._validate_config():
@@ -117,6 +123,7 @@ class WiseAPIService:
             return None
         return await self._make_request('GET', '/v1/rates')
 
+    @auto_log("system")
     async def get_config(self) -> Dict[str, Any]:
         """获取当前配置信息"""
         return {
@@ -125,6 +132,7 @@ class WiseAPIService:
             "token_prefix": self.api_token[:10] + "..." if self.api_token else "未配置"
         }
 
+    @auto_log("system")
     async def test_connection(self) -> Dict[str, Any]:
         """测试连接状态"""
         try:
@@ -157,6 +165,7 @@ class WiseAPIService:
                 "timestamp": time.time()
             }
 
+    @auto_log("wise", log_result=True)
     async def get_all_account_balances(self) -> List[Dict[str, Any]]:
         """获取所有账户余额，自动合并STANDARD、SAVINGS、JAR类型"""
         try:
@@ -208,6 +217,7 @@ class WiseAPIService:
             logger.error(f"获取所有账户余额失败: {e}")
             return []
 
+    @auto_log("wise", log_result=True)
     async def get_recent_transactions(self, days: int = 30) -> List[Dict[str, Any]]:
         """获取最近的交易记录，使用正确的activities接口"""
         try:
@@ -464,6 +474,7 @@ class WiseAPIService:
         }
         return await self._make_request('GET', path, params=params)
 
+    @auto_log("database", log_result=True)
     async def sync_all_transactions_to_db(self, days: int = 365) -> Dict[str, Any]:
         """主动拉取所有profile的所有活动，批量写入wise_transactions表，已存在的自动跳过"""
         from app.utils.database import SessionLocal

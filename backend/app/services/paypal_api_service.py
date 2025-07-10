@@ -8,6 +8,7 @@ from loguru import logger
 from app.utils.database import SessionLocal
 import sqlalchemy
 import re
+from app.utils.auto_logger import auto_log
 
 
 class PayPalAPIService:
@@ -108,6 +109,7 @@ class PayPalAPIService:
             logger.error(f"PayPal接口请求异常: {e}")
             return None
 
+    @auto_log("system")
     async def get_config(self) -> Dict[str, Any]:
         """获取当前配置信息"""
         return {
@@ -117,6 +119,7 @@ class PayPalAPIService:
             "environment": "sandbox" if "sandbox" in self.base_url else "live"
         }
 
+    @auto_log("system")
     async def test_connection(self) -> Dict[str, Any]:
         """测试连接状态"""
         try:
@@ -172,6 +175,7 @@ class PayPalAPIService:
                 "timestamp": time.time()
             }
 
+    @auto_log("paypal", log_result=True)
     async def get_balance_accounts(self) -> Optional[Dict[str, Any]]:
         """获取PayPal余额账户"""
         return await self._make_request('GET', '/v2/wallet/balance-accounts')
@@ -214,6 +218,7 @@ class PayPalAPIService:
             }
         ]
 
+    @auto_log("paypal", log_result=True)
     async def get_all_balances(self) -> List[Dict[str, Any]]:
         """获取所有余额信息，格式化为统一格式"""
         try:
@@ -272,6 +277,7 @@ class PayPalAPIService:
             logger.warning("[PayPal] 发生异常，使用模拟数据")
             return self._get_mock_balances()
 
+    @auto_log("paypal", log_result=True)
     async def get_transactions(self, start_date: str, end_date: str, page_size: int = 100, page: int = 1) -> Optional[Dict[str, Any]]:
         """获取交易记录"""
         params = {

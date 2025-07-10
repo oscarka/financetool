@@ -10,6 +10,7 @@ from app.config import settings
 from app.utils.database import SessionLocal
 from app.models.database import IBKRAccount, IBKRBalance, IBKRPosition, IBKRSyncLog
 from app.models.schemas import IBKRSyncRequest, IBKRSyncResponse
+from app.utils.auto_logger import auto_log
 
 
 class IBKRAPIService:
@@ -58,6 +59,7 @@ class IBKRAPIService:
         """验证API密钥"""
         return provided_key == self.api_key
     
+    @auto_log("database", log_result=True)
     def _create_sync_log(self, db: Session, account_id: Optional[str], sync_type: str, 
                         status: str, request_data: Optional[str] = None, 
                         error_message: Optional[str] = None, source_ip: Optional[str] = None,
@@ -78,6 +80,7 @@ class IBKRAPIService:
         db.refresh(sync_log)
         return sync_log
     
+    @auto_log("database", log_result=True)
     def _ensure_account_exists(self, db: Session, account_id: str) -> IBKRAccount:
         """确保账户记录存在，不存在则创建"""
         account = db.query(IBKRAccount).filter(IBKRAccount.account_id == account_id).first()
@@ -95,6 +98,7 @@ class IBKRAPIService:
             logger.info(f"创建新的IBKR账户记录: {account_id}")
         return account
     
+    @auto_log("database", log_result=True)
     def _sync_balances(self, db: Session, account_id: str, balances_data: Dict[str, Any], 
                       snapshot_time: datetime, sync_source: str = "gcp_scheduler") -> int:
         """同步账户余额数据"""
@@ -147,6 +151,7 @@ class IBKRAPIService:
             db.rollback()
             raise
     
+    @auto_log("database", log_result=True)
     def _sync_positions(self, db: Session, account_id: str, positions_data: List[Dict[str, Any]], 
                        snapshot_time: datetime, sync_source: str = "gcp_scheduler") -> int:
         """同步持仓数据"""
@@ -204,6 +209,7 @@ class IBKRAPIService:
             db.rollback()
             raise
     
+    @auto_log("external", log_result=True)
     async def sync_data(self, request_data: IBKRSyncRequest, client_ip: str = None, 
                        user_agent: str = None) -> IBKRSyncResponse:
         """处理IBKR数据同步请求"""
@@ -314,6 +320,7 @@ class IBKRAPIService:
         finally:
             db.close()
     
+    @auto_log("database", log_result=True)
     async def get_account_info(self, account_id: str) -> Optional[Dict[str, Any]]:
         """获取账户信息"""
         db = SessionLocal()
@@ -334,6 +341,7 @@ class IBKRAPIService:
         finally:
             db.close()
     
+    @auto_log("database", log_result=True)
     async def get_latest_balances(self, account_id: str = None) -> List[Dict[str, Any]]:
         """获取最新的账户余额"""
         logger.info(f"🔍 开始获取IBKR余额数据 - account_id: {account_id}")
@@ -443,6 +451,7 @@ class IBKRAPIService:
         finally:
             db.close()
     
+    @auto_log("database", log_result=True)
     async def get_latest_positions(self, account_id: str = None) -> List[Dict[str, Any]]:
         """获取最新的持仓信息"""
         logger.info(f"🔍 开始获取IBKR持仓数据 - account_id: {account_id}")
@@ -509,6 +518,7 @@ class IBKRAPIService:
         finally:
             db.close()
     
+    @auto_log("database", log_result=True)
     async def get_sync_logs(self, account_id: str = None, limit: int = 50, 
                            status: str = None) -> List[Dict[str, Any]]:
         """获取同步日志"""
@@ -541,6 +551,7 @@ class IBKRAPIService:
         finally:
             db.close()
     
+    @auto_log("system", log_result=True)
     async def get_config(self) -> Dict[str, Any]:
         """获取当前配置信息"""
         return {
@@ -552,6 +563,7 @@ class IBKRAPIService:
             "enable_request_logging": self.enable_request_logging
         }
     
+    @auto_log("system", log_result=True)
     async def test_connection(self) -> Dict[str, Any]:
         """测试连接状态"""
         try:
