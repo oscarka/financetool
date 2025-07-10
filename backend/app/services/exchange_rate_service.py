@@ -24,7 +24,7 @@ class ExchangeRateService:
         }
 
     @staticmethod
-    @auto_log("exchange")
+    @auto_log("exchange", log_result=True)
     def get_currency_list() -> List[Dict[str, Any]]:
         """获取支持的货币列表"""
         try:
@@ -102,6 +102,7 @@ class ExchangeRateService:
             return []
     
     @staticmethod
+    @auto_log("exchange", log_result=True)
     def get_historical_exchange_rate(currency: str = "USD", start_date: str = None, end_date: str = None) -> List[Dict[str, Any]]:
         """获取历史汇率数据"""
         try:

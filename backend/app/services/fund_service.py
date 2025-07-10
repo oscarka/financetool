@@ -11,6 +11,7 @@ from app.models.database import UserOperation, FundInfo, FundNav, AssetPosition,
 from app.models.schemas import FundOperationCreate, FundOperationUpdate, FundPosition, DCAPlanCreate, DCAPlanUpdate, FundDividendCreate
 from app.utils.database import get_db_context
 from app.services.fund_api_service import FundAPIService
+from app.utils.auto_logger import auto_log
 
 
 class FundOperationService:
@@ -320,6 +321,7 @@ class FundOperationService:
         db.commit()
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_operations(
         db: Session, 
         fund_code: Optional[str] = None,
@@ -536,6 +538,7 @@ class FundOperationService:
         return operation
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_fund_positions(db: Session) -> List[FundPosition]:
         """获取基金持仓列表 - 优化版本"""
         positions = db.query(AssetPosition).filter(
@@ -596,6 +599,7 @@ class FundOperationService:
         return result
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_position_summary(db: Session) -> dict:
         """获取持仓汇总信息 - 优化版本（避免重复查询）"""
         try:
@@ -775,11 +779,13 @@ class FundInfoService:
         return fund_info
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_fund_info(db: Session, fund_code: str) -> Optional[FundInfo]:
         """获取基金信息"""
         return db.query(FundInfo).filter(FundInfo.fund_code == fund_code).first()
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_all_funds(db: Session) -> List[FundInfo]:
         """获取所有基金信息"""
         return db.query(FundInfo).order_by(FundInfo.fund_code).all()
@@ -833,6 +839,7 @@ class FundNavService:
             return nav_record
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_latest_nav(db: Session, fund_code: str) -> Optional[FundNav]:
         """获取基金最新净值"""
         return db.query(FundNav).filter(
@@ -840,6 +847,7 @@ class FundNavService:
         ).order_by(desc(FundNav.nav_date)).first()
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_nav_history(db: Session, fund_code: str, days: int = 30) -> List[FundNav]:
         """获取基金净值历史"""
         return db.query(FundNav).filter(
@@ -902,6 +910,7 @@ class FundNavService:
             raise e
 
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_batch_latest_nav(db: Session, fund_codes: List[str]) -> dict:
         """批量获取基金最新净值 - 优化性能"""
         if not fund_codes:
@@ -983,6 +992,7 @@ class DCAService:
         return plan
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_dca_plans(db: Session, status: Optional[str] = None) -> List[dict]:
         """获取定投计划列表，返回dict，exclude_dates为list，ORM对象不被污染"""
         query = db.query(DCAPlan)
@@ -1004,6 +1014,7 @@ class DCAService:
         return result
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_dca_plan_by_id(db: Session, plan_id: int) -> Optional[dict]:
         """根据ID获取定投计划，返回dict，exclude_dates为list，ORM对象不被污染"""
         plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
@@ -1254,6 +1265,7 @@ class DCAService:
             return plan.base_amount or plan.amount
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_dca_statistics(db: Session, plan_id: int) -> dict:
         """获取定投计划统计信息"""
         print(f'[统计] 查询plan_id={plan_id}')
@@ -1678,6 +1690,7 @@ class FundDividendService:
         return dividend
     
     @staticmethod
+    @auto_log("database", log_result=True)
     def get_dividends_by_fund(db: Session, fund_code: str, start_date: Optional[date] = None, end_date: Optional[date] = None) -> List[FundDividend]:
         """获取基金的分红记录"""
         query = db.query(FundDividend).filter(FundDividend.fund_code == fund_code)

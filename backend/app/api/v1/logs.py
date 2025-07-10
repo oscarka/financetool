@@ -22,6 +22,7 @@ class LogEntry(BaseModel):
     user_id: Optional[str] = None
     extra_data: Optional[Dict[str, Any]] = None
     exception: Optional[str] = None
+    result: Optional[Any] = None
 
 class LogQuery(BaseModel):
     """日志查询参数"""
@@ -131,9 +132,6 @@ def read_logs_from_files(
                             continue
                     
                     logs.append(log_entry)
-                    
-                    if len(logs) >= limit:
-                        break
                         
         except Exception as e:
             # 如果读取文件失败，记录错误但继续处理其他文件

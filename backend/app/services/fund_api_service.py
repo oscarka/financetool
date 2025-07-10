@@ -18,7 +18,7 @@ class FundAPIService:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
     
-    @auto_log("fund")
+    @auto_log("fund", log_result=True)
     async def get_fund_nav_tiantian(self, fund_code: str, nav_date: date) -> Optional[Dict[str, Any]]:
         """从天天基金网获取基金净值"""
         try:
@@ -49,7 +49,7 @@ class FundAPIService:
             log_fund_api(f"获取天天基金网净值失败: {fund_code}, {nav_date}, {e}", level="ERROR")
             return None
     
-    @auto_log("fund")
+    @auto_log("fund", log_result=True)
     async def get_fund_nav_xueqiu(self, fund_code: str, nav_date: date) -> Optional[Dict[str, Any]]:
         """从雪球获取基金净值"""
         try:
@@ -85,7 +85,7 @@ class FundAPIService:
             log_fund_api(f"获取雪球净值失败: {fund_code}, {nav_date}, {e}", level="ERROR")
             return None
     
-    @auto_log("fund")
+    @auto_log("fund", log_result=True)
     async def get_fund_info_tiantian(self, fund_code: str) -> Optional[Dict[str, Any]]:
         """从天天基金网获取基金信息"""
         try:

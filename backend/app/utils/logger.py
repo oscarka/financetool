@@ -88,22 +88,18 @@ class CategoryLogger:
             console_handler = logging.StreamHandler(sys.stdout)
             console_handler.setLevel(logging.INFO if is_production else logging.DEBUG)
             
-            if is_production:
-                # 生产环境使用结构化格式
-                console_handler.setFormatter(StructuredFormatter())
-            else:
-                # 开发环境使用可读格式
-                formatter = logging.Formatter(
-                    fmt='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S'
-                )
-                console_handler.setFormatter(formatter)
+            # 开发环境使用可读格式，生产环境也使用可读格式便于调试
+            formatter = logging.Formatter(
+                fmt='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            console_handler.setFormatter(formatter)
             
             logger.addHandler(console_handler)
             
             # 文件处理器 - 总是创建文件，便于日志查看器读取
             file_handler = logging.FileHandler(
-                log_dir / f"{category}.log", 
+                log_dir / f"{category.value}.log", 
                 encoding='utf-8'
             )
             file_handler.setLevel(logging.DEBUG)

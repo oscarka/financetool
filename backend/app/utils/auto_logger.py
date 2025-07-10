@@ -76,7 +76,9 @@ def auto_log(service: str = "business", level: str = "INFO",
                 
                 # 记录结果（可选）
                 if log_result and result is not None:
+                    print("[auto_log] 原始result:", repr(result))
                     safe_result = _sanitize_result(result)
+                    print("[auto_log] 写入日志的result:", repr(safe_result))
                     extra_data['result'] = safe_result
                 
                 log_func(f"函数执行成功: {module_name}.{func_name}", level=level, extra_data=extra_data)
@@ -298,8 +300,12 @@ def _sanitize_args(args, kwargs) -> Dict[str, Any]:
     if args:
         safe_data['args_count'] = len(args)
         # 只记录第一个参数（通常是主要参数）
-        if args and len(str(args[0])) < 100:
-            safe_data['first_arg'] = str(args[0])
+        if args:
+            first_arg = args[0]
+            if isinstance(first_arg, (str, int, float, bool)) and len(str(first_arg)) < 100:
+                safe_data['first_arg'] = first_arg
+            else:
+                safe_data['first_arg'] = _serialize_for_json(first_arg)
     
     # 处理关键字参数
     safe_kwargs = {}
@@ -309,7 +315,7 @@ def _sanitize_args(args, kwargs) -> Dict[str, Any]:
         elif isinstance(value, (str, int, float, bool)) and len(str(value)) < 100:
             safe_kwargs[key] = value
         else:
-            safe_kwargs[key] = f"{type(value).__name__}({len(str(value))} chars)"
+            safe_kwargs[key] = _serialize_for_json(value)
     
     if safe_kwargs:
         safe_data['kwargs'] = safe_kwargs
@@ -317,31 +323,85 @@ def _sanitize_args(args, kwargs) -> Dict[str, Any]:
     return safe_data
 
 def _sanitize_result(result) -> Any:
-    """安全地处理函数结果"""
-    if isinstance(result, (str, int, float, bool)):
-        if len(str(result)) < 200:
-            return result
-        else:
-            return f"{type(result).__name__}({len(str(result))} chars)"
-    elif isinstance(result, dict):
-        # 只保留前几个键值对
-        safe_result = {}
-        for i, (key, value) in enumerate(result.items()):
-            if i >= 5:  # 最多显示5个键值对
-                safe_result['...'] = f"还有 {len(result) - 5} 个键值对"
-                break
-            if isinstance(value, (str, int, float, bool)) and len(str(value)) < 100:
-                safe_result[key] = value
-            else:
-                safe_result[key] = f"{type(value).__name__}"
-        return safe_result
-    elif isinstance(result, list):
-        if len(result) <= 3:
-            return [_sanitize_result(item) for item in result]
-        else:
-            return f"list({len(result)} items)"
-    else:
-        return f"{type(result).__name__}"
+    """安全地处理函数结果，处理不可序列化的对象"""
+    return _serialize_for_json(result)
+
+def _serialize_for_json(obj) -> Any:
+    """将对象序列化为JSON兼容的格式"""
+    if obj is None:
+        return None
+    
+    # 处理基本类型
+    if isinstance(obj, (str, int, float, bool)):
+        return obj
+    
+    # 处理Decimal类型
+    if hasattr(obj, '__class__') and obj.__class__.__name__ == 'Decimal':
+        return float(obj)
+    
+    # 处理datetime类型
+    if hasattr(obj, 'isoformat'):
+        try:
+            return obj.isoformat()
+        except:
+            return str(obj)
+    
+    # 处理SQLAlchemy ORM对象
+    if hasattr(obj, '__table__') or hasattr(obj, '_sa_instance_state'):
+        return _serialize_sqlalchemy_object(obj)
+    
+    # 处理列表
+    if isinstance(obj, list):
+        return [_serialize_for_json(item) for item in obj]
+    
+    # 处理字典
+    if isinstance(obj, dict):
+        return {key: _serialize_for_json(value) for key, value in obj.items()}
+    
+    # 处理元组
+    if isinstance(obj, tuple):
+        return tuple(_serialize_for_json(item) for item in obj)
+    
+    # 处理集合
+    if isinstance(obj, (set, frozenset)):
+        return list(_serialize_for_json(item) for item in obj)
+    
+    # 其他对象转换为字符串
+    try:
+        return str(obj)
+    except:
+        return f"<{type(obj).__name__} object>"
+
+def _serialize_sqlalchemy_object(obj) -> dict:
+    """序列化SQLAlchemy ORM对象"""
+    try:
+        # 尝试获取表名
+        table_name = getattr(obj, '__tablename__', type(obj).__name__)
+        
+        # 获取所有列的值
+        result = {'_type': f'SQLAlchemy_{table_name}'}
+        
+        for column in obj.__table__.columns:
+            try:
+                value = getattr(obj, column.name)
+                if value is not None:
+                    # 处理特殊类型
+                    if hasattr(value, '__class__') and value.__class__.__name__ == 'Decimal':
+                        result[column.name] = float(value)
+                    elif hasattr(value, 'isoformat'):
+                        result[column.name] = value.isoformat()
+                    else:
+                        result[column.name] = value
+            except Exception:
+                continue
+        
+        return result
+    except Exception as e:
+        return {
+            '_type': f'SQLAlchemy_{type(obj).__name__}',
+            '_error': f'序列化失败: {str(e)}',
+            '_str': str(obj)
+        }
 
 # 便捷函数 - 一行代码记录日志
 def quick_log(message: str, service: str = "business", level: str = "INFO", **kwargs):

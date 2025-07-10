@@ -7,6 +7,10 @@ from typing import Optional, Dict, Any, List
 from app.config import settings
 from app.utils.logger import log_okx_api
 from app.utils.auto_logger import auto_log
+import logging
+
+# 创建logger实例
+logger = logging.getLogger(__name__)
 
 class OKXAPIService:
     """OKX API集成服务"""
@@ -96,7 +100,7 @@ class OKXAPIService:
             return None
         return await self._make_request('GET', '/api/v5/account/balance')
 
-    @auto_log("okx")
+    @auto_log("okx", log_result=True)
     async def get_ticker(self, inst_id: str) -> Optional[Dict[str, Any]]:
         """获取某个币种行情"""
         params = {'instId': inst_id}
@@ -172,6 +176,7 @@ class OKXAPIService:
                 "timestamp": time.time()
             }
 
+    @auto_log("okx", log_result=True)
     async def get_asset_balances(self, ccy: str = None) -> Optional[Dict[str, Any]]:
         """获取资金账户余额 (GET /api/v5/asset/balances)"""
         if not self._validate_config():
@@ -181,6 +186,7 @@ class OKXAPIService:
             params['ccy'] = ccy
         return await self._make_request('GET', '/api/v5/asset/balances', params=params)
 
+    @auto_log("okx", log_result=True)
     async def get_savings_balance(self, ccy: str = None) -> Optional[Dict[str, Any]]:
         """获取储蓄账户余额 (GET /api/v5/finance/savings/balance)"""
         if not self._validate_config():
