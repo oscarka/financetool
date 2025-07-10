@@ -10,7 +10,7 @@ import json
 from datetime import date
 from decimal import Decimal
 from loguru import logger
-from app.config import settings
+from app.settings import settings
 
 
 class APIConfigTester:

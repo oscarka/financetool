@@ -1,0 +1,94 @@
+{"timestamp":"2025-07-10T22:59:03.698749","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T22:59:03.698742","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T22:59:03.712358","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T22:59:03.712361","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T22:59:03.730134","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T22:59:03.730208","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:06:40.945705","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:06:40.947974","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:06:41.012438","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:06:41.013463","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:06:48.552922","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:06:48.552974","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:06:48.565271","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:06:48.565278","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:06:48.571010","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:06:48.571009","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:09:16.938915","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"调用函数: wise_api_service.get_config","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x132464250>","start_time":1752160156.938772}
+{"timestamp":"2025-07-10T23:09:16.939422","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"函数执行成功: wise_api_service.get_config","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x132464250>","start_time":1752160156.938772,"execution_time":0.00061798095703125,"status":"success"}
+{"timestamp":"2025-07-10T23:09:16.944872","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"调用函数: wise_api_service.test_connection","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x12f658710>","start_time":1752160156.94461}
+{"timestamp":"2025-07-10T23:09:16.945876","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"函数执行成功: wise_api_service.test_connection","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x12f658710>","start_time":1752160156.94461,"execution_time":0.001260995864868164,"status":"success"}
+{"timestamp":"2025-07-10T23:09:16.953207","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"调用函数: wise_api_service.get_config","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x132464250>","start_time":1752160156.953192}
+{"timestamp":"2025-07-10T23:09:16.953378","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"函数执行成功: wise_api_service.get_config","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x132464250>","start_time":1752160156.953192,"execution_time":0.00018095970153808594,"status":"success"}
+{"timestamp":"2025-07-10T23:09:16.955216","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"调用函数: wise_api_service.test_connection","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x12f658710>","start_time":1752160156.955203}
+{"timestamp":"2025-07-10T23:09:16.955406","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"函数执行成功: wise_api_service.test_connection","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x12f658710>","start_time":1752160156.955203,"execution_time":0.00019884109497070312,"status":"success"}
+{"timestamp":"2025-07-10T23:09:16.957215","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"调用函数: wise_api_service.get_config","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x132464250>","start_time":1752160156.957205}
+{"timestamp":"2025-07-10T23:09:16.957254","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"函数执行成功: wise_api_service.get_config","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x132464250>","start_time":1752160156.957205,"execution_time":4.506111145019531e-05,"status":"success"}
+{"timestamp":"2025-07-10T23:09:16.961386","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"调用函数: wise_api_service.get_config","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x12f658710>","start_time":1752160156.961357}
+{"timestamp":"2025-07-10T23:09:16.961479","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"函数执行成功: wise_api_service.get_config","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x12f658710>","start_time":1752160156.961357,"execution_time":0.00011682510375976562,"status":"success"}
+{"timestamp":"2025-07-10T23:09:16.975987","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"调用函数: wise_api_service.test_connection","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x132464250>","start_time":1752160156.9759638}
+{"timestamp":"2025-07-10T23:09:16.976268","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"函数执行成功: wise_api_service.test_connection","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x132464250>","start_time":1752160156.9759638,"execution_time":0.0003001689910888672,"status":"success"}
+{"timestamp":"2025-07-10T23:09:16.990732","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"调用函数: wise_api_service.test_connection","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x12f658710>","start_time":1752160156.99069}
+{"timestamp":"2025-07-10T23:09:16.991117","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"函数执行成功: wise_api_service.test_connection","args_count":1,"first_arg":"<app.services.wise_api_service.WiseAPIService object at 0x12f658710>","start_time":1752160156.99069,"execution_time":0.0004229545593261719,"status":"success"}
+{"timestamp":"2025-07-10T23:11:07.993803","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:11:07.995200","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:11:08.492662","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:11:08.494113","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:11:16.689016","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:11:16.689107","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:11:16.702828","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:11:16.702847","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:11:16.723084","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:11:16.723209","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:13:44.205864","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:13:44.208001","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:13:44.212198","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:13:44.213561","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:13:50.181998","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:13:50.182004","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:13:50.194099","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:13:50.194251","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:13:50.199967","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:13:50.199971","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:14:06.093282","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:14:06.094098","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:14:06.096205","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:14:06.096236","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:14:16.812138","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:14:16.812139","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:14:16.823383","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:14:16.823380","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:14:16.828914","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:14:16.828915","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:24:19.619663","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:24:19.630227","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:24:19.637616","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:24:19.639333","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:24:22.703788","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:24:22.703976","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:24:22.714476","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:24:22.714493","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:24:22.720012","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:24:22.720018","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:27:36.543062","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:27:36.543640","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:27:36.975810","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-10T23:27:36.976588","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-10T23:28:30.938432","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:28:30.938425","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-10T23:28:30.952144","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:28:30.952189","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-10T23:28:30.960237","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-10T23:28:30.960289","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-11T00:14:43.258452","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-11T00:14:43.259616","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-11T00:14:43.262399","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-11T00:14:43.263054","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-11T00:14:51.727640","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-11T00:14:51.738239","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-11T00:14:51.743310","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}
+{"timestamp":"2025-07-11T00:18:17.010522","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在停止定时任务..."}
+{"timestamp":"2025-07-11T00:18:17.012612","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用正在关闭..."}
+{"timestamp":"2025-07-11T00:18:20.063162","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在初始化数据库..."}
+{"timestamp":"2025-07-11T00:18:20.073666","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"正在启动可扩展定时任务..."}
+{"timestamp":"2025-07-11T00:18:20.078943","level":"INFO","category":"system","module":"logger","function":"log","line":138,"message":"应用启动完成"}

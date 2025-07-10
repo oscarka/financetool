@@ -5,7 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 import json
 import re
-from app.config import settings
+from app.settings import settings
 from app.utils.logger import log_fund_api, log_error
 from app.utils.auto_logger import auto_log
 

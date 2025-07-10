@@ -9,7 +9,7 @@ from app.utils.database import get_db
 from app.services.fund_service import FundOperationService, DCAService
 from app.services.fund_api_service import FundAPIService
 from app.services.wise_api_service import WiseAPIService
-from app.config import settings
+from app.settings import settings
 
 logger = logging.getLogger(__name__)
 

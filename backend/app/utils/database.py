@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from typing import Generator
 import os
 
-from app.config import settings
+from app.settings import settings
 from app.models.database import Base
 
 # 创建数据库引擎

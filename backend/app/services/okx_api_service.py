@@ -4,7 +4,7 @@ import hmac
 import base64
 import hashlib
 from typing import Optional, Dict, Any, List
-from app.config import settings
+from app.settings import settings
 from app.utils.logger import log_okx_api
 from app.utils.auto_logger import auto_log
 import logging

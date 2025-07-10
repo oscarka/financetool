@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, func
 from loguru import logger
 
-from app.config import settings
+from app.settings import settings
 from app.utils.database import SessionLocal
 from app.models.database import IBKRAccount, IBKRBalance, IBKRPosition, IBKRSyncLog
 from app.models.schemas import IBKRSyncRequest, IBKRSyncResponse

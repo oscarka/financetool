@@ -6,10 +6,10 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from app.config import settings
+from app.settings import settings
 from app.utils.database import init_database
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr
-from app.services.scheduler_service import scheduler_service
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config
+from app.services.extensible_scheduler_service import ExtensibleSchedulerService
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
 
@@ -21,10 +21,13 @@ async def lifespan(app: FastAPI):
     log_system("正在初始化数据库...")
     init_database()
     
+    # 初始化可扩展调度器
+    extensible_scheduler = ExtensibleSchedulerService()
+    
     # 生产环境延迟启动定时任务，避免启动时阻塞
     if os.environ.get("ENABLE_SCHEDULER", "true").lower() == "true":
-        log_system("正在启动定时任务...")
-        scheduler_service.start()
+        log_system("正在启动可扩展定时任务...")
+        await extensible_scheduler.initialize()
     else:
         log_system("定时任务已禁用")
     
@@ -34,7 +37,7 @@ async def lifespan(app: FastAPI):
     
     # 关闭时执行
     log_system("正在停止定时任务...")
-    scheduler_service.stop()
+    await extensible_scheduler.shutdown()
     log_system("应用正在关闭...")
 
 
@@ -52,7 +55,7 @@ app = FastAPI(
 # 配置CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.get_cors_origins_list(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -105,6 +108,20 @@ app.include_router(
     logs.router,
     prefix=f"{settings.api_v1_prefix}",
     tags=["日志管理"]
+)
+
+# 注册可扩展调度器管理接口
+app.include_router(
+    scheduler.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["调度器管理"]
+)
+
+# 注册配置管理接口
+app.include_router(
+    config.router,
+    prefix=f"{settings.api_v1_prefix}/config",
+    tags=["配置管理"]
 )
 
 
