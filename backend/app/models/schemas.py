@@ -601,4 +601,46 @@ class IBKRSyncLogResponse(BaseResponse):
 
 
 class IBKRSyncLogListResponse(BaseResponse):
-    data: Optional[List[IBKRSyncLog]] = None 
+    data: Optional[List[IBKRSyncLog]] = None
+
+
+# 总览相关模型
+class AssetAllocationItem(BaseModel):
+    platform: str
+    value: float
+    percentage: float
+
+
+class TopPosition(BaseModel):
+    asset_code: str
+    asset_name: str
+    value: float
+    profit_rate: float
+
+
+class OverviewResponse(BaseModel):
+    total_assets: float
+    total_invested: float
+    total_profit: float
+    total_profit_rate: float
+    month_profit: float
+    total_positions: int
+    asset_allocation: List[AssetAllocationItem]
+    last_updated: datetime
+
+
+class PortfolioSummary(BaseModel):
+    platform: str
+    total_value: float
+    total_profit: float
+    total_invested: float
+    profit_rate: float
+    position_count: int
+    top_positions: List[TopPosition]
+
+
+class AssetAllocation(BaseModel):
+    category: str
+    value: float
+    percentage: float
+    count: int 

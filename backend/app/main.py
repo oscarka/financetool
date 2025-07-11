@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.utils.database import init_database
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, overview
 from app.services.scheduler_service import scheduler_service
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
@@ -105,6 +105,13 @@ app.include_router(
     logs.router,
     prefix=f"{settings.api_v1_prefix}",
     tags=["日志管理"]
+)
+
+# 注册总览接口
+app.include_router(
+    overview.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["总览"]
 )
 
 

@@ -21,7 +21,8 @@ interface LayoutProps {
 }
 
 const navigation = [
-    { name: '总览', href: '/', icon: HomeOutlined },
+    { name: '仪表板', href: '/', icon: HomeOutlined },
+    { name: '投资总览', href: '/overview', icon: PieChartOutlined },
     { name: '操作记录', href: '/operations', icon: PlusCircleOutlined },
     { name: '持仓', href: '/positions', icon: BarChartOutlined },
     { name: '基金', href: '/funds', icon: DollarOutlined },

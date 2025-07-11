@@ -16,6 +16,7 @@ import ExchangeRates from './pages/ExchangeRates'
 import WiseManagementPage from './pages/WiseManagement'
 import PayPalManagementPage from './pages/PayPalManagement'
 import IBKRManagementPage from './pages/IBKRManagement'
+import Overview from './pages/Overview'
 import React from 'react'
 
 function App() {
@@ -138,6 +139,7 @@ function App() {
                         <Route path="/wise" element={<WiseManagementPage />} />
                         <Route path="/paypal" element={<PayPalManagementPage />} />
                         <Route path="/ibkr" element={<IBKRManagementPage />} />
+                        <Route path="/overview" element={<Overview />} />
                     </Routes>
                 </LayoutComponent>
             </div>
