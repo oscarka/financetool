@@ -11,7 +11,9 @@ import {
     GlobalOutlined,
     BankOutlined,
     PayCircleOutlined,
-    StockOutlined
+    StockOutlined,
+    ToolOutlined,
+    ClockCircleOutlined
 } from '@ant-design/icons'
 
 const { Sider, Content } = AntLayout
@@ -31,13 +33,15 @@ const navigation = [
     { name: 'Wise管理', href: '/wise', icon: BankOutlined },
     { name: 'PayPal管理', href: '/paypal', icon: PayCircleOutlined },
     { name: 'IBKR管理', href: '/ibkr', icon: StockOutlined },
+    { name: '配置管理', href: '/config', icon: ToolOutlined },
+    { name: '调度器管理', href: '/scheduler', icon: ClockCircleOutlined },
 ]
 
-// 调试日志
-console.log('🔍 [Layout] Navigation menu loaded:', navigation.map(item => `${item.name} (${item.href})`))
-console.log('🎯 [Layout] IBKR menu item exists:', navigation.find(item => item.href === '/ibkr') ? 'YES ✅' : 'NO ❌')
-
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC<any> = (props) => {
+    React.useEffect(() => {
+        return () => {
+        };
+    }, []);
     const location = useLocation()
 
     const menuItems = navigation.map((item) => ({
@@ -71,7 +75,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Sider>
             <AntLayout>
                 <Content style={{ margin: '24px 16px', padding: 24, background: '#f5f5f5' }}>
-                    {children}
+                    {props.children}
                 </Content>
             </AntLayout>
         </AntLayout>

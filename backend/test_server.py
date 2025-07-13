@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 def test_imports():
     """测试导入"""
     try:
-        from app.config import settings
+        from app.settings import settings
         print("✅ 配置导入成功")
         
         from app.models.database import UserOperation, FundInfo, FundNav

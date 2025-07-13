@@ -2,7 +2,7 @@ import httpx
 import time
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date, timedelta
-from app.config import settings
+from app.settings import settings
 from loguru import logger
 from app.utils.database import SessionLocal
 from app.models.database import WiseTransaction
