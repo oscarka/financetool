@@ -44,6 +44,41 @@ export interface APIResponse<T = any> {
     page_size?: number
 }
 
+// 简单的缓存机制
+class APICache {
+    private cache = new Map<string, { data: any; timestamp: number; ttl: number }>()
+
+    set(key: string, data: any, ttl: number = 30000) { // 默认30秒缓存
+        this.cache.set(key, {
+            data,
+            timestamp: Date.now(),
+            ttl
+        })
+    }
+
+    get(key: string): any | null {
+        const item = this.cache.get(key)
+        if (!item) return null
+        
+        if (Date.now() - item.timestamp > item.ttl) {
+            this.cache.delete(key)
+            return null
+        }
+        
+        return item.data
+    }
+
+    clear() {
+        this.cache.clear()
+    }
+
+    delete(key: string) {
+        this.cache.delete(key)
+    }
+}
+
+const apiCache = new APICache()
+
 // 基金相关API
 export const fundAPI = {
     // 获取基金信息
@@ -110,9 +145,23 @@ export const fundAPI = {
     getAvailablePositions: (): Promise<APIResponse> =>
         api.get('/funds/positions/available'),
 
-    // 获取持仓汇总
-    getPositionSummary: (): Promise<APIResponse> =>
-        api.get('/funds/positions/summary'),
+    // 获取持仓汇总 - 添加缓存
+    getPositionSummary: async (): Promise<APIResponse> => {
+        const cacheKey = 'position_summary'
+        const cached = apiCache.get(cacheKey)
+        if (cached) {
+            return cached
+        }
+        
+        const response = await api.get('/funds/positions/summary')
+        apiCache.set(cacheKey, response, 30000) // 30秒缓存
+        return response
+    },
+
+    // 清除持仓汇总缓存
+    clearPositionSummaryCache: (): void => {
+        apiCache.delete('position_summary')
+    },
 
     // 创建定投计划
     createDCAPlan: (data: any): Promise<APIResponse> =>

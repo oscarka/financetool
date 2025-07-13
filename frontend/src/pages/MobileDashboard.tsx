@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Statistic, Typography, Space, Progress } from 'antd'
+import React, { useState, useEffect, useCallback } from 'react'
+import { Card, Row, Col, Statistic, Typography, Space, Progress, Spin, Alert } from 'antd'
 import {
     ArrowUpOutlined,
     ArrowDownOutlined,
@@ -27,27 +27,32 @@ interface DashboardStats {
 
 const MobileDashboard: React.FC = () => {
     const navigate = useNavigate()
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [stats, setStats] = useState<DashboardStats | null>(null)
     
     // 获取持仓汇总数据
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         setLoading(true)
+        setError(null)
         try {
             const response = await fundAPI.getPositionSummary()
             if (response.success && response.data) {
                 setStats(response.data)
+            } else {
+                setError(response.message || '获取数据失败')
             }
         } catch (error) {
             console.error('获取统计数据失败:', error)
+            setError('网络连接失败，请检查网络后重试')
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
     useEffect(() => {
         fetchStats()
-    }, [])
+    }, [fetchStats])
 
     // 安全的数字转换
     const safeNumber = (value: number | string) => {
@@ -101,6 +106,35 @@ const MobileDashboard: React.FC = () => {
         }
     ]
 
+    // 显示错误信息
+    if (error) {
+        return (
+            <div style={{ padding: '20px' }}>
+                <Alert
+                    message="加载失败"
+                    description={error}
+                    type="error"
+                    showIcon
+                    action={
+                        <button 
+                            onClick={fetchStats}
+                            style={{
+                                background: '#ff4d4f',
+                                color: 'white',
+                                border: 'none',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            重试
+                        </button>
+                    }
+                />
+            </div>
+        )
+    }
+
     return (
         <div style={{ paddingBottom: '20px' }}>
             {/* 欢迎区域 */}
@@ -117,7 +151,7 @@ const MobileDashboard: React.FC = () => {
                         欢迎回来！
                     </Title>
                     <Text style={{ color: 'rgba(255,255,255,0.8)' }}>
-                        {stats ? '查看您的投资概况' : '正在加载投资数据...'}
+                        {loading ? '正在加载投资数据...' : '查看您的投资概况'}
                     </Text>
                 </Space>
             </Card>

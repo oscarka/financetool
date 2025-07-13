@@ -601,7 +601,7 @@ class FundOperationService:
     @staticmethod
     @auto_log("database", log_result=True)
     def get_position_summary(db: Session) -> dict:
-        """获取持仓汇总信息 - 优化版本（避免重复查询）"""
+        """获取持仓汇总信息 - 优化版本（使用批量查询）"""
         try:
             # 直接查询数据库计算汇总，避免调用get_fund_positions造成重复
             positions_data = db.query(AssetPosition).filter(
@@ -619,15 +619,19 @@ class FundOperationService:
                     "loss_count": 0
                 }
             
-            # 批量获取最新净值
+            # 使用批量获取最新净值 - 优化性能
             fund_codes = list(set(pos.asset_code for pos in positions_data))
             latest_nav_map = {}
             
             if fund_codes:
-                for fund_code in fund_codes:
-                    latest_nav_obj = FundNavService.get_latest_nav(db, fund_code)
-                    if latest_nav_obj and latest_nav_obj.nav:
-                        latest_nav_map[fund_code] = latest_nav_obj.nav
+                # 使用批量查询替代循环查询
+                latest_nav_map = FundNavService.get_batch_latest_nav(db, fund_codes)
+                # 转换为简单的nav值映射
+                latest_nav_map = {
+                    fund_code: nav_obj.nav 
+                    for fund_code, nav_obj in latest_nav_map.items() 
+                    if nav_obj and nav_obj.nav
+                }
             
             # 计算汇总数据
             total_invested = Decimal("0")
