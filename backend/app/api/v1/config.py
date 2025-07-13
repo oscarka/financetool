@@ -16,26 +16,26 @@ async def get_config():
     """获取系统配置信息"""
     try:
         from loguru import logger
-        # 增加详细日志，打印 settings 的所有字段内容
-        logger.info(f"[DEBUG] settings.app_env = {settings.app_env}")
-        logger.info(f"[DEBUG] settings.app_name = {settings.app_name}")
-        logger.info(f"[DEBUG] settings.database_url = {settings.database_url}")
-        logger.info(f"[DEBUG] settings.cors_origins = {settings.cors_origins}")
-        logger.info(f"[DEBUG] settings.log_level = {settings.log_level}")
-        logger.info(f"[DEBUG] settings.fund_api_timeout = {settings.fund_api_timeout}")
-        logger.info(f"[DEBUG] settings.okx_api_key = {getattr(settings, 'okx_api_key', None)}")
-        logger.info(f"[DEBUG] settings.wise_api_token = {getattr(settings, 'wise_api_token', None)}")
-        logger.info(f"[DEBUG] settings.paypal_client_id = {getattr(settings, 'paypal_client_id', None)}")
-        logger.info(f"[DEBUG] settings.ibkr_api_key = {getattr(settings, 'ibkr_api_key', None)}")
-        logger.info(f"[DEBUG] settings.enable_scheduler = {settings.enable_scheduler}")
-        logger.info(f"[DEBUG] settings.security_enable_rate_limiting = {settings.security_enable_rate_limiting}")
-        logger.info(f"[DEBUG] settings.performance_monitoring_enabled = {settings.performance_monitoring_enabled}")
-        logger.info(f"[DEBUG] settings.cache_enabled = {settings.cache_enabled}")
-        logger.info(f"[DEBUG] settings.sync_batch_size = {settings.sync_batch_size}")
-        logger.info(f"[DEBUG] settings.notification_enabled = {settings.notification_enabled}")
-        logger.info(f"[DEBUG] settings.backup_enabled = {settings.backup_enabled}")
-        logger.info(f"[DEBUG] settings.data_cleanup_enabled = {settings.data_cleanup_enabled}")
-        # 你可以根据需要继续补充其它字段
+        # 精简日志，去掉详细的DEBUG输出
+        # logger.info(f"[DEBUG] settings.app_env = {settings.app_env}")
+        # logger.info(f"[DEBUG] settings.app_name = {settings.app_name}")
+        # logger.info(f"[DEBUG] settings.database_url = {settings.database_url}")
+        # logger.info(f"[DEBUG] settings.cors_origins = {settings.cors_origins}")
+        # logger.info(f"[DEBUG] settings.log_level = {settings.log_level}")
+        # logger.info(f"[DEBUG] settings.fund_api_timeout = {settings.fund_api_timeout}")
+        # logger.info(f"[DEBUG] settings.okx_api_key = {getattr(settings, 'okx_api_key', None)}")
+        # logger.info(f"[DEBUG] settings.wise_api_token = {getattr(settings, 'wise_api_token', None)}")
+        # logger.info(f"[DEBUG] settings.paypal_client_id = {getattr(settings, 'paypal_client_id', None)}")
+        # logger.info(f"[DEBUG] settings.ibkr_api_key = {getattr(settings, 'ibkr_api_key', None)}")
+        # logger.info(f"[DEBUG] settings.enable_scheduler = {settings.enable_scheduler}")
+        # logger.info(f"[DEBUG] settings.security_enable_rate_limiting = {settings.security_enable_rate_limiting}")
+        # logger.info(f"[DEBUG] settings.performance_monitoring_enabled = {settings.performance_monitoring_enabled}")
+        # logger.info(f"[DEBUG] settings.cache_enabled = {settings.cache_enabled}")
+        # logger.info(f"[DEBUG] settings.sync_batch_size = {settings.sync_batch_size}")
+        # logger.info(f"[DEBUG] settings.notification_enabled = {settings.notification_enabled}")
+        # logger.info(f"[DEBUG] settings.backup_enabled = {settings.backup_enabled}")
+        # logger.info(f"[DEBUG] settings.data_cleanup_enabled = {settings.data_cleanup_enabled}")
+        # 精简日志，去掉详细的DEBUG输出
         config_info = {
             "app_env": settings.app_env,
             "app_name": settings.app_name,

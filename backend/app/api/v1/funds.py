@@ -1137,90 +1137,91 @@ def process_dividend_operation(
 
 
 # 定时任务管理API
-@router.get("/scheduler/jobs", response_model=BaseResponse)
-def get_scheduler_jobs():
-    """获取所有定时任务信息"""
-    try:
-        jobs = scheduler_service.get_jobs()
-        return BaseResponse(
-            success=True,
-            message="获取定时任务信息成功",
-            data={"jobs": jobs}
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# 删除以下冲突的路由，统一使用 scheduler.py 中的新接口
+# @router.get("/scheduler/jobs", response_model=BaseResponse)
+# def get_scheduler_jobs():
+#     """获取所有定时任务信息"""
+#     try:
+#         jobs = scheduler_service.get_jobs()
+#         return BaseResponse(
+#             success=True,
+#             message="获取定时任务信息成功",
+#             data={"jobs": jobs}
+#         )
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/scheduler/jobs/{job_id}/update", response_model=BaseResponse)
-def update_job_schedule(
-    job_id: str,
-    hour: int = Query(..., ge=0, le=23, description="小时"),
-    minute: int = Query(..., ge=0, le=59, description="分钟")
-):
-    """更新定时任务执行时间"""
-    try:
-        success = scheduler_service.update_job_schedule(job_id, hour, minute)
-        if success:
-            return BaseResponse(
-                success=True,
-                message=f"任务 {job_id} 执行时间已更新为 {hour:02d}:{minute:02d}"
-            )
-        else:
-            raise HTTPException(status_code=400, detail="更新任务执行时间失败")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.post("/scheduler/jobs/{job_id}/update", response_model=BaseResponse)
+# def update_job_schedule(
+#     job_id: str,
+#     hour: int = Query(..., ge=0, le=23, description="小时"),
+#     minute: int = Query(..., ge=0, le=59, description="分钟")
+# ):
+#     """更新定时任务执行时间"""
+#     try:
+#         success = scheduler_service.update_job_schedule(job_id, hour, minute)
+#         if success:
+#             return BaseResponse(
+#                 success=True,
+#                 message=f"任务 {job_id} 执行时间已更新为 {hour:02d}:{minute:02d}"
+#             )
+#         else:
+#             raise HTTPException(status_code=400, detail="更新任务执行时间失败")
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/scheduler/start", response_model=BaseResponse)
-async def start_scheduler():
-    """启动定时任务调度器"""
-    try:
-        await scheduler_service.start_async()
-        return BaseResponse(
-            success=True,
-            message="定时任务调度器已启动"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.post("/scheduler/start", response_model=BaseResponse)
+# async def start_scheduler():
+#     """启动定时任务调度器"""
+#     try:
+#         await scheduler_service.start_async()
+#         return BaseResponse(
+#             success=True,
+#             message="定时任务调度器已启动"
+#         )
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/scheduler/stop", response_model=BaseResponse)
-async def stop_scheduler():
-    """停止定时任务调度器"""
-    try:
-        await scheduler_service.stop_async()
-        return BaseResponse(
-            success=True,
-            message="定时任务调度器已停止"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.post("/scheduler/stop", response_model=BaseResponse)
+# async def stop_scheduler():
+#     """停止定时任务调度器"""
+#     try:
+#         await scheduler_service.stop_async()
+#         return BaseResponse(
+#             success=True,
+#             message="定时任务调度器已停止"
+#         )
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/scheduler/restart", response_model=BaseResponse)
-async def restart_scheduler():
-    """重启定时任务调度器"""
-    try:
-        await scheduler_service.restart_async()
-        return BaseResponse(
-            success=True,
-            message="定时任务调度器已重启"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.post("/scheduler/restart", response_model=BaseResponse)
+# async def restart_scheduler():
+#     """重启定时任务调度器"""
+#     try:
+#         await scheduler_service.restart_async()
+#         return BaseResponse(
+#             success=True,
+#             message="定时任务调度器已重启"
+#         )
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/scheduler/update-navs", response_model=BaseResponse)
-async def manual_update_navs():
-    """手动执行净值更新任务"""
-    try:
-        await scheduler_service._update_fund_navs()
-        return BaseResponse(
-            success=True,
-            message="手动净值更新任务执行完成"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.post("/scheduler/update-navs", response_model=BaseResponse)
+# async def manual_update_navs():
+#     """手动执行净值更新任务"""
+#     try:
+#         await scheduler_service._update_fund_navs()
+#         return BaseResponse(
+#             success=True,
+#             message="手动净值更新任务执行完成"
+#         )
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/okx/account", response_model=BaseResponse)

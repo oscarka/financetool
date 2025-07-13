@@ -17,10 +17,17 @@ scheduler_service = None
 
 def get_scheduler_service() -> ExtensibleSchedulerService:
     """获取调度器服务实例"""
-    global scheduler_service
-    if scheduler_service is None:
-        scheduler_service = ExtensibleSchedulerService()
-    return scheduler_service
+    from app.main import extensible_scheduler
+    if extensible_scheduler is None:
+        raise RuntimeError("调度器服务未初始化")
+    return extensible_scheduler
+
+
+@router.get("/test")
+async def test_scheduler():
+    """测试接口"""
+    logger.info("[DEBUG] test_scheduler 接口被调用")
+    return {"message": "scheduler test ok", "timestamp": datetime.now().isoformat()}
 
 
 @router.get("/status", response_model=BaseResponse)
@@ -46,22 +53,42 @@ async def get_plugins():
     """获取所有插件"""
     try:
         service = get_scheduler_service()
-        plugins = service.get_plugins()
-        return BaseResponse(success=True, message="获取插件列表成功", data={"plugins": plugins if plugins else []})
+        try:
+            plugins = service.get_plugins()
+            if not isinstance(plugins, list):
+                logger.error(f"[DEBUG] get_plugins() 返回非list: {plugins}，类型: {type(plugins)}，自动转为[]")
+                plugins = []
+        except Exception as e:
+            logger.error(f"[DEBUG] get_plugins() 抛出异常: {e}")
+            plugins = []
+        return BaseResponse(success=True, message="获取插件列表成功", data={"plugins": plugins})
     except Exception as e:
         logger.error(f"获取插件列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/tasks", response_model=BaseResponse)
+@router.get("/tasks")
 async def get_tasks():
     """获取所有任务定义"""
     try:
         service = get_scheduler_service()
+        
         tasks = service.get_tasks()
-        return BaseResponse(success=True, message="获取任务列表成功", data={"tasks": tasks if tasks else []})
+        
+        if tasks is None:
+            logger.warning("[DEBUG] get_tasks()返回None，使用空列表")
+            tasks = []
+        elif not isinstance(tasks, list):
+            logger.warning(f"[DEBUG] get_tasks()返回非list类型: {type(tasks)}，转换为空列表")
+            tasks = []
+            
+        return {"success": True, "message": "获取任务列表成功", "data": {"tasks": tasks}}
     except Exception as e:
         logger.error(f"获取任务列表失败: {e}")
+        logger.error(f"[DEBUG] 异常类型: {type(e)}")
+        logger.error(f"[DEBUG] 异常详情: {str(e)}")
+        import traceback
+        logger.error(f"[DEBUG] 异常堆栈: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -70,8 +97,16 @@ async def get_jobs():
     """获取所有定时任务"""
     try:
         service = get_scheduler_service()
-        jobs = service.get_jobs()
-        return BaseResponse(success=True, message="获取任务列表成功", data={"jobs": jobs if jobs else []})
+        try:
+            jobs = service.get_jobs()
+            # 只保留异常日志
+            if not isinstance(jobs, list):
+                logger.error(f"[DEBUG] get_jobs() 返回非list: {jobs}，类型: {type(jobs)}，自动转为[]")
+                jobs = []
+        except Exception as e:
+            logger.error(f"[DEBUG] get_jobs() 抛出异常: {e}")
+            jobs = []
+        return BaseResponse(success=True, message="获取任务列表成功", data={"jobs": jobs})
     except Exception as e:
         logger.error(f"获取任务列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))

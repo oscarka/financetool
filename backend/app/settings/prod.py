@@ -8,7 +8,7 @@ class ProdConfig(BaseConfig):
     debug: bool = False
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./data/personalfinance.db")
     cors_origins: str = os.getenv("CORS_ORIGINS", '["https://yourdomain.com"]')
-    log_level: str = "INFO"
+    log_level: str = "WARNING"  # 从INFO调整为WARNING
     log_file: str = "./logs/app.log"
     
     # 基金API配置 - 生产环境使用更长的超时时间
@@ -27,7 +27,7 @@ class ProdConfig(BaseConfig):
     # PayPal API配置
     paypal_client_id: str = os.getenv("PAYPAL_CLIENT_ID", "")
     paypal_client_secret: str = os.getenv("PAYPAL_CLIENT_SECRET", "")
-    paypal_api_base_url: str = "https://api-m.paypal.com"  # 生产环境
+    paypal_api_base_url: str = "https://api-m.paypal.com"  # 生产环境 
     
     # IBKR API配置
     ibkr_api_key: str = os.getenv("IBKR_API_KEY", "")

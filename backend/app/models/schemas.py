@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime, date
 from decimal import Decimal
 
@@ -8,7 +8,7 @@ from decimal import Decimal
 class BaseResponse(BaseModel):
     success: bool = True
     message: str = "操作成功"
-    data: Optional[dict] = None
+    data: Optional[Any] = None
 
 
 # 基金操作相关模型

@@ -32,7 +32,7 @@ class ExtensibleSchedulerService:
         self.plugin_manager = PluginManager()
         self.event_bus = EventBus()
         self._setup_event_handlers()
-        
+            
     def _setup_event_handlers(self):
         """设置事件处理器"""
         # 任务完成事件处理
@@ -78,14 +78,27 @@ class ExtensibleSchedulerService:
             task_id = job_config['task_id']
             schedule_config = job_config['schedule']
             config = job_config.get('config', {})
-            
+
+            # logger.info(f"[DEBUG] create_job 收到 task_id: {task_id}")  # 精简日志
+            # all_tasks = self.plugin_manager.get_tasks()
+            # logger.info(f"[DEBUG] 当前可用任务ID: {[t['task_id'] for t in all_tasks]}")  # 精简日志
             # 验证任务是否存在
-            if task_id not in self.plugin_manager.get_tasks():
+            if task_id not in [t['task_id'] for t in all_tasks]:
                 raise ValueError(f"任务 {task_id} 不存在")
-            
-            # 创建触发器
-            trigger = self._create_trigger(schedule_config)
-            
+
+            # 只保留有值的调度参数，防止 None 传入 APScheduler
+            schedule_type = schedule_config.get('type')
+            schedule_args = {k: v for k, v in schedule_config.items() if v is not None and k != 'type'}
+
+            if schedule_type == 'interval':
+                from apscheduler.triggers.interval import IntervalTrigger
+                trigger = IntervalTrigger(**schedule_args)
+            elif schedule_type == 'cron':
+                from apscheduler.triggers.cron import CronTrigger
+                trigger = CronTrigger(**schedule_args)
+            else:
+                raise ValueError(f"不支持的调度类型: {schedule_type}")
+
             # 添加任务到调度器
             self.scheduler.add_job(
                 func=self._execute_task_wrapper,
@@ -205,9 +218,15 @@ class ExtensibleSchedulerService:
         """获取所有任务定义"""
         return self.plugin_manager.get_tasks()
         
+    def _job_exists(self, job_id: str) -> bool:
+        return self.scheduler.get_job(job_id) is not None
+
     async def remove_job(self, job_id: str) -> bool:
         """移除任务"""
         try:
+            if not self._job_exists(job_id):
+                logger.error(f"移除任务失败: {job_id} 不存在")
+                return False
             self.scheduler.remove_job(job_id)
             logger.info(f"任务 {job_id} 已移除")
             return True
@@ -218,6 +237,9 @@ class ExtensibleSchedulerService:
     async def pause_job(self, job_id: str) -> bool:
         """暂停任务"""
         try:
+            if not self._job_exists(job_id):
+                logger.error(f"暂停任务失败: {job_id} 不存在")
+                return False
             self.scheduler.pause_job(job_id)
             logger.info(f"任务 {job_id} 已暂停")
             return True
@@ -228,6 +250,9 @@ class ExtensibleSchedulerService:
     async def resume_job(self, job_id: str) -> bool:
         """恢复任务"""
         try:
+            if not self._job_exists(job_id):
+                logger.error(f"恢复任务失败: {job_id} 不存在")
+                return False
             self.scheduler.resume_job(job_id)
             logger.info(f"任务 {job_id} 已恢复")
             return True

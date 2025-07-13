@@ -55,7 +55,7 @@ class PluginManager:
             for task_def in task_definitions:
                 await self._register_task(task_def, plugin)
                 
-            logger.info(f"插件 {plugin.plugin_id} 加载成功")
+            logger.info(f"插件 {plugin.plugin_id} 加载成功")  # 保留插件加载成功日志
             return True
             
         except Exception as e:
@@ -87,7 +87,7 @@ class PluginManager:
                 "class_path": task_class_path
             }
             
-            logger.debug(f"任务 {task_id} 注册成功")
+            # logger.debug(f"任务 {task_id} 注册成功")  # 精简日志，去掉任务注册成功的DEBUG日志
             
         except Exception as e:
             logger.error(f"注册任务 {task_id} 失败: {e}")

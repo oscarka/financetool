@@ -5,7 +5,7 @@ import os
 from typing import Union
 from .base import BaseConfig
 from .test import TestConfig
-from .prod import ProdConfig
+from .prod import ProdConfig 
 
 # 调试日志
 print(f"[CONFIG] 环境变量 APP_ENV = {os.environ.get('APP_ENV', 'test')}")

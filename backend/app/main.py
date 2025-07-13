@@ -17,6 +17,8 @@ from app.utils.logger import log_system
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    global extensible_scheduler
+    
     # 启动时执行
     log_system("正在初始化数据库...")
     init_database()
@@ -40,6 +42,9 @@ async def lifespan(app: FastAPI):
     await extensible_scheduler.shutdown()
     log_system("应用正在关闭...")
 
+
+# 全局调度器实例
+extensible_scheduler = None
 
 # 创建FastAPI应用
 app = FastAPI(

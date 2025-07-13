@@ -17,15 +17,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # 获取客户端IP
         client_ip = request.client.host if request.client else "unknown"
         
-        # 记录请求信息
+        # 记录请求信息 - 精简日志，只记录关键信息
         log_api(
             f"收到请求: {request.method} {request.url.path}",
             extra_data={
                 "method": request.method,
                 "path": str(request.url.path),
-                "query_params": str(request.query_params),
-                "client_ip": client_ip,
-                "user_agent": request.headers.get("user-agent", "unknown")
+                "client_ip": client_ip
             },
             request_id=request_id
         )
@@ -55,7 +53,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             # 计算处理时间
             process_time = time.time() - start_time
             
-            # 记录响应
+            # 记录响应 - 精简日志
             log_api(
                 f"请求完成: {response.status_code} in {process_time:.3f}s",
                 extra_data={

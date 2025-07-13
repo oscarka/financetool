@@ -26,7 +26,7 @@ class TestConfig(BaseConfig):
     
     # PayPal API配置
     paypal_client_id: str = os.getenv("PAYPAL_CLIENT_ID", "")
-    paypal_client_secret: str = os.getenv("PAYPAL_CLIENT_SECRET", "")
+    paypal_client_secret: str = os.getenv("PAYPAL_CLIENT_SECRET", "") 
     paypal_api_base_url: str = "https://api-m.sandbox.paypal.com"  # 沙盒环境
     
     # IBKR API配置
