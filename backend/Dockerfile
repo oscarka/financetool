@@ -36,17 +36,24 @@ ENV PATH="/opt/venv/bin:$PATH"
 # 复制应用代码
 COPY . .
 
-# 确保数据和日志目录存在
-RUN mkdir -p data logs
+# 确保数据和日志目录存在，并设置正确的权限
+RUN mkdir -p data logs backups && \
+    chmod 755 data logs backups
 
 # 创建非root用户
 RUN useradd --create-home --shell /bin/bash app && \
-    chown -R app:app /app
+    chown -R app:app /app && \
+    chmod -R 755 /app/data /app/logs /app/backups
 USER app
 
 # 设置环境变量
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
+
+# 数据持久化相关环境变量
+ENV DATABASE_PERSISTENT_PATH=/app/data
+ENV DATABASE_BACKUP_ENABLED=true
+ENV DATABASE_BACKUP_INTERVAL_HOURS=24
 
 # 暴露端口
 EXPOSE 8000
