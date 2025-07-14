@@ -44,7 +44,6 @@ RUN mkdir -p data logs backups && \
 RUN useradd --create-home --shell /bin/bash app && \
     chown -R app:app /app && \
     chmod -R 755 /app/data /app/logs /app/backups
-USER app
 
 # 设置环境变量
 ENV PYTHONPATH=/app
@@ -55,8 +54,14 @@ ENV DATABASE_PERSISTENT_PATH=/app/data
 ENV DATABASE_BACKUP_ENABLED=true
 ENV DATABASE_BACKUP_INTERVAL_HOURS=24
 
+# Railway环境检测
+ENV RAILWAY_ENVIRONMENT=production
+
 # 暴露端口
 EXPOSE 8000
+
+# 切换到非root用户
+USER app
 
 # 启动命令
 CMD ["python", "run.py"]

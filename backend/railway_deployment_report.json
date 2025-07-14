@@ -1,0 +1,9 @@
+{
+  "timestamp": "2025-07-14T12:30:22.531710",
+  "environment": {
+    "is_railway": false,
+    "data_path": "/app/data",
+    "port": "8000"
+  },
+  "checks": {}
+}

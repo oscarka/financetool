@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 
 from app.settings import settings
-from app.utils.database import init_database
+from app.utils.database import init_database, get_data_directory, get_database_path
 from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config
 from app.services.extensible_scheduler_service import ExtensibleSchedulerService
 from app.utils.middleware import RequestLoggingMiddleware
@@ -21,6 +21,21 @@ async def lifespan(app: FastAPI):
     
     # 启动时执行
     log_system("正在初始化数据库...")
+    
+    # 检查Railway环境
+    is_railway = os.getenv("RAILWAY_ENVIRONMENT") is not None
+    log_system(f"运行环境: {'Railway' if is_railway else '本地/其他'}")
+    
+    # 检查数据目录和数据库文件
+    data_dir = get_data_directory()
+    db_path = get_database_path()
+    log_system(f"数据目录: {data_dir}")
+    log_system(f"数据库文件: {db_path}")
+    
+    # 检查数据库文件是否存在
+    db_exists = os.path.exists(db_path)
+    log_system(f"数据库文件存在: {db_exists}")
+    
     init_database()
     
     # 初始化可扩展调度器
@@ -143,11 +158,21 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查"""
+    # 检查数据库文件状态
+    db_path = get_database_path()
+    db_exists = os.path.exists(db_path)
+    db_size = os.path.getsize(db_path) if db_exists else 0
+    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "version": settings.app_version,
-        "environment": "production" if not settings.debug else "development"
+        "environment": "production" if not settings.debug else "development",
+        "database": {
+            "path": db_path,
+            "exists": db_exists,
+            "size_bytes": db_size
+        }
     }
 
 @app.get("/debug")
@@ -162,18 +187,28 @@ async def debug_info():
     if log_dir.exists():
         log_files = [f.name for f in log_dir.glob("*.log")]
     
+    # 检查数据目录
+    data_dir = get_data_directory()
+    data_files = []
+    if os.path.exists(data_dir):
+        data_files = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))]
+    
     return {
         "timestamp": datetime.now().isoformat(),
         "working_directory": os.getcwd(),
         "python_path": os.environ.get("PYTHONPATH", "未设置"),
         "port": os.environ.get("PORT", "未设置"),
         "debug": settings.debug,
+        "data_directory": data_dir,
+        "data_files": data_files,
         "log_directory_exists": log_dir.exists(),
         "log_files": log_files,
         "environment_vars": {
             "APP_ENV": os.environ.get("APP_ENV", "未设置"),
             "RAILWAY_ENVIRONMENT": os.environ.get("RAILWAY_ENVIRONMENT", "未设置"),
-            "RAILWAY_PROJECT_ID": os.environ.get("RAILWAY_PROJECT_ID", "未设置")
+            "RAILWAY_PROJECT_ID": os.environ.get("RAILWAY_PROJECT_ID", "未设置"),
+            "DATABASE_PERSISTENT_PATH": os.environ.get("DATABASE_PERSISTENT_PATH", "未设置"),
+            "DATABASE_URL": os.environ.get("DATABASE_URL", "未设置")
         }
     }
 
