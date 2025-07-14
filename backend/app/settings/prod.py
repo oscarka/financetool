@@ -13,23 +13,22 @@ class ProdConfig(BaseConfig):
     database_backup_enabled: bool = os.getenv("DATABASE_BACKUP_ENABLED", "true").lower() == "true"
     database_backup_interval_hours: int = int(os.getenv("DATABASE_BACKUP_INTERVAL_HOURS", "24"))
     
-    # 确保数据目录存在
-    def __init__(self):
-        super().__init__()
+    # 确保数据目录存在并设置数据库URL
+    def __init__(self, **kwargs):
         # 确保数据目录存在
-        Path(self.database_persistent_path).mkdir(parents=True, exist_ok=True)
-    
-    # 优先使用环境变量中的DATABASE_URL，如果没有则使用默认的SQLite路径
-    @property
-    def database_url(self) -> str:
-        """获取数据库URL，优先使用环境变量，否则使用持久化路径"""
+        data_path = os.getenv("DATABASE_PERSISTENT_PATH", "/app/data")
+        Path(data_path).mkdir(parents=True, exist_ok=True)
+        
+        # 设置数据库URL
         env_db_url = os.getenv("DATABASE_URL")
         if env_db_url:
-            return env_db_url
+            kwargs["database_url"] = env_db_url
+        else:
+            # 使用持久化路径构建SQLite URL
+            db_path = os.path.join(data_path, "personalfinance.db")
+            kwargs["database_url"] = f"sqlite:///{db_path}"
         
-        # 使用持久化路径构建SQLite URL
-        db_path = os.path.join(self.database_persistent_path, "personalfinance.db")
-        return f"sqlite:///{db_path}"
+        super().__init__(**kwargs)
     
     cors_origins: str = os.getenv("CORS_ORIGINS", '["https://yourdomain.com"]')
     log_level: str = "WARNING"  # 从INFO调整为WARNING
