@@ -30,6 +30,16 @@ class WiseAPIService:
             return False
         return True
 
+    def _safe_float(self, value, default=0.0):
+        """安全地将值转换为浮点数"""
+        if value is None or value == "":
+            return default
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            logger.warning(f"[Wise] 无法转换余额值: {value}, 使用默认值: {default}")
+            return default
+
     async def _make_request(self, method: str, path: str, params: Dict = None, body: Dict = None) -> Optional[Dict[str, Any]]:
         """统一的请求方法"""
         try:
@@ -194,13 +204,19 @@ class WiseAPIService:
                         if not balance_id:
                             logger.warning(f"[Wise] balance缺少id: {balance}")
                             continue
+                        # 安全获取嵌套字典值
+                        amount_data = balance.get('amount', {})
+                        reserved_data = balance.get('reservedAmount', {})
+                        cash_data = balance.get('cashAmount', {})
+                        total_data = balance.get('totalWorth', {})
+                        
                         all_balances.append({
                             "account_id": balance_id,
                             "currency": balance.get('currency'),
-                            "available_balance": float(balance.get('amount', {}).get('value', 0)),
-                            "reserved_balance": float(balance.get('reservedAmount', {}).get('value', 0)),
-                            "cash_amount": float(balance.get('cashAmount', {}).get('value', 0)),
-                            "total_worth": float(balance.get('totalWorth', {}).get('value', 0)),
+                            "available_balance": self._safe_float(amount_data.get('value', 0) if isinstance(amount_data, dict) else 0),
+                            "reserved_balance": self._safe_float(reserved_data.get('value', 0) if isinstance(reserved_data, dict) else 0),
+                            "cash_amount": self._safe_float(cash_data.get('value', 0) if isinstance(cash_data, dict) else 0),
+                            "total_worth": self._safe_float(total_data.get('value', 0) if isinstance(total_data, dict) else 0),
                             "type": balance.get('type'),
                             "name": balance.get('name'),
                             "icon": balance.get('icon'),
