@@ -18,9 +18,6 @@ import {
 
 const { Sider, Content } = AntLayout
 
-interface LayoutProps {
-    children: React.ReactNode
-}
 
 
 const navigation = [
