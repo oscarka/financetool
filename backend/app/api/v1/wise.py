@@ -106,11 +106,53 @@ async def get_all_wise_balances():
         return {
             "success": True,
             "data": balances,
-            "count": len(balances)
+            "count": len(balances) if balances else 0
         }
     except Exception as e:
-        logger.error(f"获取所有Wise账户余额失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取所有账户余额失败: {str(e)}")
+        logger.error(f"获取Wise余额失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取Wise余额失败: {str(e)}")
+
+
+@router.get("/stored-balances")
+async def get_stored_balances():
+    """从数据库获取已存储的Wise余额数据"""
+    try:
+        from app.models.database import WiseBalance
+        from app.utils.database import SessionLocal
+        
+        db = SessionLocal()
+        try:
+            balances = db.query(WiseBalance).all()
+            balance_list = []
+            for balance in balances:
+                balance_list.append({
+                    "account_id": balance.account_id,
+                    "currency": balance.currency,
+                    "available_balance": float(balance.available_balance),
+                    "reserved_balance": float(balance.reserved_balance),
+                    "cash_amount": float(balance.cash_amount),
+                    "total_worth": float(balance.total_worth),
+                    "type": balance.type,
+                    "investment_state": balance.investment_state,
+                    "creation_time": balance.creation_time.isoformat() if balance.creation_time else None,
+                    "modification_time": balance.modification_time.isoformat() if balance.modification_time else None,
+                    "visible": balance.visible,
+                    "primary": balance.primary,
+                    "update_time": balance.update_time.isoformat() if balance.update_time else None,
+                    "created_at": balance.created_at.isoformat() if balance.created_at else None
+                })
+            
+            return {
+                "success": True,
+                "data": balance_list,
+                "count": len(balance_list),
+                "source": "database"
+            }
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"获取存储的Wise余额数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取存储的Wise余额数据失败: {str(e)}")
 
 
 @router.get("/transactions/{profile_id}/{account_id}")
@@ -141,18 +183,81 @@ async def get_wise_transactions(
 async def get_recent_wise_transactions(
     days: int = Query(30, ge=1, le=365, description="获取最近几天的交易记录")
 ):
-    """获取最近的交易记录"""
+    """获取最近交易记录"""
     try:
         transactions = await wise_service.get_recent_transactions(days)
         return {
             "success": True,
             "data": transactions,
-            "count": len(transactions),
+            "count": len(transactions) if transactions else 0,
             "days": days
         }
     except Exception as e:
-        logger.error(f"获取最近Wise交易记录失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取最近交易记录失败: {str(e)}")
+        logger.error(f"获取Wise交易记录失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取Wise交易记录失败: {str(e)}")
+
+
+@router.get("/stored-transactions")
+async def get_stored_transactions(
+    limit: int = Query(100, ge=1, le=1000, description="返回记录数量限制"),
+    offset: int = Query(0, ge=0, description="偏移量"),
+    profile_id: str = Query(None, description="过滤特定profile"),
+    account_id: str = Query(None, description="过滤特定账户")
+):
+    """从数据库获取已存储的Wise交易记录"""
+    try:
+        from app.models.database import WiseTransaction
+        from app.utils.database import SessionLocal
+        
+        db = SessionLocal()
+        try:
+            query = db.query(WiseTransaction)
+            
+            # 添加过滤条件
+            if profile_id:
+                query = query.filter(WiseTransaction.profile_id == profile_id)
+            if account_id:
+                query = query.filter(WiseTransaction.account_id == account_id)
+            
+            # 按日期倒序排列
+            query = query.order_by(WiseTransaction.date.desc())
+            
+            # 分页
+            total_count = query.count()
+            transactions = query.offset(offset).limit(limit).all()
+            
+            transaction_list = []
+            for tx in transactions:
+                transaction_list.append({
+                    "profile_id": tx.profile_id,
+                    "account_id": tx.account_id,
+                    "transaction_id": tx.transaction_id,
+                    "type": tx.type,
+                    "amount": float(tx.amount),
+                    "currency": tx.currency,
+                    "description": tx.description,
+                    "title": tx.title,
+                    "date": tx.date.isoformat() if tx.date else None,
+                    "status": tx.status,
+                    "reference_number": tx.reference_number,
+                    "created_at": tx.created_at.isoformat() if tx.created_at else None,
+                    "updated_at": tx.updated_at.isoformat() if tx.updated_at else None
+                })
+            
+            return {
+                "success": True,
+                "data": transaction_list,
+                "count": len(transaction_list),
+                "total_count": total_count,
+                "limit": limit,
+                "offset": offset,
+                "source": "database"
+            }
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"获取存储的Wise交易记录失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取存储的Wise交易记录失败: {str(e)}")
 
 
 @router.get("/exchange-rates")
@@ -462,6 +567,17 @@ async def sync_transactions():
     except Exception as e:
         logger.error(f"同步Wise交易记录失败: {e}")
         raise HTTPException(status_code=500, detail=f"同步Wise交易记录失败: {str(e)}")
+
+
+@router.post("/sync-balances")
+async def sync_balances():
+    """主动同步Wise所有余额数据到数据库"""
+    try:
+        result = await wise_service.sync_balances_to_db()
+        return result
+    except Exception as e:
+        logger.error(f"同步Wise余额数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"同步Wise余额数据失败: {str(e)}")
 
 
 @router.post("/exchange-rates/fetch-history")

@@ -181,6 +181,82 @@ const WiseManagement: React.FC = () => {
         }
     };
 
+    // 同步余额数据到数据库
+    const syncBalancesToDb = async () => {
+        try {
+            setLoading(true);
+            const response = await api.post('/wise/sync-balances');
+            if (response.data.success) {
+                message.success(`余额同步成功: ${response.data.message}`);
+                // 重新获取数据
+                fetchData();
+            } else {
+                message.error(`余额同步失败: ${response.data.message}`);
+            }
+        } catch (e: any) {
+            message.error(`余额同步失败: ${e.response?.data?.detail || e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 同步交易数据到数据库
+    const syncTransactionsToDb = async () => {
+        try {
+            setLoading(true);
+            const response = await api.post('/wise/sync-transactions');
+            if (response.data.success) {
+                message.success(`交易同步成功: ${response.data.message}`);
+                // 重新获取数据
+                fetchData();
+            } else {
+                message.error(`交易同步失败: ${response.data.message}`);
+            }
+        } catch (e: any) {
+            message.error(`交易同步失败: ${e.response?.data?.detail || e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 获取存储的余额数据
+    const fetchStoredBalances = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('/wise/stored-balances');
+            if (response.data.success) {
+                setBalances(response.data.data);
+                message.success(`从数据库获取到 ${response.data.count} 条余额记录`);
+            } else {
+                message.error('获取存储的余额数据失败');
+            }
+        } catch (e: any) {
+            message.error(`获取存储的余额数据失败: ${e.response?.data?.detail || e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 获取存储的交易数据
+    const fetchStoredTransactions = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('/wise/stored-transactions', {
+                params: { limit: 100 }
+            });
+            if (response.data.success) {
+                setTransactions(response.data.data);
+                message.success(`从数据库获取到 ${response.data.count} 条交易记录`);
+            } else {
+                message.error('获取存储的交易数据失败');
+            }
+        } catch (e: any) {
+            message.error(`获取存储的交易数据失败: ${e.response?.data?.detail || e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // 页面加载后自动拉取一次历史汇率
     useEffect(() => {
         if (selectedPair && rateHistory.length === 0) {
@@ -343,7 +419,11 @@ const WiseManagement: React.FC = () => {
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <h1 style={{ fontSize: 24, fontWeight: 700 }}>Wise多币种账户管理</h1>
-                <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading} type="primary">刷新数据</Button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <Button onClick={syncBalancesToDb} loading={loading} type="default">同步余额到数据库</Button>
+                    <Button onClick={syncTransactionsToDb} loading={loading} type="default">同步交易到数据库</Button>
+                    <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading} type="primary">刷新数据</Button>
+                </div>
             </div>
 
             {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
@@ -398,6 +478,10 @@ const WiseManagement: React.FC = () => {
 
             <Tabs defaultActiveKey="balances">
                 <TabPane tab="账户余额" key="balances">
+                    <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+                        <Button onClick={fetchStoredBalances} loading={loading} type="default">查看数据库余额</Button>
+                        <Button onClick={syncBalancesToDb} loading={loading} type="default">同步余额到数据库</Button>
+                    </div>
                     {/* Debug: 展示原始balances数据 */}
                     <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f6f6f6', fontSize: 12, marginBottom: 8 }}>{JSON.stringify(balances, null, 2)}</pre>
                     <Table
@@ -411,6 +495,10 @@ const WiseManagement: React.FC = () => {
                     />
                 </TabPane>
                 <TabPane tab="交易记录" key="transactions">
+                    <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+                        <Button onClick={fetchStoredTransactions} loading={loading} type="default">查看数据库交易</Button>
+                        <Button onClick={syncTransactionsToDb} loading={loading} type="default">同步交易到数据库</Button>
+                    </div>
                     {/* Debug: 展示原始transactions数据 */}
                     <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f6f6f6', fontSize: 12, marginBottom: 8 }}>{JSON.stringify(transactions, null, 2)}</pre>
 
