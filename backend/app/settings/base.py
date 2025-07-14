@@ -137,19 +137,19 @@ class BaseConfig(BaseSettings):
     
     
     def get_cors_origins_list(self) -> list:
-    import json
-    value = self.cors_origins
-    print("settings.cors_origins 原始内容：", repr(value))  # 这行是调试用的，可以看到实际内容
-    # 兼容多层字符串（比如被多包一层引号的情况）
-    for _ in range(2):
-        if isinstance(value, str):
-            try:
-                value = json.loads(value)
-            except Exception:
-                break
-    if isinstance(value, list):
-        return value
-    return ["http://localhost:3000", "http://localhost:5173"]
+        import json
+        value = self.cors_origins
+        print("settings.cors_origins 原始内容：", repr(value))  # 这行是调试用的，可以看到实际内容
+        # 兼容多层字符串（比如被多包一层引号的情况）
+        for _ in range(2):
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except Exception:
+                    break
+        if isinstance(value, list):
+            return value
+        return ["http://localhost:3000", "http://localhost:5173"]
     
     
     def get_allowed_ips_list(self) -> List[str]:
