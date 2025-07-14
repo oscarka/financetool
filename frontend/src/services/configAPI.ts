@@ -69,7 +69,7 @@ class ConfigAPI {
      * 获取系统配置信息
      */
     async getConfig(): Promise<ConfigInfo> {
-        const response = await api.get('/config')
+        const response = await api.get('/config/')
         return response.data
     }
 
@@ -112,7 +112,7 @@ class ConfigAPI {
      */
     async updateConfig(config: Partial<ConfigInfo>): Promise<{ success: boolean; data: ConfigInfo; error?: string }> {
         try {
-            const response = await api.put('/config', config)
+            const response = await api.put('/config/', config)
             return response.data
         } catch (error: any) {
             console.error('更新配置失败:', error)
