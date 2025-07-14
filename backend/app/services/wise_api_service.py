@@ -274,17 +274,18 @@ class WiseAPIService:
                                 amount_value = 0.0
                                 currency = 'USD'
                                 
-                                # 解析金额字符串，如 "+ 279.77 AUD" 或 "3.27 USD"
+                                # 解析金额字符串，如 "+ 279.77 AUD" 或 "1,234.56 USD"
                                 if primary_amount:
                                     import re
-                                    # 匹配金额和货币
-                                    amount_match = re.search(r'([+-]?\s*\d+\.?\d*)\s*([A-Z]{3})', primary_amount)
+                                    # 匹配金额和货币 - 支持逗号分隔符
+                                    amount_match = re.search(r'([+-]?\s*[\d,]+\.?\d*)\s*([A-Z]{3})', primary_amount)
                                     if amount_match:
-                                        amount_str = amount_match.group(1).replace(' ', '')
+                                        amount_str = amount_match.group(1).replace(' ', '').replace(',', '')
                                         currency = amount_match.group(2)
                                         try:
                                             amount_value = float(amount_str)
                                         except ValueError:
+                                            logger.warning(f"[Wise] 无法转换交易金额: {amount_str}, 使用默认值: 0.0")
                                             amount_value = 0.0
                                 
                                 all_transactions.append({
@@ -533,13 +534,15 @@ class WiseAPIService:
                         amount_value = 0.0
                         currency = 'USD'
                         if primary_amount:
-                            amount_match = re.search(r'([+-]?\s*\d+\.?\d*)\s*([A-Z]{3})', primary_amount)
+                            # 匹配金额和货币 - 支持逗号分隔符
+                            amount_match = re.search(r'([+-]?\s*[\d,]+\.?\d*)\s*([A-Z]{3})', primary_amount)
                             if amount_match:
-                                amount_str = amount_match.group(1).replace(' ', '')
+                                amount_str = amount_match.group(1).replace(' ', '').replace(',', '')
                                 currency = amount_match.group(2)
                                 try:
                                     amount_value = float(amount_str)
                                 except ValueError:
+                                    logger.warning(f"[Wise] 无法转换交易金额: {amount_str}, 使用默认值: 0.0")
                                     amount_value = 0.0
                         # 检查是否已存在
                         exists = db.query(WiseTransaction).filter_by(transaction_id=activity.get('id')).first()
