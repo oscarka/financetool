@@ -34,38 +34,37 @@ jobs:
             echo "backend=false" >> $GITHUB_OUTPUT
           fi
 
-  # 临时禁用自动部署直到配置Railway Token
-  # 配置步骤请参考 RAILWAY_DEPLOYMENT_FIX.md
-  
-  # deploy-frontend:
-  #   needs: detect-changes
-  #   if: needs.detect-changes.outputs.frontend-changed == 'true'
-  #   runs-on: ubuntu-latest
-  #   container: ghcr.io/railwayapp/cli:latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     
-  #     - name: Deploy Frontend to Railway
-  #       run: |
-  #         cd frontend
-  #         railway up
-  #       env:
-  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-  # deploy-backend:
-  #   needs: detect-changes
-  #   if: needs.detect-changes.outputs.backend-changed == 'true'
-  #   runs-on: ubuntu-latest
-  #   container: ghcr.io/railwayapp/cli:latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     
-  #     - name: Deploy Backend to Railway
-  #       run: |
-  #         cd backend
-  #         railway up
-  #       env:
-  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  
+   deploy-frontend:
+     needs: detect-changes
+     if: needs.detect-changes.outputs.frontend-changed == 'true'
+     runs-on: ubuntu-latest
+     container: ghcr.io/railwayapp/cli:latest
+     steps:
+       - uses: actions/checkout@v4
+       
+       - name: Deploy Frontend to Railway
+         run: |
+           cd frontend
+           railway up
+         env:
+           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+   deploy-backend:
+     needs: detect-changes
+     if: needs.detect-changes.outputs.backend-changed == 'true'
+     runs-on: ubuntu-latest
+     container: ghcr.io/railwayapp/cli:latest
+     steps:
+       - uses: actions/checkout@v4
+       
+       - name: Deploy Backend to Railway
+         run: |
+           cd backend
+           railway up
+         env:
+           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
   
   # 添加一个提示任务
   deployment-notice:
