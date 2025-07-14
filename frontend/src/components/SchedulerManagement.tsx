@@ -1,4 +1,4 @@
-import React, { useState, useEffect,useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Card,
   Table,
@@ -9,13 +9,13 @@ import {
   Input,
   Select,
   InputNumber,
-  
+
   message,
   Tag,
   Descriptions,
   Row,
   Col,
-  
+
   Popconfirm,
   Tooltip,
   Badge
@@ -109,49 +109,77 @@ const SchedulerManagement: React.FC = () => {
   // 创建定时任务
   const handleCreateJob = async (values: any) => {
     try {
+      console.log('创建任务表单数据:', values); // 调试日志
+
+      let scheduleConfig: any = {
+        type: values.schedule_type
+      };
+
+      if (values.schedule_type === 'interval') {
+        scheduleConfig = {
+          ...scheduleConfig,
+          minutes: values.interval_minutes,
+          seconds: values.interval_seconds
+        };
+      } else if (values.schedule_type === 'cron') {
+        // 基础cron配置
+        scheduleConfig = {
+          ...scheduleConfig,
+          hour: values.cron_hour,
+          minute: values.cron_minute
+        };
+
+        // 根据频率类型添加相应配置
+        if (values.cron_frequency === 'weekly') {
+          scheduleConfig.day_of_week = values.cron_day_of_week;
+        } else if (values.cron_frequency === 'monthly') {
+          scheduleConfig.day = values.cron_day;
+        } else if (values.cron_frequency === 'custom') {
+          // 自定义模式：只添加有值的字段
+          if (values.cron_day) {
+            scheduleConfig.day = values.cron_day;
+          }
+          if (values.cron_day_of_week) {
+            scheduleConfig.day_of_week = values.cron_day_of_week;
+          }
+        }
+        // daily模式不需要额外配置，默认每天执行
+      }
+
       const jobConfig: JobConfig = {
         task_id: values.task_id,
         name: values.name,
-        schedule: {
-          type: values.schedule_type,
-          ...(values.schedule_type === 'interval' && {
-            minutes: values.interval_minutes,
-            seconds: values.interval_seconds
-          }),
-          ...(values.schedule_type === 'cron' && {
-            hour: values.cron_hour,
-            minute: values.cron_minute,
-            day_of_week: values.cron_day_of_week
-          })
-        },
+        schedule: scheduleConfig,
         config: values.config ? JSON.parse(values.config) : {}
       };
+
+      console.log('发送的任务配置:', jobConfig); // 调试日志
 
       await schedulerAPI.createJob(jobConfig);
       message.success('定时任务创建成功');
       setCreateJobModalVisible(false);
       createJobForm.resetFields();
       loadData();
-    } catch (error) {
-      message.error('创建定时任务失败');
-      console.error('创建任务失败:', error);
+    } catch (error: any) {
+      console.error('创建任务失败详情:', error); // 详细错误日志
+      message.error(`创建定时任务失败: ${error?.message || error}`);
     }
   };
 
   // 立即执行任务
   const handleExecuteTask = async (values: any) => {
     if (!selectedTask) return;
-    
+
     try {
       const config = values.config ? JSON.parse(values.config) : {};
       const result = await schedulerAPI.executeTask(selectedTask.task_id, config);
-      
+
       if (result.success) {
         message.success('任务执行成功');
       } else {
         message.error(`任务执行失败: ${result.error}`);
       }
-      
+
       setExecuteTaskModalVisible(false);
       executeTaskForm.resetFields();
       setSelectedTask(null);
@@ -299,9 +327,9 @@ const SchedulerManagement: React.FC = () => {
             {status && (
               <Descriptions bordered column={4}>
                 <Descriptions.Item label="运行状态">
-                  <Badge 
-                    status={status.scheduler_running ? 'success' : 'error'} 
-                    text={status.scheduler_running ? '运行中' : '已停止'} 
+                  <Badge
+                    status={status.scheduler_running ? 'success' : 'error'}
+                    text={status.scheduler_running ? '运行中' : '已停止'}
                   />
                 </Descriptions.Item>
                 <Descriptions.Item label="任务数量">{status.job_count}</Descriptions.Item>
@@ -317,19 +345,19 @@ const SchedulerManagement: React.FC = () => {
 
         {/* 定时任务管理 */}
         <Col span={24}>
-          <Card 
-            title="定时任务管理" 
+          <Card
+            title="定时任务管理"
             extra={
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
                 onClick={() => setCreateJobModalVisible(true)}
               >
                 创建任务
               </Button>
             }
           >
-            <div style={{fontSize:12, color:'#888', marginBottom:8}}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
               jobs: {JSON.stringify(jobs)}
             </div>
             <Table
@@ -340,17 +368,17 @@ const SchedulerManagement: React.FC = () => {
               pagination={false}
               size="small"
             />
-            <div ref={tasksJsonRef} style={{fontSize:12, color:'#888', marginTop:8}}></div>
+            <div ref={tasksJsonRef} style={{ fontSize: 12, color: '#888', marginTop: 8 }}></div>
           </Card>
         </Col>
 
         {/* 可用任务定义 */}
         <Col span={24}>
           <Card title="可用任务定义">
-            <div style={{fontSize:12, color:'#888', marginBottom:8}}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
               tasks: {JSON.stringify(tasks)}
             </div>
-            <div style={{fontSize:12, color:'#f00', marginBottom:8}}>
+            <div style={{ fontSize: 12, color: '#f00', marginBottom: 8 }}>
               [Table渲染前] typeof tasks: {typeof tasks}, Array.isArray: {Array.isArray(tasks).toString()}, length: {tasks.length}, first: {tasks[0] && JSON.stringify(tasks[0])}
             </div>
             {/* 原有Table */}
@@ -362,7 +390,7 @@ const SchedulerManagement: React.FC = () => {
               pagination={false}
               size="small"
             />
-            <div style={{fontSize:12, color:'#f00', marginTop:8}}>
+            <div style={{ fontSize: 12, color: '#f00', marginTop: 8 }}>
               [Table渲染后] typeof tasks: {typeof tasks}, Array.isArray: {Array.isArray(tasks).toString()}, length: {tasks.length}, first: {tasks[0] && JSON.stringify(tasks[0])}
             </div>
           </Card>
@@ -371,7 +399,7 @@ const SchedulerManagement: React.FC = () => {
         {/* 插件信息 */}
         <Col span={24}>
           <Card title="已加载插件">
-            <div style={{fontSize:12, color:'#888', marginBottom:8}}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
               plugins: {JSON.stringify(plugins)}
             </div>
             <Row gutter={[16, 16]}>
@@ -442,7 +470,7 @@ const SchedulerManagement: React.FC = () => {
           <Form.Item noStyle shouldUpdate>
             {({ getFieldValue }) => {
               const scheduleType = getFieldValue('schedule_type');
-              
+
               if (scheduleType === 'interval') {
                 return (
                   <Row gutter={16}>
@@ -466,48 +494,184 @@ const SchedulerManagement: React.FC = () => {
                   </Row>
                 );
               }
-              
+
               if (scheduleType === 'cron') {
                 return (
-                  <Row gutter={16}>
-                    <Col span={8}>
-                      <Form.Item
-                        name="cron_hour"
-                        label="小时"
-                        rules={[{ required: true, message: '请输入小时' }]}
-                      >
-                        <InputNumber min={0} max={23} style={{ width: '100%' }} />
-                      </Form.Item>
-                    </Col>
-                    <Col span={8}>
-                      <Form.Item
-                        name="cron_minute"
-                        label="分钟"
-                        rules={[{ required: true, message: '请输入分钟' }]}
-                      >
-                        <InputNumber min={0} max={59} style={{ width: '100%' }} />
-                      </Form.Item>
-                    </Col>
-                    <Col span={8}>
-                      <Form.Item
-                        name="cron_day_of_week"
-                        label="星期几"
-                      >
-                        <Select placeholder="选择星期">
-                          <Option value="mon">星期一</Option>
-                          <Option value="tue">星期二</Option>
-                          <Option value="wed">星期三</Option>
-                          <Option value="thu">星期四</Option>
-                          <Option value="fri">星期五</Option>
-                          <Option value="sat">星期六</Option>
-                          <Option value="sun">星期日</Option>
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                  </Row>
+                  <>
+                    <Form.Item
+                      name="cron_frequency"
+                      label="执行频率"
+                      rules={[{ required: true, message: '请选择执行频率' }]}
+                    >
+                      <Select placeholder="选择执行频率">
+                        <Option value="daily">每天</Option>
+                        <Option value="weekly">每周</Option>
+                        <Option value="monthly">每月</Option>
+                        <Option value="custom">自定义</Option>
+                      </Select>
+                    </Form.Item>
+
+                    <Form.Item noStyle shouldUpdate>
+                      {({ getFieldValue }) => {
+                        const cronFrequency = getFieldValue('cron_frequency');
+
+                        if (cronFrequency === 'daily') {
+                          return (
+                            <Row gutter={16}>
+                              <Col span={12}>
+                                <Form.Item
+                                  name="cron_hour"
+                                  label="小时"
+                                  rules={[{ required: true, message: '请输入小时' }]}
+                                >
+                                  <InputNumber min={0} max={23} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                              <Col span={12}>
+                                <Form.Item
+                                  name="cron_minute"
+                                  label="分钟"
+                                  rules={[{ required: true, message: '请输入分钟' }]}
+                                >
+                                  <InputNumber min={0} max={59} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                            </Row>
+                          );
+                        }
+
+                        if (cronFrequency === 'weekly') {
+                          return (
+                            <Row gutter={16}>
+                              <Col span={8}>
+                                <Form.Item
+                                  name="cron_day_of_week"
+                                  label="星期几"
+                                  rules={[{ required: true, message: '请选择星期' }]}
+                                >
+                                  <Select placeholder="选择星期">
+                                    <Option value="mon">星期一</Option>
+                                    <Option value="tue">星期二</Option>
+                                    <Option value="wed">星期三</Option>
+                                    <Option value="thu">星期四</Option>
+                                    <Option value="fri">星期五</Option>
+                                    <Option value="sat">星期六</Option>
+                                    <Option value="sun">星期日</Option>
+                                  </Select>
+                                </Form.Item>
+                              </Col>
+                              <Col span={8}>
+                                <Form.Item
+                                  name="cron_hour"
+                                  label="小时"
+                                  rules={[{ required: true, message: '请输入小时' }]}
+                                >
+                                  <InputNumber min={0} max={23} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                              <Col span={8}>
+                                <Form.Item
+                                  name="cron_minute"
+                                  label="分钟"
+                                  rules={[{ required: true, message: '请输入分钟' }]}
+                                >
+                                  <InputNumber min={0} max={59} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                            </Row>
+                          );
+                        }
+
+                        if (cronFrequency === 'monthly') {
+                          return (
+                            <Row gutter={16}>
+                              <Col span={8}>
+                                <Form.Item
+                                  name="cron_day"
+                                  label="日期"
+                                  rules={[{ required: true, message: '请输入日期' }]}
+                                >
+                                  <InputNumber min={1} max={31} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                              <Col span={8}>
+                                <Form.Item
+                                  name="cron_hour"
+                                  label="小时"
+                                  rules={[{ required: true, message: '请输入小时' }]}
+                                >
+                                  <InputNumber min={0} max={23} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                              <Col span={8}>
+                                <Form.Item
+                                  name="cron_minute"
+                                  label="分钟"
+                                  rules={[{ required: true, message: '请输入分钟' }]}
+                                >
+                                  <InputNumber min={0} max={59} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                            </Row>
+                          );
+                        }
+
+                        if (cronFrequency === 'custom') {
+                          return (
+                            <Row gutter={16}>
+                              <Col span={6}>
+                                <Form.Item
+                                  name="cron_day"
+                                  label="日期"
+                                >
+                                  <InputNumber min={1} max={31} style={{ width: '100%' }} placeholder="1-31" />
+                                </Form.Item>
+                              </Col>
+                              <Col span={6}>
+                                <Form.Item
+                                  name="cron_day_of_week"
+                                  label="星期"
+                                >
+                                  <Select placeholder="选择星期" allowClear>
+                                    <Option value="mon">星期一</Option>
+                                    <Option value="tue">星期二</Option>
+                                    <Option value="wed">星期三</Option>
+                                    <Option value="thu">星期四</Option>
+                                    <Option value="fri">星期五</Option>
+                                    <Option value="sat">星期六</Option>
+                                    <Option value="sun">星期日</Option>
+                                  </Select>
+                                </Form.Item>
+                              </Col>
+                              <Col span={6}>
+                                <Form.Item
+                                  name="cron_hour"
+                                  label="小时"
+                                  rules={[{ required: true, message: '请输入小时' }]}
+                                >
+                                  <InputNumber min={0} max={23} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                              <Col span={6}>
+                                <Form.Item
+                                  name="cron_minute"
+                                  label="分钟"
+                                  rules={[{ required: true, message: '请输入分钟' }]}
+                                >
+                                  <InputNumber min={0} max={59} style={{ width: '100%' }} />
+                                </Form.Item>
+                              </Col>
+                            </Row>
+                          );
+                        }
+
+                        return null;
+                      }}
+                    </Form.Item>
+                  </>
                 );
               }
-              
+
               return null;
             }}
           </Form.Item>
@@ -516,10 +680,20 @@ const SchedulerManagement: React.FC = () => {
             name="config"
             label="任务配置 (JSON)"
           >
-            <TextArea 
-              rows={4} 
+            <TextArea
+              rows={4}
               placeholder='{"key": "value"}'
             />
+          </Form.Item>
+
+          {/* 调试信息 */}
+          <Form.Item label="调试信息">
+            <div style={{ fontSize: 12, color: '#666', backgroundColor: '#f5f5f5', padding: 8, borderRadius: 4 }}>
+              <div><strong>当前表单数据：</strong></div>
+              <pre style={{ margin: 0, fontSize: 10 }}>
+                {JSON.stringify(createJobForm.getFieldsValue(), null, 2)}
+              </pre>
+            </div>
           </Form.Item>
 
           <Form.Item>
@@ -552,8 +726,8 @@ const SchedulerManagement: React.FC = () => {
             name="config"
             label="任务配置 (JSON)"
           >
-            <TextArea 
-              rows={4} 
+            <TextArea
+              rows={4}
               placeholder='{"key": "value"}'
             />
           </Form.Item>
