@@ -79,9 +79,12 @@ class ExtensibleSchedulerService:
             schedule_config = job_config['schedule']
             config = job_config.get('config', {})
 
-            # logger.info(f"[DEBUG] create_job 收到 task_id: {task_id}")  # 精简日志
-            # all_tasks = self.plugin_manager.get_tasks()
-            # logger.info(f"[DEBUG] 当前可用任务ID: {[t['task_id'] for t in all_tasks]}")  # 精简日志
+            logger.info(f"[DEBUG] create_job 收到配置: {job_config}")
+            
+            # 获取所有可用任务
+            all_tasks = self.plugin_manager.get_tasks()
+            logger.info(f"[DEBUG] 当前可用任务ID: {[t['task_id'] for t in all_tasks]}")
+            
             # 验证任务是否存在
             if task_id not in [t['task_id'] for t in all_tasks]:
                 raise ValueError(f"任务 {task_id} 不存在")
@@ -89,6 +92,8 @@ class ExtensibleSchedulerService:
             # 只保留有值的调度参数，防止 None 传入 APScheduler
             schedule_type = schedule_config.get('type')
             schedule_args = {k: v for k, v in schedule_config.items() if v is not None and k != 'type'}
+            
+            logger.info(f"[DEBUG] 调度配置: type={schedule_type}, args={schedule_args}")
 
             if schedule_type == 'interval':
                 from apscheduler.triggers.interval import IntervalTrigger

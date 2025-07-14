@@ -30,6 +30,54 @@ async def test_scheduler():
     return {"message": "scheduler test ok", "timestamp": datetime.now().isoformat()}
 
 
+@router.post("/test-create-job", response_model=BaseResponse)
+async def test_create_job():
+    """测试创建任务接口"""
+    try:
+        service = get_scheduler_service()
+        
+        # 获取可用任务
+        tasks = service.get_tasks()
+        if not tasks:
+            return BaseResponse(success=False, message="没有可用的任务")
+        
+        # 使用第一个任务进行测试
+        test_task = tasks[0]
+        
+        # 创建测试任务配置
+        job_config = {
+            "task_id": test_task['task_id'],
+            "name": "测试任务",
+            "schedule": {
+                "type": "cron",
+                "hour": 15,
+                "minute": 30
+            },
+            "config": {}
+        }
+        
+        logger.info(f"测试创建任务配置: {job_config}")
+        
+        # 创建任务
+        job_id = await service.create_job(job_config)
+        
+        # 清理测试任务
+        await service.remove_job(job_id)
+        
+        return BaseResponse(
+            success=True, 
+            message="测试任务创建成功", 
+            data={
+                "job_id": job_id,
+                "task_id": test_task['task_id'],
+                "available_tasks": [t['task_id'] for t in tasks]
+            }
+        )
+    except Exception as e:
+        logger.error(f"测试创建任务失败: {e}")
+        return BaseResponse(success=False, message=f"测试失败: {str(e)}")
+
+
 @router.get("/status", response_model=BaseResponse)
 async def get_scheduler_status():
     """获取调度器状态"""
