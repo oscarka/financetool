@@ -6,6 +6,7 @@ class ProdConfig(BaseConfig):
     
     app_env: str = "prod"
     debug: bool = False
+    # 优先使用环境变量中的DATABASE_URL，如果没有则使用默认的SQLite路径
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./data/personalfinance.db")
     cors_origins: str = os.getenv("CORS_ORIGINS", '["https://yourdomain.com"]')
     log_level: str = "WARNING"  # 从INFO调整为WARNING
@@ -67,4 +68,9 @@ class ProdConfig(BaseConfig):
     data_cleanup_retention_days: int = int(os.getenv("DATA_CLEANUP_RETENTION_DAYS", "90"))
     
     # 系统配置
-    upload_db_token: str = os.getenv("UPLOAD_DB_TOKEN", "") 
+    upload_db_token: str = os.getenv("UPLOAD_DB_TOKEN", "")
+    
+    # 数据库持久化配置
+    database_persistent_path: str = os.getenv("DATABASE_PERSISTENT_PATH", "/app/data")
+    database_backup_enabled: bool = os.getenv("DATABASE_BACKUP_ENABLED", "true").lower() == "true"
+    database_backup_interval_hours: int = int(os.getenv("DATABASE_BACKUP_INTERVAL_HOURS", "24")) 

@@ -14,3 +14,8 @@ DEBUG = "false"
 WORKERS = "2"
 APP_ENV = "prod"
 
+# 添加数据卷配置
+[[deploy.volumes]]
+source = "database"
+target = "/app/data"
+
