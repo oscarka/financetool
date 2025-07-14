@@ -9,13 +9,13 @@ import {
   Input,
   Select,
   InputNumber,
-  Switch,
+  
   message,
   Tag,
   Descriptions,
   Row,
   Col,
-  Divider,
+  
   Popconfirm,
   Tooltip,
   Badge
@@ -26,13 +26,9 @@ import {
   DeleteOutlined,
   PlusOutlined,
   ReloadOutlined,
-  SettingOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined
 } from '@ant-design/icons';
 import { schedulerAPI } from '../services/schedulerAPI';
-import type { SchedulerStatus, TaskDefinition, ScheduledJob, JobConfig } from '../services/schedulerAPI';
+import type { TaskDefinition, ScheduledJob, JobConfig } from '../services/schedulerAPI';
 
 
 const { Option } = Select;
@@ -49,13 +45,11 @@ const SchedulerManagement: React.FC = () => {
   const [tasks, setTasks] = useState<TaskDefinition[]>([]);
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [plugins, setPlugins] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
 
   // 模态框状态
   const [createJobModalVisible, setCreateJobModalVisible] = useState(false);
   const [executeTaskModalVisible, setExecuteTaskModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskDefinition | null>(null);
-  const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null);
 
   // 表单状态
   const [createJobForm] = Form.useForm();
@@ -82,7 +76,7 @@ const SchedulerManagement: React.FC = () => {
         schedulerAPI.getPlugins()
       ]);
 
-      setStatus(statusData?.data || {});
+      setStatus(statusData || {});
       const rawTasks = (tasksData as any).tasks;
 
       try {

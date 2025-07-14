@@ -2,28 +2,28 @@ import React, { useState, useEffect } from 'react';
 import {
     Card,
     Button,
-    Table,
+    
     Tabs,
-    Badge,
+    
     Alert,
     Row,
     Col,
     Statistic,
     Tag,
-    Tooltip,
+    
     message,
     Modal,
     Form,
     Input,
     Switch,
     InputNumber,
-    Select,
+    
     Space,
-    Divider,
+    
     Typography,
     Descriptions,
-    Progress,
-    Upload,
+    
+    
     Drawer,
     Timeline,
     Popconfirm
@@ -32,28 +32,19 @@ import {
     SettingOutlined,
     ReloadOutlined,
     CheckCircleOutlined,
-    ExclamationCircleOutlined,
-    WarningOutlined,
-    DownloadOutlined,
-    UploadOutlined,
     HistoryOutlined,
     EnvironmentOutlined,
-    SecurityScanOutlined,
     // PerformanceOutlined, // 修正：该图标未被实际使用，且 antd 没有此导出
-    DatabaseOutlined,
     ApiOutlined,
     ClockCircleOutlined,
-    SaveOutlined,
     UndoOutlined,
     ExportOutlined,
     ImportOutlined,
-    InfoCircleOutlined
 } from '@ant-design/icons';
 import { configAPI } from '../services/configAPI';
 import type { ConfigInfo, ConfigValidationResult, EnvironmentInfo } from '../services/configAPI';
 
 const { TabPane } = Tabs;
-const { Option } = Select;
 const { Text, Title } = Typography;
 const { TextArea } = Input;
 
@@ -78,7 +69,6 @@ const ConfigManagement: React.FC = () => {
     // 加载状态
     const [configLoading, setConfigLoading] = useState(true);
     const [validationLoading, setValidationLoading] = useState(false);
-    const [environmentLoading, setEnvironmentLoading] = useState(false);
 
     // 组件全量日志
     console.log('[ConfigManagement] 组件渲染，props: 无props, state config:', config, 'validationResult:', validationResult, 'environmentInfo:', environmentInfo, 'configHistory:', configHistory);
@@ -116,7 +106,7 @@ const ConfigManagement: React.FC = () => {
 
     // 加载环境信息
     const loadEnvironmentInfo = async () => {
-        setEnvironmentLoading(true);
+        setEnvironmentInfo(null);
         try {
             const response = await configAPI.getEnvironmentInfo();
             if (response.success) {
@@ -125,7 +115,7 @@ const ConfigManagement: React.FC = () => {
         } catch (error) {
             console.error('获取环境信息失败:', error);
         } finally {
-            setEnvironmentLoading(false);
+            setEnvironmentInfo(null);
         }
     };
 

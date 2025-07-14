@@ -18,9 +18,6 @@ import {
 
 const { Sider, Content } = AntLayout
 
-interface LayoutProps {
-    children: React.ReactNode
-}
 
 const navigation = [
     { name: '总览', href: '/', icon: HomeOutlined },
