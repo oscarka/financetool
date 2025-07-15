@@ -114,45 +114,45 @@ def init_database():
 
 # === 自动创建IBKR审计表和触发器 ===
 def setup_ibkr_audit_trigger():
-    """自动为ibkr相关表创建审计表和触发器"""
+    """分步为ibkr相关表创建审计表和触发器，每步都打印异常"""
     from sqlalchemy import text
     if not settings.database_url.startswith("postgresql://"):
         print("非PostgreSQL数据库，跳过IBKR审计触发器创建")
         return
-    stmts = [
-        # 1. 创建审计表（去掉不兼容的默认值）
-        """
-        CREATE TABLE IF NOT EXISTS audit_log (
-            id serial PRIMARY KEY,
-            table_name text,
-            operation text,
-            old_data jsonb,
-            new_data jsonb,
-            changed_at timestamp default now()
-        );
-        """,
-        # 2. 创建触发器函数
-        """
-        CREATE OR REPLACE FUNCTION log_ibkr_audit() RETURNS trigger AS $$
-        BEGIN
-            IF (TG_OP = 'DELETE') THEN
-                INSERT INTO audit_log(table_name, operation, old_data, new_data)
-                VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL);
-                RETURN OLD;
-            ELSIF (TG_OP = 'UPDATE') THEN
-                INSERT INTO audit_log(table_name, operation, old_data, new_data)
-                VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW));
-                RETURN NEW;
-            ELSIF (TG_OP = 'INSERT') THEN
-                INSERT INTO audit_log(table_name, operation, old_data, new_data)
-                VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW));
-                RETURN NEW;
-            END IF;
-            RETURN NULL;
-        END;
-        $$ LANGUAGE plpgsql;
-        """,
-        # 3. 分别为每个表创建触发器（如果已存在则忽略报错）
+    # 1. 创建审计表
+    create_table_sql = """
+    CREATE TABLE IF NOT EXISTS audit_log (
+        id serial PRIMARY KEY,
+        table_name text,
+        operation text,
+        old_data jsonb,
+        new_data jsonb,
+        changed_at timestamp default now()
+    );
+    """
+    # 2. 创建触发器函数
+    create_func_sql = """
+    CREATE OR REPLACE FUNCTION log_ibkr_audit() RETURNS trigger AS $$
+    BEGIN
+        IF (TG_OP = 'DELETE') THEN
+            INSERT INTO audit_log(table_name, operation, old_data, new_data)
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL);
+            RETURN OLD;
+        ELSIF (TG_OP = 'UPDATE') THEN
+            INSERT INTO audit_log(table_name, operation, old_data, new_data)
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW));
+            RETURN NEW;
+        ELSIF (TG_OP = 'INSERT') THEN
+            INSERT INTO audit_log(table_name, operation, old_data, new_data)
+            VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW));
+            RETURN NEW;
+        END IF;
+        RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+    """
+    # 3. 分别为每个表创建触发器（如果已存在则忽略报错）
+    trigger_sqls = [
         """
         DO $$ BEGIN BEGIN CREATE TRIGGER ibkr_accounts_audit AFTER INSERT OR UPDATE OR DELETE ON ibkr_accounts FOR EACH ROW EXECUTE FUNCTION log_ibkr_audit(); EXCEPTION WHEN duplicate_object THEN NULL; END; END $$;
         """,
@@ -167,9 +167,23 @@ def setup_ibkr_audit_trigger():
         """
     ]
     with engine.connect() as conn:
-        for stmt in stmts:
+        # 步骤1：建表
+        try:
+            conn.execute(text(create_table_sql))
+            print("audit_log表创建成功或已存在")
+        except Exception as e:
+            print(f"建表SQL执行失败: {e}\nSQL: {create_table_sql}\n")
+        # 步骤2：建函数
+        try:
+            conn.execute(text(create_func_sql))
+            print("log_ibkr_audit函数创建成功或已存在")
+        except Exception as e:
+            print(f"建函数SQL执行失败: {e}\nSQL: {create_func_sql}\n")
+        # 步骤3：建触发器
+        for stmt in trigger_sqls:
             try:
                 conn.execute(text(stmt))
+                print("触发器创建成功或已存在")
             except Exception as e:
-                print(f"SQL执行失败: {e}\nSQL: {stmt}\n")
-    print("IBKR审计表和触发器已自动创建（如未存在）") 
+                print(f"建触发器SQL执行失败: {e}\nSQL: {stmt}\n")
+    print("IBKR审计表和触发器分步创建流程已执行") 
