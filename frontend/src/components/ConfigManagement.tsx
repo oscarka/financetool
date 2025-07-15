@@ -1,104 +1,71 @@
 import React, { useState, useEffect } from 'react';
-import {
-    Card,
-    Button,
-    
-    Tabs,
-    
-    Alert,
-    Row,
-    Col,
-    Statistic,
-    Tag,
-    
-    message,
-    Modal,
-    Form,
-    Input,
-    Switch,
-    InputNumber,
-    
-    Space,
-    
-    Typography,
-    Descriptions,
-    
-    
-    Drawer,
-    Timeline,
-    Popconfirm
-} from 'antd';
-import {
-    SettingOutlined,
-    ReloadOutlined,
-    CheckCircleOutlined,
-    HistoryOutlined,
-    EnvironmentOutlined,
-    // PerformanceOutlined, // 修正：该图标未被实际使用，且 antd 没有此导出
-    ApiOutlined,
-    ClockCircleOutlined,
-    UndoOutlined,
-    ExportOutlined,
-    ImportOutlined,
-} from '@ant-design/icons';
+import { Card, Button, Space, message, Modal, Form, Input, Upload, Drawer, Table, Statistic, Row, Col, Tag, Typography } from 'antd';
 import { configAPI } from '../services/configAPI';
-import type { ConfigInfo, ConfigValidationResult, EnvironmentInfo } from '../services/configAPI';
+import { ReloadOutlined, EditOutlined, ExportOutlined, ImportOutlined, ResetOutlined, HistoryOutlined, EnvironmentOutlined, CheckCircleOutlined, CloseCircleOutlined, WarningOutlined } from '@ant-design/icons';
 
-const { TabPane } = Tabs;
-const { Text, Title } = Typography;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
 
+interface ConfigData {
+    app_env?: string;
+    api_base_url?: string;
+    database_url?: string;
+    redis_url?: string;
+    log_level?: string;
+    [key: string]: any;
+}
+
+interface ValidationResult {
+    valid: boolean;
+    errors?: string[];
+    warnings?: string[];
+}
+
+interface EnvironmentInfo {
+    python_version?: string;
+    platform?: string;
+    memory_usage?: string;
+    disk_usage?: string;
+    uptime?: string;
+}
+
+interface ConfigHistory {
+    id: number;
+    timestamp: string;
+    action: string;
+    user: string;
+    changes: string;
+}
+
 const ConfigManagement: React.FC = () => {
-    // 状态管理
+    const [config, setConfig] = useState<ConfigData | null>(null);
     const [loading, setLoading] = useState(false);
-    const [config, setConfig] = useState<ConfigInfo | null>(null);
-    const [validationResult, setValidationResult] = useState<ConfigValidationResult | null>(null);
+    const [configLoading, setConfigLoading] = useState(true);
+    const [validationLoading, setValidationLoading] = useState(false);
+    const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
     const [environmentInfo, setEnvironmentInfo] = useState<EnvironmentInfo | null>(null);
-    const [configHistory, setConfigHistory] = useState<any[]>([]);
-    
-    // 模态框状态
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [importModalVisible, setImportModalVisible] = useState(false);
     const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
-    const [environmentDrawerVisible, setEnvironmentDrawerVisible] = useState(false);
-    
-    // 表单状态
+    const [configHistory, setConfigHistory] = useState<ConfigHistory[]>([]);
     const [editForm] = Form.useForm();
     const [importForm] = Form.useForm();
-    
-    // 加载状态
-    const [configLoading, setConfigLoading] = useState(true);
-    const [validationLoading, setValidationLoading] = useState(false);
 
-    // 组件全量日志
-    console.log('[ConfigManagement] 组件渲染，props: 无props, state config:', config, 'validationResult:', validationResult, 'environmentInfo:', environmentInfo, 'configHistory:', configHistory);
-    console.log('[ConfigManagement] 当前 config state:', config);
     // 初始化加载
     useEffect(() => {
-        console.log('[ConfigManagement] useEffect: 组件挂载，开始请求配置和环境信息', Date.now());
         loadConfig();
         loadEnvironmentInfo();
-        return () => {
-            console.log('[ConfigManagement] useEffect: 组件卸载', Date.now());
-        };
     }, []);
-    // config 状态变化日志
-    useEffect(() => {
-        console.log('[ConfigManagement] useEffect: config 状态变化:', config, '类型:', typeof config, 'keys:', config && Object.keys(config));
-    }, [config]);
 
     // 加载配置信息
     const loadConfig = async () => {
         setConfigLoading(true);
         try {
-            console.log('[ConfigManagement] loadConfig: 调用 configAPI.getConfig');
             const response = await configAPI.getConfig();
-            console.log('[ConfigManagement] loadConfig: configAPI.getConfig 返回:', response, '类型:', typeof response, 'keys:', response && Object.keys(response));
-            setConfig(response); // 直接赋值
-            console.log('[ConfigManagement] loadConfig: setConfig 赋值:', response, '类型:', typeof response, 'keys:', response && Object.keys(response));
+            setConfig(response);
         } catch (error) {
             message.error('获取配置失败');
-            console.error('[ConfigManagement] loadConfig: getConfig 报错:', error);
+            console.error('获取配置失败:', error);
         } finally {
             setConfigLoading(false);
         }
@@ -264,7 +231,6 @@ const ConfigManagement: React.FC = () => {
 
     // 渲染统计卡片
     const renderStatistics = () => {
-        console.log('[调试] renderStatistics 渲染时 config：', config);
         return (
             <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col span={6}>
@@ -280,35 +246,28 @@ const ConfigManagement: React.FC = () => {
                 <Col span={6}>
                     <Card>
                         <Statistic
-                            title="API配置状态"
-                            value={[
-                                config?.okx_api_configured,
-                                config?.wise_api_configured,
-                                config?.paypal_api_configured,
-                                config?.ibkr_api_configured
-                            ].filter(Boolean).length}
-                            suffix={`/ 4`}
-                            prefix={<ApiOutlined />}
+                            title="配置状态"
+                            value={validationResult?.valid ? '有效' : '无效'}
+                            prefix={validationResult?.valid ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+                            valueStyle={{ color: validationResult?.valid ? '#3f8600' : '#cf1322' }}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card>
                         <Statistic
-                            title="调度器状态"
-                            value={config?.enable_scheduler ? '启用' : '禁用'}
-                            prefix={<ClockCircleOutlined />}
-                            valueStyle={{ color: config?.enable_scheduler ? '#3f8600' : '#cf1322' }}
+                            title="Python版本"
+                            value={environmentInfo?.python_version || 'unknown'}
+                            prefix={<EnvironmentOutlined />}
                         />
                     </Card>
                 </Col>
                 <Col span={6}>
                     <Card>
                         <Statistic
-                            title="配置验证"
-                            value={validationResult?.valid ? '通过' : '未验证'}
-                            prefix={<CheckCircleOutlined />}
-                            valueStyle={{ color: validationResult?.valid ? '#3f8600' : '#faad14' }}
+                            title="运行时间"
+                            value={environmentInfo?.uptime || 'unknown'}
+                            prefix={<EnvironmentOutlined />}
                         />
                     </Card>
                 </Col>
@@ -316,95 +275,77 @@ const ConfigManagement: React.FC = () => {
         );
     };
 
-    // 渲染前日志
-    console.log('[ConfigManagement] 渲染前 config:', config);
-    if (!config) {
-        console.warn('[ConfigManagement] config 为空，渲染 loading/空白');
-        return <div>加载中...</div>;
-    }
-    if (typeof config !== 'object') {
-        console.error('[ConfigManagement] config 不是对象:', config);
-    }
-
-    // 渲染基础配置
+    // 渲染基本配置
     const renderBasicConfig = () => {
-        console.log('[ConfigManagement] renderBasicConfig 渲染，config:', config);
+        if (!config) {
+            return <div>配置加载中...</div>;
+        }
+
         return (
-            <Card title="基础配置" extra={
-                <Button type="primary" icon={<SettingOutlined />} onClick={() => {
-                    editForm.setFieldsValue(config);
-                    setEditModalVisible(true);
-                }}>
-                    编辑配置
-                </Button>
-            }>
-                <Descriptions bordered column={2}>
-                    <Descriptions.Item label="应用名称">{config?.app_name}</Descriptions.Item>
-                    <Descriptions.Item label="应用版本">{config?.app_version}</Descriptions.Item>
-                    <Descriptions.Item label="调试模式">
-                        <Tag color={config?.debug ? 'green' : 'red'}>
-                            {config?.debug ? '启用' : '禁用'}
-                        </Tag>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="日志级别">
-                        <Tag color={config?.log_level === 'DEBUG' ? 'blue' : 'green'}>
-                            {config?.log_level}
-                        </Tag>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="数据库URL" span={2}>
-                        <Text code>{config?.database_url}</Text>
-                    </Descriptions.Item>
-                    <Descriptions.Item label="CORS Origins" span={2}>
-                        {config?.cors_origins?.map((origin, index) => (
-                            <Tag key={index} color="blue">{origin}</Tag>
-                        ))}
-                    </Descriptions.Item>
-                </Descriptions>
+            <Card title="基本配置" style={{ marginBottom: 16 }}>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>应用环境:</Text>
+                            <div>
+                                <Tag color={config.app_env === 'prod' ? 'red' : 'green'}>
+                                    {config.app_env || 'unknown'}
+                                </Tag>
+                            </div>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>API基础URL:</Text>
+                            <div>{config.api_base_url || '未设置'}</div>
+                        </div>
+                    </Col>
+                </Row>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>数据库URL:</Text>
+                            <div>{config.database_url ? '已设置' : '未设置'}</div>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>Redis URL:</Text>
+                            <div>{config.redis_url ? '已设置' : '未设置'}</div>
+                        </div>
+                    </Col>
+                </Row>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>日志级别:</Text>
+                            <div>
+                                <Tag color={config.log_level === 'DEBUG' ? 'blue' : 'default'}>
+                                    {config.log_level || 'INFO'}
+                                </Tag>
+                            </div>
+                        </div>
+                    </Col>
+                </Row>
             </Card>
         );
     };
 
     // 渲染API配置
     const renderAPIConfig = () => (
-        <Card title="API配置">
+        <Card title="API配置" style={{ marginBottom: 16 }}>
             <Row gutter={16}>
                 <Col span={12}>
-                    <Card size="small" title="基金API">
-                        <Descriptions column={1}>
-                            <Descriptions.Item label="超时时间">{config?.fund_api_timeout}秒</Descriptions.Item>
-                            <Descriptions.Item label="重试次数">{config?.fund_api_retry_times}次</Descriptions.Item>
-                        </Descriptions>
-                    </Card>
+                    <div style={{ marginBottom: 16 }}>
+                        <Text strong>API基础URL:</Text>
+                        <div>{config?.api_base_url || '未设置'}</div>
+                    </div>
                 </Col>
                 <Col span={12}>
-                    <Card size="small" title="第三方API状态">
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                            <div>
-                                <Text>OKX API: </Text>
-                                <Tag color={config?.okx_api_configured ? 'green' : 'red'}>
-                                    {config?.okx_api_configured ? '已配置' : '未配置'}
-                                </Tag>
-                            </div>
-                            <div>
-                                <Text>Wise API: </Text>
-                                <Tag color={config?.wise_api_configured ? 'green' : 'red'}>
-                                    {config?.wise_api_configured ? '已配置' : '未配置'}
-                                </Tag>
-                            </div>
-                            <div>
-                                <Text>PayPal API: </Text>
-                                <Tag color={config?.paypal_api_configured ? 'green' : 'red'}>
-                                    {config?.paypal_api_configured ? '已配置' : '未配置'}
-                                </Tag>
-                            </div>
-                            <div>
-                                <Text>IBKR API: </Text>
-                                <Tag color={config?.ibkr_api_configured ? 'green' : 'red'}>
-                                    {config?.ibkr_api_configured ? '已配置' : '未配置'}
-                                </Tag>
-                            </div>
-                        </Space>
-                    </Card>
+                    <div style={{ marginBottom: 16 }}>
+                        <Text strong>超时设置:</Text>
+                        <div>{config?.timeout || '默认'}</div>
+                    </div>
                 </Col>
             </Row>
         </Card>
@@ -412,47 +353,31 @@ const ConfigManagement: React.FC = () => {
 
     // 渲染系统配置
     const renderSystemConfig = () => (
-        <Card title="系统配置">
+        <Card title="系统配置" style={{ marginBottom: 16 }}>
             <Row gutter={16}>
-                <Col span={8}>
-                    <Card size="small" title="调度器">
-                        <Descriptions column={1}>
-                            <Descriptions.Item label="状态">
-                                <Tag color={config?.enable_scheduler ? 'green' : 'red'}>
-                                    {config?.enable_scheduler ? '启用' : '禁用'}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="时区">{config?.scheduler_timezone}</Descriptions.Item>
-                        </Descriptions>
-                    </Card>
+                <Col span={12}>
+                    <div style={{ marginBottom: 16 }}>
+                        <Text strong>数据库连接:</Text>
+                        <div>{config?.database_url ? '已配置' : '未配置'}</div>
+                    </div>
                 </Col>
-                <Col span={8}>
-                    <Card size="small" title="安全">
-                        <Descriptions column={1}>
-                            <Descriptions.Item label="速率限制">
-                                <Tag color={config?.security_enable_rate_limiting ? 'green' : 'red'}>
-                                    {config?.security_enable_rate_limiting ? '启用' : '禁用'}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="限制值">{config?.security_rate_limit_per_minute}/分钟</Descriptions.Item>
-                        </Descriptions>
-                    </Card>
+                <Col span={12}>
+                    <div style={{ marginBottom: 16 }}>
+                        <Text strong>Redis连接:</Text>
+                        <div>{config?.redis_url ? '已配置' : '未配置'}</div>
+                    </div>
                 </Col>
-                <Col span={8}>
-                    <Card size="small" title="性能">
-                        <Descriptions column={1}>
-                            <Descriptions.Item label="监控">
-                                <Tag color={config?.performance_monitoring_enabled ? 'green' : 'red'}>
-                                    {config?.performance_monitoring_enabled ? '启用' : '禁用'}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="缓存">
-                                <Tag color={config?.cache_enabled ? 'green' : 'red'}>
-                                    {config?.cache_enabled ? '启用' : '禁用'}
-                                </Tag>
-                            </Descriptions.Item>
-                        </Descriptions>
-                    </Card>
+            </Row>
+            <Row gutter={16}>
+                <Col span={12}>
+                    <div style={{ marginBottom: 16 }}>
+                        <Text strong>日志配置:</Text>
+                        <div>
+                            <Tag color={config?.log_level === 'DEBUG' ? 'blue' : 'default'}>
+                                {config?.log_level || 'INFO'}
+                            </Tag>
+                        </div>
+                    </div>
                 </Col>
             </Row>
         </Card>
@@ -463,17 +388,18 @@ const ConfigManagement: React.FC = () => {
         if (!validationResult) return null;
 
         return (
-            <Card title="配置验证结果">
-                <Alert
-                    message={validationResult.valid ? '配置验证通过' : '配置验证发现问题'}
-                    type={validationResult.valid ? 'success' : 'warning'}
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                />
-                
-                {validationResult.errors.length > 0 && (
+            <Card title="配置验证结果" style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 16 }}>
+                    <Text strong>验证状态:</Text>
+                    <div>
+                        <Tag color={validationResult.valid ? 'green' : 'red'}>
+                            {validationResult.valid ? '通过' : '失败'}
+                        </Tag>
+                    </div>
+                </div>
+                {validationResult.errors && validationResult.errors.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
-                        <Title level={5}>错误:</Title>
+                        <Text strong>错误信息:</Text>
                         <ul>
                             {validationResult.errors.map((error, index) => (
                                 <li key={index} style={{ color: '#cf1322' }}>{error}</li>
@@ -481,10 +407,9 @@ const ConfigManagement: React.FC = () => {
                         </ul>
                     </div>
                 )}
-                
-                {validationResult.warnings.length > 0 && (
+                {validationResult.warnings && validationResult.warnings.length > 0 && (
                     <div>
-                        <Title level={5}>警告:</Title>
+                        <Text strong>警告信息:</Text>
                         <ul>
                             {validationResult.warnings.map((warning, index) => (
                                 <li key={index} style={{ color: '#faad14' }}>{warning}</li>
@@ -496,90 +421,169 @@ const ConfigManagement: React.FC = () => {
         );
     };
 
+    // 渲染环境信息
+    const renderEnvironmentInfo = () => {
+        if (!environmentInfo) return null;
+
+        return (
+            <Card title="环境信息" style={{ marginBottom: 16 }}>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>Python版本:</Text>
+                            <div>{environmentInfo.python_version}</div>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>平台:</Text>
+                            <div>{environmentInfo.platform}</div>
+                        </div>
+                    </Col>
+                </Row>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>内存使用:</Text>
+                            <div>{environmentInfo.memory_usage}</div>
+                        </div>
+                    </Col>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>磁盘使用:</Text>
+                            <div>{environmentInfo.disk_usage}</div>
+                        </div>
+                    </Col>
+                </Row>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Text strong>运行时间:</Text>
+                            <div>{environmentInfo.uptime}</div>
+                        </div>
+                    </Col>
+                </Row>
+            </Card>
+        );
+    };
+
+    // 配置历史表格列定义
+    const historyColumns = [
+        {
+            title: '时间',
+            dataIndex: 'timestamp',
+            key: 'timestamp',
+            render: (timestamp: string) => new Date(timestamp).toLocaleString()
+        },
+        {
+            title: '操作',
+            dataIndex: 'action',
+            key: 'action',
+            render: (action: string) => {
+                const actionMap: { [key: string]: { text: string; color: string } } = {
+                    'update': { text: '更新', color: 'blue' },
+                    'import': { text: '导入', color: 'green' },
+                    'reset': { text: '重置', color: 'red' },
+                    'reload': { text: '重载', color: 'orange' }
+                };
+                const config = actionMap[action] || { text: action, color: 'default' };
+                return <Tag color={config.color}>{config.text}</Tag>;
+            }
+        },
+        {
+            title: '用户',
+            dataIndex: 'user',
+            key: 'user'
+        },
+        {
+            title: '变更内容',
+            dataIndex: 'changes',
+            key: 'changes',
+            render: (changes: string) => (
+                <Text style={{ fontSize: '12px' }}>{changes}</Text>
+            )
+        }
+    ];
+
+    if (configLoading) {
+        return (
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+                <div>配置加载中...</div>
+            </div>
+        );
+    }
+
     return (
-        <div>
-            <div style={{ marginBottom: 16 }}>
+        <div style={{ padding: '16px' }}>
+            <Title level={2}>配置管理</Title>
+            
+            {/* 操作按钮 */}
+            <Card style={{ marginBottom: 16 }}>
                 <Space>
-                    <Button 
-                        type="primary" 
-                        icon={<ReloadOutlined />} 
-                        onClick={loadConfig}
-                        loading={configLoading}
-                    >
-                        刷新配置
-                    </Button>
-                    <Button 
-                        icon={<CheckCircleOutlined />} 
-                        onClick={validateConfig}
-                        loading={validationLoading}
-                    >
-                        验证配置
-                    </Button>
-                    <Button 
-                        icon={<ReloadOutlined />} 
+                    <Button
+                        icon={<ReloadOutlined />}
                         onClick={reloadConfig}
                         loading={loading}
                     >
                         重新加载
                     </Button>
-                    <Button 
-                        icon={<ExportOutlined />} 
+                    <Button
+                        icon={<EditOutlined />}
+                        onClick={() => setEditModalVisible(true)}
+                    >
+                        编辑配置
+                    </Button>
+                    <Button
+                        icon={<ExportOutlined />}
                         onClick={exportConfig}
                     >
                         导出配置
                     </Button>
-                    <Button 
-                        icon={<ImportOutlined />} 
+                    <Button
+                        icon={<ImportOutlined />}
                         onClick={() => setImportModalVisible(true)}
                     >
                         导入配置
                     </Button>
-                    <Button 
-                        icon={<HistoryOutlined />} 
+                    <Button
+                        icon={<ResetOutlined />}
+                        onClick={resetConfig}
+                        loading={loading}
+                        danger
+                    >
+                        重置配置
+                    </Button>
+                    <Button
+                        icon={<HistoryOutlined />}
                         onClick={viewConfigHistory}
                     >
                         配置历史
                     </Button>
-                    <Button 
-                        icon={<EnvironmentOutlined />} 
-                        onClick={() => setEnvironmentDrawerVisible(true)}
+                    <Button
+                        icon={<CheckCircleOutlined />}
+                        onClick={validateConfig}
+                        loading={validationLoading}
                     >
-                        环境信息
+                        验证配置
                     </Button>
-                    <Popconfirm
-                        title="确定要重置配置吗？"
-                        onConfirm={resetConfig}
-                        okText="确定"
-                        cancelText="取消"
-                    >
-                        <Button 
-                            danger 
-                            icon={<UndoOutlined />}
-                        >
-                            重置配置
-                        </Button>
-                    </Popconfirm>
                 </Space>
-            </div>
+            </Card>
 
+            {/* 统计信息 */}
             {renderStatistics()}
 
-            <Tabs defaultActiveKey="basic">
-                <TabPane tab="基础配置" key="basic">
-                    {renderBasicConfig()}
-                </TabPane>
-                <TabPane tab="API配置" key="api">
-                    {renderAPIConfig()}
-                </TabPane>
-                <TabPane tab="系统配置" key="system">
-                    {renderSystemConfig()}
-                </TabPane>
-                <TabPane tab="验证结果" key="validation">
-                    {renderValidationResult()}
-                </TabPane>
-            </Tabs>
+            {/* 配置详情 */}
+            {renderBasicConfig()}
+            {renderAPIConfig()}
+            {renderSystemConfig()}
 
-            {/* 编辑配置模态框 */}
+            {/* 验证结果 */}
+            {renderValidationResult()}
+
+            {/* 环境信息 */}
+            {renderEnvironmentInfo()}
+
+            {/* 编辑配置弹窗 */}
             <Modal
                 title="编辑配置"
                 open={editModalVisible}
@@ -591,59 +595,44 @@ const ConfigManagement: React.FC = () => {
                     form={editForm}
                     layout="vertical"
                     onFinish={updateConfig}
+                    initialValues={config || {}}
                 >
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item label="应用名称" name="app_name">
-                                <Input />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item label="调试模式" name="debug" valuePropName="checked">
-                                <Switch />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item label="基金API超时时间" name="fund_api_timeout">
-                                <InputNumber min={1} max={60} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item label="基金API重试次数" name="fund_api_retry_times">
-                                <InputNumber min={1} max={10} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item label="启用调度器" name="enable_scheduler" valuePropName="checked">
-                                <Switch />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item label="启用速率限制" name="security_enable_rate_limiting" valuePropName="checked">
-                                <Switch />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item label="启用性能监控" name="performance_monitoring_enabled" valuePropName="checked">
-                                <Switch />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item label="启用缓存" name="cache_enabled" valuePropName="checked">
-                                <Switch />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    <Form.Item
+                        name="app_env"
+                        label="应用环境"
+                        rules={[{ required: true, message: '请输入应用环境' }]}
+                    >
+                        <Input placeholder="例如: dev, test, prod" />
+                    </Form.Item>
+                    <Form.Item
+                        name="api_base_url"
+                        label="API基础URL"
+                        rules={[{ required: true, message: '请输入API基础URL' }]}
+                    >
+                        <Input placeholder="例如: http://localhost:8000/api/v1" />
+                    </Form.Item>
+                    <Form.Item
+                        name="database_url"
+                        label="数据库URL"
+                    >
+                        <Input placeholder="数据库连接字符串" />
+                    </Form.Item>
+                    <Form.Item
+                        name="redis_url"
+                        label="Redis URL"
+                    >
+                        <Input placeholder="Redis连接字符串" />
+                    </Form.Item>
+                    <Form.Item
+                        name="log_level"
+                        label="日志级别"
+                    >
+                        <Input placeholder="例如: DEBUG, INFO, WARNING, ERROR" />
+                    </Form.Item>
                     <Form.Item>
                         <Space>
                             <Button type="primary" htmlType="submit" loading={loading}>
-                                保存配置
+                                保存
                             </Button>
                             <Button onClick={() => setEditModalVisible(false)}>
                                 取消
@@ -653,7 +642,7 @@ const ConfigManagement: React.FC = () => {
                 </Form>
             </Modal>
 
-            {/* 导入配置模态框 */}
+            {/* 导入配置弹窗 */}
             <Modal
                 title="导入配置"
                 open={importModalVisible}
@@ -667,16 +656,34 @@ const ConfigManagement: React.FC = () => {
                     onFinish={importConfig}
                 >
                     <Form.Item
-                        label="配置数据 (JSON格式)"
                         name="config_data"
-                        rules={[{ required: true, message: '请输入配置数据' }]}
+                        label="配置数据 (JSON格式)"
+                        rules={[
+                            { required: true, message: '请输入配置数据' },
+                            {
+                                validator: (_, value) => {
+                                    if (value) {
+                                        try {
+                                            JSON.parse(value);
+                                            return Promise.resolve();
+                                        } catch (error) {
+                                            return Promise.reject(new Error('请输入有效的JSON格式'));
+                                        }
+                                    }
+                                    return Promise.resolve();
+                                }
+                            }
+                        ]}
                     >
-                        <TextArea rows={10} placeholder="请输入JSON格式的配置数据..." />
+                        <TextArea
+                            rows={10}
+                            placeholder="请输入JSON格式的配置数据"
+                        />
                     </Form.Item>
                     <Form.Item>
                         <Space>
                             <Button type="primary" htmlType="submit" loading={loading}>
-                                导入配置
+                                导入
                             </Button>
                             <Button onClick={() => setImportModalVisible(false)}>
                                 取消
@@ -690,50 +697,16 @@ const ConfigManagement: React.FC = () => {
             <Drawer
                 title="配置历史"
                 placement="right"
-                width={600}
+                width={800}
                 open={historyDrawerVisible}
                 onClose={() => setHistoryDrawerVisible(false)}
             >
-                <Timeline>
-                    {configHistory.map((item, index) => (
-                        <Timeline.Item key={index}>
-                            <p><strong>{item.timestamp}</strong></p>
-                            <p>{item.action}</p>
-                            <p>{item.description}</p>
-                        </Timeline.Item>
-                    ))}
-                </Timeline>
-            </Drawer>
-
-            {/* 环境信息抽屉 */}
-            <Drawer
-                title="环境信息"
-                placement="right"
-                width={600}
-                open={environmentDrawerVisible}
-                onClose={() => setEnvironmentDrawerVisible(false)}
-            >
-                {environmentInfo && (
-                    <div>
-                        <Card title="系统信息" style={{ marginBottom: 16 }}>
-                            <Descriptions column={1}>
-                                <Descriptions.Item label="当前环境">{environmentInfo.current_env}</Descriptions.Item>
-                                <Descriptions.Item label="Python版本">{environmentInfo.system_info.python_version}</Descriptions.Item>
-                                <Descriptions.Item label="平台">{environmentInfo.system_info.platform}</Descriptions.Item>
-                                <Descriptions.Item label="内存使用">{environmentInfo.system_info.memory_usage}</Descriptions.Item>
-                                <Descriptions.Item label="磁盘使用">{environmentInfo.system_info.disk_usage}</Descriptions.Item>
-                            </Descriptions>
-                        </Card>
-                        
-                        <Card title="环境变量">
-                            {Object.entries(environmentInfo.env_variables).map(([key, value]) => (
-                                <div key={key} style={{ marginBottom: 8 }}>
-                                    <Text strong>{key}:</Text> <Text code>{value}</Text>
-                                </div>
-                            ))}
-                        </Card>
-                    </div>
-                )}
+                <Table
+                    columns={historyColumns}
+                    dataSource={configHistory}
+                    rowKey="id"
+                    pagination={{ pageSize: 20 }}
+                />
             </Drawer>
         </div>
     );
