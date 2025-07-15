@@ -108,4 +108,79 @@ def init_database():
             db.add(init_config)
             print("数据库初始化完成")
         else:
-            print("数据库已初始化，跳过初始化步骤") 
+            print("数据库已初始化，跳过初始化步骤")
+    # 自动创建IBKR审计表和触发器
+    setup_ibkr_audit_trigger()
+
+# === 自动创建IBKR审计表和触发器 ===
+def setup_ibkr_audit_trigger():
+    """自动为ibkr相关表创建审计表和触发器"""
+    from sqlalchemy import text
+    if not settings.database_url.startswith("postgresql://"):
+        print("非PostgreSQL数据库，跳过IBKR审计触发器创建")
+        return
+    audit_sql = '''
+    CREATE TABLE IF NOT EXISTS audit_log (
+        id serial PRIMARY KEY,
+        table_name text,
+        operation text,
+        old_data jsonb,
+        new_data jsonb,
+        changed_at timestamp default now(),
+        session_user text default session_user,
+        client_addr inet default inet_client_addr(),
+        application_name text default current_setting('application_name', true)
+    );
+
+    CREATE OR REPLACE FUNCTION log_ibkr_audit() RETURNS trigger AS $$
+    BEGIN
+        IF (TG_OP = 'DELETE') THEN
+            INSERT INTO audit_log(table_name, operation, old_data, new_data)
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL);
+            RETURN OLD;
+        ELSIF (TG_OP = 'UPDATE') THEN
+            INSERT INTO audit_log(table_name, operation, old_data, new_data)
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW));
+            RETURN NEW;
+        ELSIF (TG_OP = 'INSERT') THEN
+            INSERT INTO audit_log(table_name, operation, old_data, new_data)
+            VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW));
+            RETURN NEW;
+        END IF;
+        RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'ibkr_accounts_audit') THEN
+            CREATE TRIGGER ibkr_accounts_audit
+                AFTER INSERT OR UPDATE OR DELETE ON ibkr_accounts
+                FOR EACH ROW EXECUTE FUNCTION log_ibkr_audit();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'ibkr_balances_audit') THEN
+            CREATE TRIGGER ibkr_balances_audit
+                AFTER INSERT OR UPDATE OR DELETE ON ibkr_balances
+                FOR EACH ROW EXECUTE FUNCTION log_ibkr_audit();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'ibkr_positions_audit') THEN
+            CREATE TRIGGER ibkr_positions_audit
+                AFTER INSERT OR UPDATE OR DELETE ON ibkr_positions
+                FOR EACH ROW EXECUTE FUNCTION log_ibkr_audit();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'ibkr_sync_logs_audit') THEN
+            CREATE TRIGGER ibkr_sync_logs_audit
+                AFTER INSERT OR UPDATE OR DELETE ON ibkr_sync_logs
+                FOR EACH ROW EXECUTE FUNCTION log_ibkr_audit();
+        END IF;
+    END$$;
+    '''
+    with engine.connect() as conn:
+        for stmt in audit_sql.split(';'):
+            if stmt.strip():
+                try:
+                    conn.execute(text(stmt))
+                except Exception as e:
+                    # 触发器已存在等非致命错误可忽略
+                    pass
+    print("IBKR审计表和触发器已自动创建（如未存在）") 
