@@ -71,11 +71,33 @@ def get_table_data(sqlite_conn, table_name):
 def create_postgresql_tables(engine):
     """在PostgreSQL中创建表结构"""
     try:
+        # 检查表是否已存在
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+            """))
+            existing_tables = [row[0] for row in result]
+            
+            if existing_tables:
+                print(f"⚠️  发现已存在的表: {existing_tables}")
+                response = input("是否删除现有表并重新创建? (y/N): ")
+                if response.lower() == 'y':
+                    print("🗑️  删除现有表...")
+                    Base.metadata.drop_all(bind=engine)
+                    print("✅ 现有表已删除")
+                else:
+                    print("⏭️  跳过表创建，使用现有表")
+                    return True
+        
+        print("🏗️  创建表结构...")
         Base.metadata.create_all(bind=engine)
         print("✅ PostgreSQL表结构创建成功")
         return True
     except Exception as e:
         print(f"❌ PostgreSQL表结构创建失败: {e}")
+        print(f"详细错误: {type(e).__name__}: {str(e)}")
         return False
 
 def migrate_table_data(engine, table_name, df):
