@@ -121,7 +121,7 @@ def setup_postgresql_database(data_path):
         print("⚠️  继续启动，但可能无法使用数据库功能")
 
 def migrate_sqlite_to_postgresql(sqlite_file, pg_engine):
-    """将SQLite数据迁移到PostgreSQL"""
+    """将SQLite数据迁移到PostgreSQL，自动修复布尔字段"""
     try:
         import sqlite3
         import pandas as pd
@@ -147,6 +147,12 @@ def migrate_sqlite_to_postgresql(sqlite_file, pg_engine):
                 # 读取SQLite数据
                 df = pd.read_sql_query(f"SELECT * FROM {table_name}", sqlite_conn)
                 
+                # 针对dca_plans表，自动修复布尔字段
+                if table_name == "dca_plans" and not df.empty:
+                    for col in ["smart_dca", "skip_holidays", "enable_notification"]:
+                        if col in df.columns:
+                            df[col] = df[col].apply(lambda x: True if x in [1, "1", True] else False if x in [0, "0", False] else None)
+                
                 if not df.empty:
                     # 写入PostgreSQL
                     df.to_sql(table_name, pg_engine, if_exists='append', index=False, method='multi')
@@ -166,8 +172,11 @@ def migrate_sqlite_to_postgresql(sqlite_file, pg_engine):
         # 备份SQLite文件
         backup_file = sqlite_file + ".backup"
         import shutil
-        shutil.copy2(sqlite_file, backup_file)
-        print(f"💾 SQLite文件已备份到: {backup_file}")
+        try:
+            shutil.copy2(sqlite_file, backup_file)
+            print(f"💾 SQLite文件已备份到: {backup_file}")
+        except Exception as e:
+            print(f"⚠️  备份SQLite文件失败: {e}")
         
     except Exception as e:
         print(f"❌ 数据迁移失败: {e}")
