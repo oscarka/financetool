@@ -1,12 +1,39 @@
 from .base import BaseConfig
 import os
+from pathlib import Path
 
 class ProdConfig(BaseConfig):
     """生产环境配置"""
     
     app_env: str = "prod"
     debug: bool = False
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./data/personalfinance.db")
+    
+    # 数据库持久化配置
+    database_persistent_path: str = os.getenv("DATABASE_PERSISTENT_PATH", "/app/data")
+    database_backup_enabled: bool = os.getenv("DATABASE_BACKUP_ENABLED", "true").lower() == "true"
+    database_backup_interval_hours: int = int(os.getenv("DATABASE_BACKUP_INTERVAL_HOURS", "24"))
+    
+    # 确保数据目录存在并设置数据库URL
+    def __init__(self, **kwargs):
+        # 确保数据目录存在
+        data_path = os.getenv("DATABASE_PERSISTENT_PATH", "/app/data")
+        Path(data_path).mkdir(parents=True, exist_ok=True)
+        
+        # 设置数据库URL
+        env_db_url = os.getenv("DATABASE_URL")
+        print(f"[CONFIG] DATABASE_URL环境变量: {env_db_url}")
+        
+        if env_db_url:
+            kwargs["database_url"] = env_db_url
+            print(f"[CONFIG] 使用PostgreSQL数据库: {env_db_url[:50]}...")
+        else:
+            # 使用持久化路径构建SQLite URL
+            db_path = os.path.join(data_path, "personalfinance.db")
+            kwargs["database_url"] = f"sqlite:///{db_path}"
+            print(f"[CONFIG] 使用SQLite数据库: {db_path}")
+        
+        super().__init__(**kwargs)
+    
     cors_origins: str = os.getenv("CORS_ORIGINS", '["https://yourdomain.com"]')
     log_level: str = "WARNING"  # 从INFO调整为WARNING
     log_file: str = "./logs/app.log"

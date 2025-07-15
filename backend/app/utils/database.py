@@ -3,9 +3,24 @@ from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 from typing import Generator
 import os
+from pathlib import Path
 
 from app.settings import settings
 from app.models.database import Base
+
+# 获取数据目录路径
+def get_data_directory():
+    """获取数据目录路径，优先使用环境变量配置的路径"""
+    data_dir = os.getenv("DATABASE_PERSISTENT_PATH", "./data")
+    # 确保目录存在
+    Path(data_dir).mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+# 获取数据库文件路径
+def get_database_path():
+    """获取数据库文件路径"""
+    data_dir = get_data_directory()
+    return os.path.join(data_dir, "personalfinance.db")
 
 # 创建数据库引擎
 engine = create_engine(
@@ -49,7 +64,8 @@ def create_tables():
     )
     
     # 确保数据目录存在
-    os.makedirs("data", exist_ok=True)
+    data_dir = get_data_directory()
+    print(f"使用数据目录: {data_dir}")
     
     # 创建所有表
     Base.metadata.create_all(bind=engine)
@@ -64,6 +80,17 @@ def drop_tables():
 
 def init_database():
     """初始化数据库"""
+    print("开始初始化数据库...")
+    
+    # 确保数据目录存在
+    data_dir = get_data_directory()
+    print(f"数据目录: {data_dir}")
+    
+    # 检查数据库文件是否存在
+    db_path = get_database_path()
+    db_exists = os.path.exists(db_path)
+    print(f"数据库文件: {db_path} (存在: {db_exists})")
+    
     create_tables()
     
     # 可以在这里添加初始数据
@@ -79,4 +106,6 @@ def init_database():
                 description="系统初始化标记"
             )
             db.add(init_config)
-            print("数据库初始化完成") 
+            print("数据库初始化完成")
+        else:
+            print("数据库已初始化，跳过初始化步骤") 
