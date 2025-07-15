@@ -21,12 +21,16 @@ class ProdConfig(BaseConfig):
         
         # 设置数据库URL
         env_db_url = os.getenv("DATABASE_URL")
+        print(f"[CONFIG] DATABASE_URL环境变量: {env_db_url}")
+        
         if env_db_url:
             kwargs["database_url"] = env_db_url
+            print(f"[CONFIG] 使用PostgreSQL数据库: {env_db_url[:50]}...")
         else:
             # 使用持久化路径构建SQLite URL
             db_path = os.path.join(data_path, "personalfinance.db")
             kwargs["database_url"] = f"sqlite:///{db_path}"
+            print(f"[CONFIG] 使用SQLite数据库: {db_path}")
         
         super().__init__(**kwargs)
     
