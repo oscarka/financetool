@@ -22,6 +22,36 @@ def check_railway_environment():
     Path(data_path).mkdir(parents=True, exist_ok=True)
     print(f"✅ 数据目录已确保存在")
     
+    # 在Railway环境中修复volume权限
+    if is_railway:
+        try:
+            import subprocess
+            import pwd
+            
+            # 获取当前用户ID
+            current_uid = os.getuid()
+            current_gid = os.getgid()
+            
+            print(f"🔧 修复volume权限...")
+            print(f"   当前用户ID: {current_uid}")
+            print(f"   当前组ID: {current_gid}")
+            
+            # 修复数据目录权限
+            subprocess.run(["chown", "-R", f"{current_uid}:{current_gid}", data_path], check=True)
+            subprocess.run(["chmod", "-R", "755", data_path], check=True)
+            print(f"✅ 数据目录权限已修复")
+            
+            # 检查数据库文件权限
+            db_file = os.path.join(data_path, "personalfinance.db")
+            if os.path.exists(db_file):
+                subprocess.run(["chown", f"{current_uid}:{current_gid}", db_file], check=True)
+                subprocess.run(["chmod", "644", db_file], check=True)
+                print(f"✅ 数据库文件权限已修复")
+                
+        except Exception as e:
+            print(f"⚠️  权限修复失败: {e}")
+            print(f"   继续启动，但可能遇到权限问题")
+    
     # 检查数据库文件
     db_file = os.path.join(data_path, "personalfinance.db")
     if os.path.exists(db_file):
