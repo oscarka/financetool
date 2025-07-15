@@ -30,48 +30,6 @@ function App() {
     const PositionsComponent = deviceInfo.isMobile ? MobilePositions : Positions
     const FundsComponent = deviceInfo.isMobile ? MobileFunds : Funds
 
-
-
-    // 强制在页面上显示设备信息
-    React.useEffect(() => {
-        const debugInfo = document.createElement('div')
-        debugInfo.id = 'debug-device-info'
-        debugInfo.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: ${deviceInfo.isMobile ? '#52c41a' : '#ff4d4f'};
-            color: white;
-            padding: 8px;
-            font-size: 14px;
-            z-index: 99999;
-            text-align: center;
-            font-weight: bold;
-        `
-        debugInfo.innerHTML = `
-            ${deviceInfo.isMobile ? '📱 移动端模式' : '🖥️ 桌面端模式'} | 
-            宽度: ${deviceInfo.screenWidth}px | 
-            时间: ${new Date().toLocaleTimeString()}
-        `
-
-        // 移除旧的调试信息
-        const old = document.getElementById('debug-device-info')
-        if (old) old.remove()
-
-        document.body.appendChild(debugInfo)
-
-        // 5秒后自动隐藏
-        setTimeout(() => {
-            if (document.getElementById('debug-device-info')) {
-                debugInfo.style.display = 'none'
-            }
-        }, 5000)
-        return () => {
-        };
-    }, [deviceInfo.isMobile, deviceInfo.screenWidth])
-
-
     return (
         <Router>
                 <LayoutComponent>

@@ -1,17 +1,12 @@
-const CACHE_NAME = 'investment-app-v2.1-ibkr'
+const CACHE_NAME = 'investment-app-v2.2-optimized'
 const urlsToCache = [
   '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
   '/manifest.json'
 ]
 
-// 强制更新标志
-const FORCE_UPDATE = true
-
 // 安装Service Worker
 self.addEventListener('install', (event) => {
-  console.log('🔄 SW安装中, 版本:', CACHE_NAME)
+  console.log('SW安装中, 版本:', CACHE_NAME)
   // 强制跳过等待，立即激活新版本
   self.skipWaiting()
   
@@ -27,21 +22,18 @@ self.addEventListener('install', (event) => {
   )
 })
 
-// 拦截请求 - 网络优先策略
+// 拦截请求 - 缓存优先策略
 self.addEventListener('fetch', (event) => {
-  // 对于HTML和重要资源，使用网络优先策略
-  const isImportantResource = event.request.url.includes('.html') || 
-                             event.request.url.includes('index-') ||
-                             event.request.url.endsWith('/') ||
-                             event.request.url.includes('/ibkr')
-
-  if (isImportantResource || FORCE_UPDATE) {
-    // 网络优先策略
+  // 对于API请求，使用网络优先策略
+  const isAPIRequest = event.request.url.includes('/api/')
+  
+  if (isAPIRequest) {
+    // API请求使用网络优先，但增加缓存时间
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           // 检查响应是否有效
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+          if (!response || response.status !== 200) {
             return response
           }
           
@@ -57,13 +49,11 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           // 网络失败时，尝试返回缓存的内容
-          return caches.match(event.request).then(cachedResponse => {
-            return cachedResponse || caches.match('/')
-          })
+          return caches.match(event.request)
         })
     )
   } else {
-    // 其他资源使用缓存优先策略
+    // 静态资源使用缓存优先策略
     event.respondWith(
       caches.match(event.request)
         .then((response) => {
@@ -73,7 +63,7 @@ self.addEventListener('fetch', (event) => {
           
           return fetch(event.request)
             .then((response) => {
-              if (!response || response.status !== 200 || response.type !== 'basic') {
+              if (!response || response.status !== 200) {
                 return response
               }
               

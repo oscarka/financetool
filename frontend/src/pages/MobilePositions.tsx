@@ -42,24 +42,19 @@ class MobilePositionsErrorBoundary extends React.Component<
     }
 
     static getDerivedStateFromError(error: Error) {
-        console.error('❌ [ERROR BOUNDARY] MobilePositions 错误:', error)
         return { hasError: true, error }
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        console.error('❌ [ERROR BOUNDARY] MobilePositions 详细错误信息:', {
-            error: error.message,
-            stack: error.stack,
-            componentStack: errorInfo.componentStack
-        })
+        console.error('MobilePositions 错误边界捕获到错误:', error, errorInfo)
     }
 
     render() {
         if (this.state.hasError) {
             return (
                 <div style={{ padding: '20px', textAlign: 'center' }}>
-                    <Card title="页面出错了" style={{ maxWidth: 400, margin: '0 auto' }}>
-                        <p>持仓页面遇到了问题，正在诊断中...</p>
+                    <Card title="页面加载失败" style={{ maxWidth: 400, margin: '0 auto' }}>
+                        <p>页面加载失败，请刷新页面重试。</p>
                         <p style={{ fontSize: '12px', color: '#666' }}>
                             错误信息: {this.state.error?.message}
                         </p>
@@ -84,48 +79,13 @@ class MobilePositionsErrorBoundary extends React.Component<
 const MobilePositions: React.FC = () => {
     const [positions, setPositions] = useState<Position[]>([])
     const [summary, setSummary] = useState<PositionSummary | null>(null)
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(true)
     const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
     const [detailVisible, setDetailVisible] = useState(false)
     const navigate = useNavigate()
 
-    console.log('🔄 [DEBUG] MobilePositions 组件版本: v3.0.0 (增强错误处理)')
-    console.log('🔄 [DEBUG] 组件状态:', { 
-        positionsCount: positions.length, 
-        summaryExists: !!summary, 
-        loading 
-    })
-
-    // 强制输出到页面（用于调试）
-    useEffect(() => {
-        console.log('🚀 MobilePositions useEffect 执行')
-        // 在页面顶部添加可见的调试信息
-        const debugEl = document.createElement('div')
-        debugEl.style.cssText = `
-            position: fixed;
-            top: 110px;
-            left: 10px;
-            background: #722ed1;
-            color: white;
-            padding: 4px 8px;
-            font-size: 12px;
-            z-index: 10000;
-            border-radius: 4px;
-        `
-        debugEl.textContent = '✅ MobilePositions已加载'
-        document.body.appendChild(debugEl)
-        
-        // 3秒后移除
-        setTimeout(() => {
-            if (document.body.contains(debugEl)) {
-                document.body.removeChild(debugEl)
-            }
-        }, 3000)
-    }, [])
-
     // 获取持仓数据
     const fetchPositions = async () => {
-        console.log('📡 [DEBUG] 开始获取持仓数据...')
         setLoading(true)
         try {
             const [positionsRes, summaryRes] = await Promise.all([
@@ -133,57 +93,17 @@ const MobilePositions: React.FC = () => {
                 fundAPI.getPositionSummary()
             ])
 
-            console.log('📡 [DEBUG] 持仓API原始响应:', positionsRes)
-            console.log('📡 [DEBUG] 汇总API原始响应:', summaryRes)
-
             if (positionsRes.success && positionsRes.data) {
-                console.log('📊 [DEBUG] 持仓数据详情:', positionsRes.data)
-                
-                // 检查数据类型
-                if (positionsRes.data.length > 0) {
-                    const firstPosition = positionsRes.data[0]
-                    console.log('🔍 [DEBUG] 第一个持仓数据类型检查:', {
-                        total_shares: {
-                            value: firstPosition.total_shares,
-                            type: typeof firstPosition.total_shares,
-                            hasToFixed: typeof firstPosition.total_shares?.toFixed === 'function'
-                        },
-                        current_nav: {
-                            value: firstPosition.current_nav,
-                            type: typeof firstPosition.current_nav,
-                            hasToFixed: typeof firstPosition.current_nav?.toFixed === 'function'
-                        },
-                        total_profit: {
-                            value: firstPosition.total_profit,
-                            type: typeof firstPosition.total_profit
-                        }
-                    })
-                }
-                
                 setPositions(positionsRes.data || [])
             } else {
-                console.warn('⚠️ [DEBUG] 持仓API响应失败:', positionsRes)
                 message.error('获取持仓数据失败')
             }
 
             if (summaryRes.success && summaryRes.data) {
-                console.log('📊 [DEBUG] 汇总数据详情:', summaryRes.data)
-                console.log('🔍 [DEBUG] 汇总数据类型检查:', {
-                    total_value: {
-                        value: summaryRes.data.total_value,
-                        type: typeof summaryRes.data.total_value
-                    },
-                    total_profit: {
-                        value: summaryRes.data.total_profit,
-                        type: typeof summaryRes.data.total_profit
-                    }
-                })
                 setSummary(summaryRes.data)
-            } else {
-                console.warn('⚠️ [DEBUG] 汇总API响应失败:', summaryRes)
             }
         } catch (error) {
-            console.error('❌ [DEBUG] 获取持仓数据异常:', error)
+            console.error('获取持仓数据异常:', error)
             message.error('获取持仓数据失败')
         } finally {
             setLoading(false)
@@ -214,369 +134,212 @@ const MobilePositions: React.FC = () => {
 
     // 安全的数字格式化
     const safeToFixed = (value: number | string, digits: number = 2) => {
-        console.log(`🔧 [DEBUG] safeToFixed 调用:`, { value, type: typeof value, digits })
         const numValue = typeof value === 'string' ? parseFloat(value) : value
         if (isNaN(numValue)) {
-            console.log(`⚠️ [DEBUG] safeToFixed 无效值，返回默认:`, '0.' + '0'.repeat(digits))
             return '0.' + '0'.repeat(digits)
         }
-        const result = numValue.toFixed(digits)
-        console.log(`✅ [DEBUG] safeToFixed 成功:`, { input: value, output: result })
-        return result
+        return numValue.toFixed(digits)
     }
 
     // 安全的数字转换
     const safeNumber = (value: number | string) => {
-        console.log(`🔧 [DEBUG] safeNumber 调用:`, { value, type: typeof value })
         const numValue = typeof value === 'string' ? parseFloat(value) : value
-        const result = isNaN(numValue) ? 0 : numValue
-        console.log(`✅ [DEBUG] safeNumber 结果:`, { input: value, output: result })
-        return result
+        return isNaN(numValue) ? 0 : numValue
     }
 
     // 获取收益颜色
     const getReturnColor = (value: number | string) => {
         const numValue = safeNumber(value)
-        const color = numValue >= 0 ? '#52c41a' : '#ff4d4f'
-        console.log(`🎨 [DEBUG] getReturnColor:`, { value, numValue, color })
-        return color
+        return numValue >= 0 ? '#52c41a' : '#ff4d4f'
     }
 
     // 查看持仓详情
     const handleViewDetail = (position: Position) => {
-        console.log('👁️ [DEBUG] 查看详情按钮点击:', position)
         try {
             setSelectedPosition(position)
             setDetailVisible(true)
         } catch (error) {
-            console.error('❌ [DEBUG] 查看详情失败:', error)
+            console.error('查看详情失败:', error)
             message.error('打开详情失败')
         }
     }
 
     // 编辑持仓（跳转到操作记录页面）
     const handleEdit = (position: Position) => {
-        console.log('✏️ [DEBUG] 编辑按钮点击:', position)
         try {
             // 跳转到操作记录页面，并筛选该基金
             navigate(`/operations?fund=${position.asset_code}`)
         } catch (error) {
-            console.error('❌ [DEBUG] 编辑跳转失败:', error)
+            console.error('编辑跳转失败:', error)
             message.error('跳转失败')
         }
     }
 
     // 查看基金详情
     const handleViewFund = (position: Position) => {
-        console.log('📈 [DEBUG] 基金详情按钮点击:', position)
         try {
             // TODO: 跳转到基金详情页面
             message.info(`查看${position.asset_code}基金详情`)
         } catch (error) {
-            console.error('❌ [DEBUG] 查看基金详情失败:', error)
+            console.error('查看基金详情失败:', error)
         }
     }
 
     // 买入基金
     const handleBuy = (position: Position) => {
-        console.log('💰 [DEBUG] 买入按钮点击:', position)
         try {
             // TODO: 打开买入弹窗或跳转到买入页面
             message.info(`买入${position.asset_code}`)
         } catch (error) {
-            console.error('❌ [DEBUG] 买入操作失败:', error)
+            console.error('买入操作失败:', error)
         }
     }
 
     // 卖出基金
     const handleSell = (position: Position) => {
-        console.log('💸 [DEBUG] 卖出按钮点击:', position)
         try {
             // TODO: 打开卖出弹窗或跳转到卖出页面
             message.info(`卖出${position.asset_code}`)
         } catch (error) {
-            console.error('❌ [DEBUG] 卖出操作失败:', error)
+            console.error('卖出操作失败:', error)
         }
     }
 
     // 渲染持仓卡片
     const renderPositionCard = (position: Position) => {
-        console.log('🎨 [DEBUG] 开始渲染持仓卡片:', position.asset_code)
-        console.log('🎨 [DEBUG] 原始持仓数据:', position)
-        
         try {
-            // 详细检查每个字段的类型
-            console.log('🔍 [DEBUG] 字段类型检查:', {
-                total_shares: { value: position.total_shares, type: typeof position.total_shares },
-                avg_cost: { value: position.avg_cost, type: typeof position.avg_cost },
-                current_nav: { value: position.current_nav, type: typeof position.current_nav },
-                current_value: { value: position.current_value, type: typeof position.current_value },
-                total_invested: { value: position.total_invested, type: typeof position.total_invested },
-                total_profit: { value: position.total_profit, type: typeof position.total_profit },
-                profit_rate: { value: position.profit_rate, type: typeof position.profit_rate }
-            })
-
-            console.log('🎨 [DEBUG] 调用getReturnColor...')
             const profitColor = getReturnColor(position.total_profit)
-            console.log('🎨 [DEBUG] profitColor:', profitColor)
-            
             const profitRateColor = getReturnColor(position.profit_rate)
-            console.log('🎨 [DEBUG] profitRateColor:', profitRateColor)
-            
-            console.log('🎨 [DEBUG] 开始构建卡片JSX...')
-            
+
             return (
                 <Card
                     key={position.asset_code}
-                    style={{ 
-                        marginBottom: 12,
-                        border: safeNumber(position.total_profit) >= 0 ? '1px solid #b7eb8f' : '1px solid #ffadd2'
-                    }}
-                    bodyStyle={{ padding: '16px' }}
+                    style={{ marginBottom: 16, borderRadius: 12 }}
+                    bodyStyle={{ padding: 16 }}
                 >
-                    {/* 基金信息头部 */}
+                    {/* 基金信息 */}
                     <div style={{ marginBottom: 12 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ 
-                                    fontWeight: 'bold', 
-                                    fontSize: '16px', 
-                                    marginBottom: 2,
-                                    color: '#1890ff'
-                                }}>
-                                    {position.asset_code}
-                                </div>
-                                <div style={{ 
-                                    fontSize: '13px', 
-                                    color: '#666', 
-                                    lineHeight: '1.3',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    {position.asset_name}
-                                </div>
-                            </div>
-                            <div style={{ marginLeft: 12, flexShrink: 0 }}>
-                                <Tag color={safeNumber(position.total_profit) >= 0 ? 'green' : 'red'}>
-                                    {safeNumber(position.total_profit) >= 0 ? '盈利' : '亏损'}
-                                </Tag>
-                            </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <h5 style={{ margin: 0, color: '#1890ff' }}>
+                                {position.asset_code}
+                            </h5>
+                            <Tag color={profitColor} style={{ margin: 0 }}>
+                                {formatPercent(position.profit_rate)}
+                            </Tag>
                         </div>
+                        <p style={{ fontSize: '14px', color: '#666' }}>
+                            {position.asset_name}
+                        </p>
                     </div>
 
-                    {/* 核心数据展示 */}
-                    <div style={{ 
-                        background: safeNumber(position.total_profit) >= 0 ? '#f6ffed' : '#fff2f0',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        marginBottom: 12
-                    }}>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: profitColor }}>
-                                        {(() => {
-                                            console.log('💰 [DEBUG] 格式化total_profit:', position.total_profit)
-                                            const formatted = `${safeNumber(position.total_profit) >= 0 ? '+' : ''}${formatAmount(position.total_profit)}`
-                                            console.log('💰 [DEBUG] total_profit格式化结果:', formatted)
-                                            return formatted
-                                        })()}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#666' }}>累计收益</div>
+                    {/* 收益信息 */}
+                    <Row gutter={16} style={{ marginBottom: 12 }}>
+                        <Col span={12}>
+                            <div style={{ textAlign: 'center' }}>
+                                <p style={{ fontSize: '12px', color: '#666' }}>总收益</p>
+                                <div style={{ color: profitColor, fontSize: '16px', fontWeight: 'bold' }}>
+                                    {formatAmount(position.total_profit)}
                                 </div>
-                            </Col>
-                            <Col span={12}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: profitRateColor }}>
-                                        {(() => {
-                                            console.log('📊 [DEBUG] 格式化profit_rate:', position.profit_rate)
-                                            const formatted = `${safeNumber(position.profit_rate) >= 0 ? '+' : ''}${formatPercent(position.profit_rate)}`
-                                            console.log('📊 [DEBUG] profit_rate格式化结果:', formatted)
-                                            return formatted
-                                        })()}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#666' }}>收益率</div>
+                            </div>
+                        </Col>
+                        <Col span={12}>
+                            <div style={{ textAlign: 'center' }}>
+                                <p style={{ fontSize: '12px', color: '#666' }}>当前价值</p>
+                                <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                                    {formatAmount(position.current_value)}
                                 </div>
-                            </Col>
-                        </Row>
-                    </div>
+                            </div>
+                        </Col>
+                    </Row>
 
-                    {/* 详细数据 */}
-                    <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
+                    {/* 持仓信息 */}
+                    <Row gutter={16} style={{ marginBottom: 16 }}>
                         <Col span={12}>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                padding: '8px', 
-                                background: '#fafafa', 
-                                borderRadius: '4px' 
-                            }}>
-                                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                    {(() => {
-                                        console.log('💵 [DEBUG] 格式化current_value:', position.current_value)
-                                        const formatted = formatAmount(position.current_value)
-                                        console.log('💵 [DEBUG] current_value格式化结果:', formatted)
-                                        return formatted
-                                    })()}
+                            <div style={{ textAlign: 'center' }}>
+                                <p style={{ fontSize: '12px', color: '#666' }}>总投入</p>
+                                <div style={{ fontSize: '14px' }}>
+                                    {formatAmount(position.total_invested)}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#666' }}>当前市值</div>
                             </div>
                         </Col>
                         <Col span={12}>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                padding: '8px', 
-                                background: '#fafafa', 
-                                borderRadius: '4px' 
-                            }}>
-                                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                    {(() => {
-                                        console.log('💰 [DEBUG] 格式化total_invested:', position.total_invested)
-                                        const formatted = formatAmount(position.total_invested)
-                                        console.log('💰 [DEBUG] total_invested格式化结果:', formatted)
-                                        return formatted
-                                    })()}
+                            <div style={{ textAlign: 'center' }}>
+                                <p style={{ fontSize: '12px', color: '#666' }}>持仓份额</p>
+                                <div style={{ fontSize: '14px' }}>
+                                    {safeToFixed(position.total_shares, 4)}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#666' }}>累计投入</div>
+                            </div>
+                        </Col>
+                    </Row>
+
+                    {/* 净值信息 */}
+                    <Row gutter={16} style={{ marginBottom: 16 }}>
+                        <Col span={12}>
+                            <div style={{ textAlign: 'center' }}>
+                                <p style={{ fontSize: '12px', color: '#666' }}>平均成本</p>
+                                <div style={{ fontSize: '14px' }}>
+                                    {formatAmount(position.avg_cost)}
+                                </div>
                             </div>
                         </Col>
                         <Col span={12}>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                padding: '8px', 
-                                background: '#fafafa', 
-                                borderRadius: '4px' 
-                            }}>
-                                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                    {(() => {
-                                        console.log('📈 [DEBUG] 格式化total_shares (这里可能出错):', position.total_shares)
-                                        try {
-                                            const formatted = safeToFixed(position.total_shares, 2)
-                                            console.log('📈 [DEBUG] total_shares格式化成功:', formatted)
-                                            return formatted
-                                        } catch (error) {
-                                            console.error('❌ [DEBUG] total_shares格式化失败:', error)
-                                            console.error('❌ [DEBUG] position.total_shares详细信息:', {
-                                                value: position.total_shares,
-                                                type: typeof position.total_shares,
-                                                constructor: position.total_shares?.constructor?.name,
-                                                hasToFixed: typeof (position.total_shares as any)?.toFixed === 'function'
-                                            })
-                                            return '错误'
-                                        }
-                                    })()}
+                            <div style={{ textAlign: 'center' }}>
+                                <p style={{ fontSize: '12px', color: '#666' }}>当前净值</p>
+                                <div style={{ fontSize: '14px' }}>
+                                    {formatAmount(position.current_nav)}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#666' }}>持仓份额</div>
-                            </div>
-                        </Col>
-                        <Col span={12}>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                padding: '8px', 
-                                background: '#fafafa', 
-                                borderRadius: '4px' 
-                            }}>
-                                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                                    {(() => {
-                                        console.log('📊 [DEBUG] 格式化current_nav (这里也可能出错):', position.current_nav)
-                                        try {
-                                            const formatted = `¥${safeToFixed(position.current_nav, 4)}`
-                                            console.log('📊 [DEBUG] current_nav格式化成功:', formatted)
-                                            return formatted
-                                        } catch (error) {
-                                            console.error('❌ [DEBUG] current_nav格式化失败:', error)
-                                            console.error('❌ [DEBUG] position.current_nav详细信息:', {
-                                                value: position.current_nav,
-                                                type: typeof position.current_nav,
-                                                constructor: position.current_nav?.constructor?.name,
-                                                hasToFixed: typeof (position.current_nav as any)?.toFixed === 'function'
-                                            })
-                                            return '错误'
-                                        }
-                                    })()}
-                                </div>
-                                <div style={{ fontSize: '11px', color: '#666' }}>当前净值</div>
                             </div>
                         </Col>
                     </Row>
 
                     {/* 操作按钮 */}
-                    <div style={{ 
-                        borderTop: '1px solid #f0f0f0', 
-                        paddingTop: '12px'
-                    }}>
-                        <Row gutter={8}>
-                            <Col span={6}>
-                                <Button 
-                                    type="primary"
-                                    size="small"
-                                    block
-                                    onClick={() => {
-                                        console.log('🔘 [DEBUG] 详情按钮点击开始')
-                                        handleViewDetail(position)
-                                        console.log('🔘 [DEBUG] 详情按钮点击完成')
-                                    }}
-                                >
-                                    详情
-                                </Button>
-                            </Col>
-                            <Col span={6}>
-                                <Button 
-                                    size="small"
-                                    block
-                                    onClick={() => {
-                                        console.log('🔘 [DEBUG] 基金按钮点击开始')
-                                        handleViewFund(position)
-                                        console.log('🔘 [DEBUG] 基金按钮点击完成')
-                                    }}
-                                >
-                                    基金
-                                </Button>
-                            </Col>
-                            <Col span={6}>
-                                <Button 
-                                    type="primary"
-                                    size="small"
-                                    block
-                                    style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                                    onClick={() => {
-                                        console.log('🔘 [DEBUG] 买入按钮点击开始')
-                                        handleBuy(position)
-                                        console.log('🔘 [DEBUG] 买入按钮点击完成')
-                                    }}
-                                >
-                                    买入
-                                </Button>
-                            </Col>
-                            <Col span={6}>
-                                <Button 
-                                    danger
-                                    size="small"
-                                    block
-                                    onClick={() => {
-                                        console.log('🔘 [DEBUG] 卖出按钮点击开始')
-                                        handleSell(position)
-                                        console.log('🔘 [DEBUG] 卖出按钮点击完成')
-                                    }}
-                                >
-                                    卖出
-                                </Button>
-                            </Col>
-                        </Row>
-                    </div>
+                    <Space size="small" style={{ width: '100%', justifyContent: 'space-between' }}>
+                        <Button
+                            type="link"
+                            size="small"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleViewDetail(position)}
+                            style={{ padding: 0, color: '#1890ff' }}
+                        >
+                            详情
+                        </Button>
+                        <Button
+                            type="link"
+                            size="small"
+                            icon={<BarChartOutlined />}
+                            onClick={() => handleViewFund(position)}
+                            style={{ padding: 0, color: '#52c41a' }}
+                        >
+                            基金
+                        </Button>
+                        <Button
+                            type="link"
+                            size="small"
+                            icon={<PlusOutlined />}
+                            onClick={() => handleBuy(position)}
+                            style={{ padding: 0, color: '#52c41a' }}
+                        >
+                            买入
+                        </Button>
+                        <Button
+                            type="link"
+                            size="small"
+                            icon={<MinusOutlined />}
+                            onClick={() => handleSell(position)}
+                            style={{ padding: 0, color: '#ff4d4f' }}
+                        >
+                            卖出
+                        </Button>
+                    </Space>
                 </Card>
             )
         } catch (error) {
-            console.error('❌ [DEBUG] renderPositionCard整体错误:', error)
-            console.error('❌ [DEBUG] 错误的position数据:', position)
-            
-            // 返回一个安全的错误卡片
+            console.error('渲染持仓卡片错误:', error)
             return (
-                <Card key={position.asset_code} style={{ marginBottom: 12, border: '1px solid #ff4d4f' }}>
-                    <div style={{ color: '#ff4d4f', textAlign: 'center', padding: '20px' }}>
-                        <p>渲染 {position.asset_code} 时出错</p>
-                        <p style={{ fontSize: '12px' }}>错误: {error instanceof Error ? error.message : String(error)}</p>
-                    </div>
+                <Card key={position.asset_code} style={{ marginBottom: 16 }}>
+                    <p style={{ color: '#ff4d4f', textAlign: 'center', padding: '20px' }}>
+                        渲染 {position.asset_code} 时出错
+                    </p>
                 </Card>
             )
         }
