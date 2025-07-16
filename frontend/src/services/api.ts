@@ -226,47 +226,122 @@ export const fundAPI = {
         api.post('/funds/scheduler/update-navs'),
 }
 
+// Wise相关API
+export const wiseAPI = {
+    // 获取Wise配置信息
+    getConfig: (): Promise<APIResponse> =>
+        api.get('/wise/config'),
+
+    // 测试Wise连接
+    testConnection: (): Promise<APIResponse> =>
+        api.get('/wise/test'),
+
+    // 获取Wise汇总信息
+    getSummary: (): Promise<APIResponse> =>
+        api.get('/wise/summary'),
+
+    // 获取存储的余额数据
+    getStoredBalances: (): Promise<APIResponse> =>
+        api.get('/wise/stored-balances'),
+
+    // 获取存储的交易记录
+    getStoredTransactions: (params?: any): Promise<APIResponse> =>
+        api.get('/wise/stored-transactions', { params }),
+
+    // 获取汇率信息
+    getExchangeRates: (source: string, target: string): Promise<APIResponse> =>
+        api.get(`/wise/exchange-rates?source=${source}&target=${target}`),
+
+    // 获取历史汇率
+    getExchangeRateHistory: (params: any): Promise<APIResponse> =>
+        api.get('/wise/exchange-rates/history', { params }),
+
+    // 同步余额数据
+    syncBalances: (): Promise<APIResponse> =>
+        api.post('/wise/sync-balances'),
+
+    // 同步交易记录
+    syncTransactions: (): Promise<APIResponse> =>
+        api.post('/wise/sync-transactions'),
+}
+
 // OKX相关API
 export const okxAPI = {
     // 获取OKX配置信息
     getConfig: (): Promise<APIResponse> =>
-        api.get('/funds/okx/config'),
+        api.get('/okx/config'),
 
     // 测试OKX连接
     testConnection: (): Promise<APIResponse> =>
-        api.get('/funds/okx/test'),
+        api.get('/okx/test'),
+
+    // 获取OKX汇总信息
+    getSummary: (): Promise<APIResponse> =>
+        api.get('/okx/summary'),
 
     // 获取OKX账户资产
     getAccount: (): Promise<APIResponse> =>
-        api.get('/funds/okx/account'),
+        api.get('/okx/account'),
 
     // 获取OKX持仓信息
     getPositions: (): Promise<APIResponse> =>
-        api.get('/funds/okx/positions'),
+        api.get('/okx/positions'),
+
+    // 获取存储的持仓数据
+    getStoredPositions: (): Promise<APIResponse> =>
+        api.get('/okx/stored-positions'),
 
     // 获取OKX账单流水
     getBills: (params?: any): Promise<APIResponse> =>
-        api.get('/funds/okx/bills', { params }),
+        api.get('/okx/bills', { params }),
+
+    // 获取存储的交易记录
+    getStoredTransactions: (params?: any): Promise<APIResponse> =>
+        api.get('/okx/stored-transactions', { params }),
 
     // 获取OKX单个币种行情
     getTicker: (instId: string): Promise<APIResponse> =>
-        api.get(`/funds/okx/ticker?inst_id=${instId}`),
+        api.get(`/okx/ticker?inst_id=${instId}`),
 
     // 获取OKX所有币种行情
     getAllTickers: (instType: string = 'SPOT'): Promise<APIResponse> =>
-        api.get(`/funds/okx/tickers?inst_type=${instType}`),
+        api.get(`/okx/tickers?inst_type=${instType}`),
 
     // 获取OKX交易产品信息
     getInstruments: (instType: string = 'SPOT'): Promise<APIResponse> =>
-        api.get(`/funds/okx/instruments?inst_type=${instType}`),
+        api.get(`/okx/instruments?inst_type=${instType}`),
 
     // 获取资金账户余额
     getAssetBalances: (params?: any): Promise<APIResponse> =>
-        api.get('/funds/okx/asset-balances', { params }),
+        api.get('/okx/asset-balances', { params }),
 
     // 获取储蓄账户余额
     getSavingsBalance: (params?: any): Promise<APIResponse> =>
-        api.get('/funds/okx/savings-balance', { params }),
+        api.get('/okx/savings-balance', { params }),
+
+    // 获取存储的余额数据
+    getStoredBalances: (): Promise<APIResponse> =>
+        api.get('/okx/stored-balances'),
+
+    // 获取存储的市场数据
+    getStoredMarketData: (params?: any): Promise<APIResponse> =>
+        api.get('/okx/stored-market-data', { params }),
+
+    // 同步余额数据
+    syncBalances: (): Promise<APIResponse> =>
+        api.post('/okx/sync-balances'),
+
+    // 同步交易记录
+    syncTransactions: (days?: number): Promise<APIResponse> =>
+        api.post(`/okx/sync-transactions${days ? `?days=${days}` : ''}`),
+
+    // 同步持仓数据
+    syncPositions: (): Promise<APIResponse> =>
+        api.post('/okx/sync-positions'),
+
+    // 同步市场数据
+    syncMarketData: (instIds?: string[]): Promise<APIResponse> =>
+        api.post('/okx/sync-market-data', instIds || []),
 }
 
 // 汇率相关API

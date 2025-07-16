@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, message, Row, Col, Statistic, Tag, Descriptions, Tabs, Select } from 'antd';
-import { ReloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { ReloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined, DollarCircleOutlined } from '@ant-design/icons';
 import { okxAPI } from '../services/api';
 
 const { TabPane } = Tabs;
@@ -48,6 +48,7 @@ export const OKXManagement: React.FC = () => {
     const [activeTab, setActiveTab] = useState('1');
     const [assetBalances, setAssetBalances] = useState<any[]>([]);
     const [savingsBalances, setSavingsBalances] = useState<any[]>([]);
+    const [summary, setSummary] = useState<any>(null);
 
     // 获取配置信息
     const fetchConfig = async () => {
@@ -76,6 +77,18 @@ export const OKXManagement: React.FC = () => {
             message.error('连接测试失败');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 获取汇总信息
+    const fetchSummary = async () => {
+        try {
+            const response = await okxAPI.getSummary();
+            if (response.success) {
+                setSummary(response.data);
+            }
+        } catch (error) {
+            message.error('获取汇总信息失败');
         }
     };
 
@@ -182,9 +195,64 @@ export const OKXManagement: React.FC = () => {
         }
     };
 
+    // 同步余额数据
+    const syncBalances = async () => {
+        setLoading(true);
+        try {
+            const response = await okxAPI.syncBalances();
+            if (response.success) {
+                message.success(response.message || '余额同步成功');
+                // 重新获取余额数据
+                fetchAssetBalances();
+                fetchSavingsBalances();
+            } else {
+                message.error(response.message || '余额同步失败');
+            }
+        } catch (error) {
+            message.error('余额同步失败');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 同步交易记录
+    const syncTransactions = async () => {
+        setLoading(true);
+        try {
+            const response = await okxAPI.syncTransactions(30);
+            if (response.success) {
+                message.success(response.message || '交易记录同步成功');
+            } else {
+                message.error(response.message || '交易记录同步失败');
+            }
+        } catch (error) {
+            message.error('交易记录同步失败');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 同步持仓数据
+    const syncPositions = async () => {
+        setLoading(true);
+        try {
+            const response = await okxAPI.syncPositions();
+            if (response.success) {
+                message.success(response.message || '持仓数据同步成功');
+            } else {
+                message.error(response.message || '持仓数据同步失败');
+            }
+        } catch (error) {
+            message.error('持仓数据同步失败');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchConfig();
         testConnection();
+        fetchSummary();
     }, []);
 
     const renderConfigCard = () => (
@@ -242,6 +310,62 @@ export const OKXManagement: React.FC = () => {
                     </Descriptions>
                 </div>
             )}
+        </Card>
+    );
+
+    const renderSummaryCard = () => (
+        <Card title={<><DollarCircleOutlined /> OKX 账户汇总</>} style={{ marginBottom: 16 }}>
+            {summary ? (
+                <Row gutter={16}>
+                    <Col span={6}>
+                        <Statistic
+                            title="总资产 (USD)"
+                            value={summary.total_balance_usd?.toFixed(2) || 0}
+                            precision={2}
+                            valueStyle={{ color: '#3f8600' }}
+                            prefix="$"
+                        />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic
+                            title="总资产 (CNY)"
+                            value={summary.total_balance_cny?.toFixed(2) || 0}
+                            precision={2}
+                            valueStyle={{ color: '#3f8600' }}
+                            prefix="¥"
+                        />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic
+                            title="持仓数量"
+                            value={summary.position_count || 0}
+                            valueStyle={{ color: '#1890ff' }}
+                        />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic
+                            title="24h交易数"
+                            value={summary.transaction_count_24h || 0}
+                            valueStyle={{ color: '#722ed1' }}
+                        />
+                    </Col>
+                </Row>
+            ) : (
+                <div>暂无汇总数据</div>
+            )}
+            <div style={{ marginTop: 16 }}>
+                <Space>
+                    <Button type="primary" onClick={syncBalances} loading={loading}>
+                        <ReloadOutlined /> 同步余额
+                    </Button>
+                    <Button onClick={syncTransactions} loading={loading}>
+                        <ReloadOutlined /> 同步交易
+                    </Button>
+                    <Button onClick={syncPositions} loading={loading}>
+                        <ReloadOutlined /> 同步持仓
+                    </Button>
+                </Space>
+            </div>
         </Card>
     );
 
@@ -388,6 +512,7 @@ export const OKXManagement: React.FC = () => {
     return (
         <div>
             {renderConfigCard()}
+            {renderSummaryCard()}
 
             <Card>
                 <Tabs activeKey={activeTab} onChange={setActiveTab}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Tabs, Badge, Alert, Select, Row, Col, Statistic, Tag, Tooltip, DatePicker, message } from 'antd';
 import { ReloadOutlined, BankOutlined, DollarCircleOutlined } from '@ant-design/icons';
-import api from '../services/api';
+import { wiseAPI } from '../services/api';
 import { Line } from '@ant-design/charts';
 import dayjs from 'dayjs';
 import moment from 'moment';
@@ -66,8 +66,8 @@ const WiseManagement: React.FC = () => {
         setBalancesError(null);
         const start = Date.now();
         try {
-            const res = await api.get('/wise/stored-balances');
-            setBalances(res.data?.data || res.data || []);
+            const res = await wiseAPI.getStoredBalances();
+            setBalances(res.data || []);
             setBalanceLoadTime(Date.now() - start);
         } catch (e: any) {
             setBalancesError(e.response?.data?.detail || '获取余额失败');
@@ -91,8 +91,8 @@ const WiseManagement: React.FC = () => {
                 params.from_date = startDate.toISOString().split('T')[0];
                 params.to_date = endDate.toISOString().split('T')[0];
             }
-            const res = await api.get('/wise/stored-transactions', { params });
-            setTransactions(res.data?.data || res.data || []);
+            const res = await wiseAPI.getStoredTransactions(params);
+            setTransactions(res.data || []);
             setTransactionsLoadTime(Date.now() - start);
         } catch (e: any) {
             setTransactionsError(e.response?.data?.detail || '获取交易失败');
@@ -108,8 +108,8 @@ const WiseManagement: React.FC = () => {
         setExchangeRatesError(null);
         const start = Date.now();
         try {
-            const response = await api.get(`/wise/exchange-rates?source=${sourceCurrency}&target=${targetCurrency}`);
-            setExchangeRates(response.data.data);
+            const response = await wiseAPI.getExchangeRates(sourceCurrency, targetCurrency);
+            setExchangeRates(response.data);
             setExchangeRatesLoadTime(Date.now() - start);
         } catch (err: any) {
             setExchangeRatesError(err.response?.data?.detail || '获取汇率失败');
@@ -123,8 +123,8 @@ const WiseManagement: React.FC = () => {
     useEffect(() => {
         setSummaryLoading(true);
         setSummaryError(null);
-        api.get('/wise/summary')
-            .then(res => setSummary(res.data?.data || res.data))
+        wiseAPI.getSummary()
+            .then(res => setSummary(res.data))
             .catch(e => setSummaryError(e.response?.data?.detail || '账户汇总获取失败'))
             .finally(() => setSummaryLoading(false));
     }, []);
@@ -132,8 +132,8 @@ const WiseManagement: React.FC = () => {
     useEffect(() => {
         setConfigLoading(true);
         setConfigError(null);
-        api.get('/wise/config')
-            .then(res => setConfig(res.data?.data || res.data))
+        wiseAPI.getConfig()
+            .then(res => setConfig(res.data))
             .catch(e => setConfigError(e.response?.data?.detail || 'API配置获取失败'))
             .finally(() => setConfigLoading(false));
     }, []);
@@ -141,8 +141,8 @@ const WiseManagement: React.FC = () => {
     useEffect(() => {
         setTestLoading(true);
         setTestError(null);
-        api.get('/wise/test')
-            .then(res => setConnectionStatus(res.data?.data || res.data))
+        wiseAPI.testConnection()
+            .then(res => setConnectionStatus(res.data))
             .catch(e => setTestError(e.response?.data?.detail || '连接状态获取失败'))
             .finally(() => setTestLoading(false));
     }, []);

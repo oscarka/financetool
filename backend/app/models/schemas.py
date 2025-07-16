@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 from datetime import datetime, date
 from decimal import Decimal
 
@@ -601,4 +601,166 @@ class IBKRSyncLogResponse(BaseResponse):
 
 
 class IBKRSyncLogListResponse(BaseResponse):
-    data: Optional[List[IBKRSyncLog]] = None 
+    data: Optional[List[IBKRSyncLog]] = None
+
+
+# OKX相关模型
+class OKXBalanceBase(BaseModel):
+    account_id: str
+    currency: str
+    available_balance: Decimal
+    frozen_balance: Decimal
+    total_balance: Decimal
+    account_type: str = "trading"  # trading, funding, savings
+
+
+class OKXBalanceCreate(OKXBalanceBase):
+    pass
+
+
+class OKXBalance(OKXBalanceBase):
+    id: int
+    update_time: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OKXTransactionBase(BaseModel):
+    transaction_id: str
+    account_id: str
+    inst_type: str  # SPOT, MARGIN, SWAP, FUTURES
+    inst_id: str  # 产品ID，如BTC-USDT
+    trade_id: Optional[str] = None
+    order_id: Optional[str] = None
+    bill_id: Optional[str] = None
+    type: str  # 交易类型
+    side: Optional[str] = None  # buy, sell
+    amount: Decimal
+    currency: str
+    fee: Decimal = Decimal("0")
+    fee_currency: Optional[str] = None
+    price: Optional[Decimal] = None
+    quantity: Optional[Decimal] = None
+    timestamp: datetime
+
+
+class OKXTransactionCreate(OKXTransactionBase):
+    pass
+
+
+class OKXTransaction(OKXTransactionBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OKXPositionBase(BaseModel):
+    account_id: str
+    inst_type: str  # SPOT, MARGIN, SWAP, FUTURES
+    inst_id: str  # 产品ID
+    position_side: str  # long, short
+    position_id: str
+    quantity: Decimal
+    avg_price: Decimal
+    unrealized_pnl: Decimal = Decimal("0")
+    realized_pnl: Decimal = Decimal("0")
+    margin_ratio: Optional[Decimal] = None
+    leverage: Optional[Decimal] = None
+    mark_price: Optional[Decimal] = None
+    liquidation_price: Optional[Decimal] = None
+    currency: str
+    timestamp: datetime
+
+
+class OKXPositionCreate(OKXPositionBase):
+    pass
+
+
+class OKXPosition(OKXPositionBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OKXMarketDataBase(BaseModel):
+    inst_id: str  # 产品ID
+    inst_type: str  # SPOT, MARGIN, SWAP, FUTURES
+    last_price: Decimal
+    bid_price: Optional[Decimal] = None
+    ask_price: Optional[Decimal] = None
+    high_24h: Optional[Decimal] = None
+    low_24h: Optional[Decimal] = None
+    volume_24h: Optional[Decimal] = None
+    change_24h: Optional[Decimal] = None
+    change_rate_24h: Optional[Decimal] = None
+    timestamp: datetime
+
+
+class OKXMarketDataCreate(OKXMarketDataBase):
+    pass
+
+
+class OKXMarketData(OKXMarketDataBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# OKX响应模型
+class OKXBalanceResponse(BaseResponse):
+    data: Optional[OKXBalance] = None
+
+
+class OKXBalanceListResponse(BaseResponse):
+    data: Optional[List[OKXBalance]] = None
+
+
+class OKXTransactionResponse(BaseResponse):
+    data: Optional[OKXTransaction] = None
+
+
+class OKXTransactionListResponse(BaseResponse):
+    data: Optional[List[OKXTransaction]] = None
+    total: int = 0
+    page: int = 1
+    page_size: int = 20
+
+
+class OKXPositionResponse(BaseResponse):
+    data: Optional[OKXPosition] = None
+
+
+class OKXPositionListResponse(BaseResponse):
+    data: Optional[List[OKXPosition]] = None
+
+
+class OKXMarketDataResponse(BaseResponse):
+    data: Optional[OKXMarketData] = None
+
+
+class OKXMarketDataListResponse(BaseResponse):
+    data: Optional[List[OKXMarketData]] = None
+
+
+# OKX汇总模型
+class OKXSummary(BaseModel):
+    total_balance_usd: Decimal
+    total_balance_cny: Decimal
+    balance_by_currency: Dict[str, Decimal]
+    position_count: int
+    transaction_count_24h: int
+    unrealized_pnl: Decimal
+    realized_pnl: Decimal
+    last_update: datetime
+
+
+class OKXSummaryResponse(BaseResponse):
+    data: Optional[OKXSummary] = None 

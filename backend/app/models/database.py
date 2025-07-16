@@ -367,3 +367,120 @@ Index('idx_ibkr_positions_date', IBKRPosition.snapshot_date)
 Index('idx_ibkr_sync_logs_status', IBKRSyncLog.status)
 Index('idx_ibkr_sync_logs_date', IBKRSyncLog.created_at)
 Index('idx_ibkr_sync_logs_account', IBKRSyncLog.account_id) 
+
+# OKX相关模型
+class OKXBalance(Base):
+    """OKX余额表"""
+    __tablename__ = "okx_balances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    currency = Column(String(10), nullable=False, index=True)
+    available_balance = Column(DECIMAL(15, 8), nullable=False, default=0)
+    frozen_balance = Column(DECIMAL(15, 8), nullable=False, default=0)
+    total_balance = Column(DECIMAL(15, 8), nullable=False, default=0)
+    account_type = Column(String(20), nullable=False, default="trading")  # trading, funding, savings
+    update_time = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('account_id', 'currency', 'account_type', name='uq_okx_balance'),
+        Index('idx_okx_balance_currency', 'currency'),
+        Index('idx_okx_balance_account_type', 'account_type'),
+    )
+
+
+class OKXTransaction(Base):
+    """OKX交易记录表"""
+    __tablename__ = "okx_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(String(100), unique=True, nullable=False, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    inst_type = Column(String(20), nullable=False)  # SPOT, MARGIN, SWAP, FUTURES
+    inst_id = Column(String(50), nullable=False, index=True)  # 产品ID，如BTC-USDT
+    trade_id = Column(String(100), nullable=True)
+    order_id = Column(String(100), nullable=True)
+    bill_id = Column(String(100), nullable=True)
+    type = Column(String(20), nullable=False)  # 1: 转入, 2: 转出, 3: 开多, 4: 开空, 5: 平多, 6: 平空, 7: 强平, 8: 资金费, 9: 自动减仓, 10: 穿仓补偿, 11: 系统换币, 12: 策略委托, 13: 对冲减仓, 14: 大宗交易, 15: 自动换币, 16: 自动减仓, 17: 自动减仓, 18: 自动减仓, 19: 自动减仓, 20: 自动减仓
+    side = Column(String(10), nullable=True)  # buy, sell
+    amount = Column(DECIMAL(15, 8), nullable=False, default=0)
+    currency = Column(String(10), nullable=False, index=True)
+    fee = Column(DECIMAL(15, 8), nullable=False, default=0)
+    fee_currency = Column(String(10), nullable=True)
+    price = Column(DECIMAL(15, 8), nullable=True)
+    quantity = Column(DECIMAL(15, 8), nullable=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('transaction_id', name='uq_okx_transaction'),
+        Index('idx_okx_transaction_timestamp', 'timestamp'),
+        Index('idx_okx_transaction_inst_id', 'inst_id'),
+        Index('idx_okx_transaction_type', 'type'),
+    )
+
+
+class OKXPosition(Base):
+    """OKX持仓表"""
+    __tablename__ = "okx_positions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    inst_type = Column(String(20), nullable=False)  # SPOT, MARGIN, SWAP, FUTURES
+    inst_id = Column(String(50), nullable=False, index=True)  # 产品ID
+    position_side = Column(String(10), nullable=False)  # long, short
+    position_id = Column(String(100), nullable=False)
+    quantity = Column(DECIMAL(15, 8), nullable=False, default=0)
+    avg_price = Column(DECIMAL(15, 8), nullable=False, default=0)
+    unrealized_pnl = Column(DECIMAL(15, 8), nullable=False, default=0)
+    realized_pnl = Column(DECIMAL(15, 8), nullable=False, default=0)
+    margin_ratio = Column(DECIMAL(15, 8), nullable=True)
+    leverage = Column(DECIMAL(15, 8), nullable=True)
+    mark_price = Column(DECIMAL(15, 8), nullable=True)
+    liquidation_price = Column(DECIMAL(15, 8), nullable=True)
+    currency = Column(String(10), nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('account_id', 'inst_id', 'position_side', 'timestamp', name='uq_okx_position'),
+        Index('idx_okx_position_inst_id', 'inst_id'),
+        Index('idx_okx_position_timestamp', 'timestamp'),
+    )
+
+
+class OKXMarketData(Base):
+    """OKX市场数据表"""
+    __tablename__ = "okx_market_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    inst_id = Column(String(50), nullable=False, index=True)  # 产品ID
+    inst_type = Column(String(20), nullable=False)  # SPOT, MARGIN, SWAP, FUTURES
+    last_price = Column(DECIMAL(15, 8), nullable=False)
+    bid_price = Column(DECIMAL(15, 8), nullable=True)
+    ask_price = Column(DECIMAL(15, 8), nullable=True)
+    high_24h = Column(DECIMAL(15, 8), nullable=True)
+    low_24h = Column(DECIMAL(15, 8), nullable=True)
+    volume_24h = Column(DECIMAL(15, 8), nullable=True)
+    change_24h = Column(DECIMAL(15, 8), nullable=True)
+    change_rate_24h = Column(DECIMAL(15, 8), nullable=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('inst_id', 'timestamp', name='uq_okx_market_data'),
+        Index('idx_okx_market_data_inst_id', 'inst_id'),
+        Index('idx_okx_market_data_timestamp', 'timestamp'),
+    )
+
+
+# OKX索引
+Index('idx_okx_balances_account', OKXBalance.account_id)
+Index('idx_okx_balances_currency', OKXBalance.currency)
+Index('idx_okx_transactions_account', OKXTransaction.account_id)
+Index('idx_okx_transactions_timestamp', OKXTransaction.timestamp)
+Index('idx_okx_positions_account', OKXPosition.account_id)
+Index('idx_okx_positions_timestamp', OKXPosition.timestamp)
+Index('idx_okx_market_data_inst_id', OKXMarketData.inst_id)
+Index('idx_okx_market_data_timestamp', OKXMarketData.timestamp) 
