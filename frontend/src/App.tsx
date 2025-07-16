@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import DynamicLayout from './components/DynamicLayout'
 import MobileLayout from './components/MobileLayout'
 import { useDeviceDetection } from './hooks/useDeviceDetection'
 import Dashboard from './pages/Dashboard'
@@ -18,13 +19,14 @@ import PayPalManagementPage from './pages/PayPalManagement'
 import IBKRManagementPage from './pages/IBKRManagement'
 import ConfigManagementPage from './pages/ConfigManagement'
 import SchedulerManagementPage from './pages/SchedulerManagementPage'
+import MenuManagementPage from './pages/MenuManagement'
 import React from 'react'
 
 function App() {
     const deviceInfo = useDeviceDetection();
 
     // 根据设备类型选择布局组件和页面组件
-    const LayoutComponent = deviceInfo.isMobile ? MobileLayout : Layout;
+    const LayoutComponent = deviceInfo.isMobile ? MobileLayout : DynamicLayout;
     const DashboardComponent = deviceInfo.isMobile ? MobileDashboard : Dashboard
     const OperationsComponent = deviceInfo.isMobile ? MobileOperations : Operations
     const PositionsComponent = deviceInfo.isMobile ? MobilePositions : Positions
@@ -86,8 +88,9 @@ function App() {
                         <Route path="/wise" element={<WiseManagementPage />} />
                         <Route path="/paypal" element={<PayPalManagementPage />} />
                         <Route path="/ibkr" element={<IBKRManagementPage />} />
-                    <Route path="/config" element={<ConfigManagementPage />} />
-                    <Route path="/scheduler" element={<SchedulerManagementPage />} />
+                        <Route path="/config" element={<ConfigManagementPage />} />
+                        <Route path="/scheduler" element={<SchedulerManagementPage />} />
+                        <Route path="/menu" element={<MenuManagementPage />} />
                     </Routes>
                 </LayoutComponent>
         </Router>
