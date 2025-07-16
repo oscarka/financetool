@@ -286,7 +286,7 @@ class IBKRAPIService:
                     request_id = :request_id,
                     session_id = :session_id
                 WHERE changed_at >= NOW() - INTERVAL '5 minutes'
-                AND (source_ip IS NULL OR source_ip = '')
+                AND source_ip IS NULL
                 """
                 db.execute(text(update_sql), audit_context)
                 db.commit()

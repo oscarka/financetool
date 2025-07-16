@@ -91,21 +91,39 @@ def setup_postgresql_database(data_path):
             
             if existing_tables:
                 print(f"⚠️  发现现有表: {existing_tables}")
-                print("🗑️  清理现有表结构...")
                 
-                # 删除所有现有表
-                for table in reversed(existing_tables):
-                    try:
-                        conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
-                    except Exception as e:
-                        print(f"⚠️  删除表 {table} 时出错: {e}")
+                # 检查是否需要清理表（只在特定条件下）
+                should_clean_tables = os.getenv("CLEAN_DATABASE", "false").lower() == "true"
                 
-                conn.commit()
-                print("✅ 现有表已清理")
-            
-            # 创建新表结构
-            print("🏗️  创建PostgreSQL表结构...")
-            Base.metadata.create_all(bind=engine)
+                if should_clean_tables:
+                    print("🗑️  清理现有表结构...")
+                    
+                    # 删除所有现有表
+                    for table in reversed(existing_tables):
+                        try:
+                            conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
+                        except Exception as e:
+                            print(f"⚠️  删除表 {table} 时出错: {e}")
+                    
+                    conn.commit()
+                    print("✅ 现有表已清理")
+                    
+                    # 创建新表结构
+                    print("🏗️  创建PostgreSQL表结构...")
+                    Base.metadata.create_all(bind=engine)
+                    print("✅ PostgreSQL表结构创建成功")
+                else:
+                    print("ℹ️  保留现有表结构，跳过清理")
+                    
+                    # 只创建缺失的表
+                    print("🏗️  检查并创建缺失的表...")
+                    Base.metadata.create_all(bind=engine)
+                    print("✅ 表结构检查完成")
+            else:
+                # 没有现有表，创建所有表
+                print("🏗️  创建PostgreSQL表结构...")
+                Base.metadata.create_all(bind=engine)
+                print("✅ PostgreSQL表结构创建成功")
             print("✅ PostgreSQL表结构创建成功")
             
             # 检查SQLite文件是否存在，如果存在则迁移数据
