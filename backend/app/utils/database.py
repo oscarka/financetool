@@ -138,31 +138,18 @@ def setup_ibkr_audit_trigger():
     # 2. 创建触发器函数
     create_func_sql = """
     CREATE OR REPLACE FUNCTION log_ibkr_audit() RETURNS trigger AS $$
-    DECLARE
-        current_ip inet;
-        current_user_agent text;
-        current_api_key text;
-        current_request_id text;
-        current_session_id text;
     BEGIN
-        -- 尝试从会话变量获取上下文信息
-        current_ip := current_setting('audit.source_ip', true)::inet;
-        current_user_agent := current_setting('audit.user_agent', true);
-        current_api_key := current_setting('audit.api_key', true);
-        current_request_id := current_setting('audit.request_id', true);
-        current_session_id := current_setting('audit.session_id', true);
-        
         IF (TG_OP = 'DELETE') THEN
             INSERT INTO audit_log(table_name, operation, old_data, new_data, source_ip, user_agent, api_key, request_id, session_id)
-            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL, current_ip, current_user_agent, current_api_key, current_request_id, current_session_id);
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL, NULL, NULL, NULL, NULL, NULL);
             RETURN OLD;
         ELSIF (TG_OP = 'UPDATE') THEN
             INSERT INTO audit_log(table_name, operation, old_data, new_data, source_ip, user_agent, api_key, request_id, session_id)
-            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), current_ip, current_user_agent, current_api_key, current_request_id, current_session_id);
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), NULL, NULL, NULL, NULL, NULL);
             RETURN NEW;
         ELSIF (TG_OP = 'INSERT') THEN
             INSERT INTO audit_log(table_name, operation, old_data, new_data, source_ip, user_agent, api_key, request_id, session_id)
-            VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW), current_ip, current_user_agent, current_api_key, current_request_id, current_session_id);
+            VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW), NULL, NULL, NULL, NULL, NULL);
             RETURN NEW;
         END IF;
         RETURN NULL;

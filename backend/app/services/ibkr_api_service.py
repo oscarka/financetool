@@ -226,16 +226,16 @@ class IBKRAPIService:
             if client_ip and not self._validate_ip_address(client_ip):
                 raise ValueError(f"IP地址不在白名单中: {client_ip}")
             
-            # 3. 设置审计上下文
+            # 3. 准备审计上下文
             import uuid
             request_id = str(uuid.uuid4())
-            set_audit_context(
-                source_ip=client_ip,
-                user_agent=user_agent,
-                api_key="IBKR_SYNC",  # 标识这是IBKR同步操作
-                request_id=request_id,
-                session_id=f"ibkr_sync_{request_data.account_id}"
-            )
+            audit_context = {
+                "source_ip": client_ip,
+                "user_agent": user_agent,
+                "api_key": "IBKR_SYNC",  # 标识这是IBKR同步操作
+                "request_id": request_id,
+                "session_id": f"ibkr_sync_{request_data.account_id}"
+            }
             
             # 4. 解析时间戳
             snapshot_time = datetime.fromisoformat(request_data.timestamp.replace('Z', '+00:00'))
@@ -273,6 +273,27 @@ class IBKRAPIService:
             sync_log.records_inserted = balance_count + position_count
             sync_log.records_updated = 0
             db.commit()
+            
+            # 9. 更新audit_log记录，添加上下文信息
+            try:
+                from sqlalchemy import text
+                # 更新本次请求产生的所有audit_log记录
+                update_sql = """
+                UPDATE audit_log 
+                SET source_ip = :source_ip,
+                    user_agent = :user_agent,
+                    api_key = :api_key,
+                    request_id = :request_id,
+                    session_id = :session_id
+                WHERE changed_at >= NOW() - INTERVAL '5 minutes'
+                AND (source_ip IS NULL OR source_ip = '')
+                """
+                db.execute(text(update_sql), audit_context)
+                db.commit()
+                logger.info(f"✅ 已更新 {balance_count + position_count + 1} 条audit_log记录的上下文信息")
+            except Exception as e:
+                logger.error(f"❌ 更新audit_log上下文信息失败: {e}")
+                # 不抛出异常，不影响主流程
             
             response = IBKRSyncResponse(
                 status="success",
@@ -329,8 +350,6 @@ class IBKRAPIService:
             return response
             
         finally:
-            # 清除审计上下文
-            clear_audit_context()
             db.close()
     
     @auto_log("database", log_result=True)
