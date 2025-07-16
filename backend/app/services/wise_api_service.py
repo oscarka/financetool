@@ -211,7 +211,7 @@ class WiseAPIService:
                         total_data = balance.get('totalWorth', {})
                         
                         all_balances.append({
-                            "account_id": balance_id,
+                            "account_id": str(balance_id),  # 确保account_id是字符串
                             "currency": balance.get('currency'),
                             "available_balance": self._safe_float(amount_data.get('value', 0) if isinstance(amount_data, dict) else 0),
                             "reserved_balance": self._safe_float(reserved_data.get('value', 0) if isinstance(reserved_data, dict) else 0),
@@ -551,7 +551,7 @@ class WiseAPIService:
                         # 新增
                         tx = WiseTransaction(
                             profile_id=str(profile_id),
-                            account_id=activity.get('resource', {}).get('id', ''),
+                            account_id=str(activity.get('resource', {}).get('id', '')),  # 确保account_id是字符串
                             transaction_id=activity.get('id'),
                             type=activity.get('type'),
                             amount=amount_value,
@@ -598,12 +598,15 @@ class WiseAPIService:
                 if not account_id:
                     continue
                 
-                # 检查是否已存在
-                existing_balance = db.query(WiseBalance).filter_by(account_id=account_id).first()
+                # 确保account_id是字符串类型
+                account_id_str = str(account_id)
+                
+                # 检查是否已存在 - 使用字符串类型的account_id进行查询
+                existing_balance = db.query(WiseBalance).filter(WiseBalance.account_id == account_id_str).first()
                 
                 # 准备余额数据
                 balance_data = {
-                    "account_id": account_id,
+                    "account_id": account_id_str,
                     "currency": balance.get('currency'),
                     "available_balance": self._safe_float(balance.get('available_balance', 0)),
                     "reserved_balance": self._safe_float(balance.get('reserved_balance', 0)),
