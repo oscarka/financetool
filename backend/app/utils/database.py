@@ -170,12 +170,14 @@ def setup_ibkr_audit_trigger():
         # 步骤1：建表
         try:
             conn.execute(text(create_table_sql))
+            conn.commit()  # 提交事务
             print("audit_log表创建成功或已存在")
         except Exception as e:
             print(f"建表SQL执行失败: {e}\nSQL: {create_table_sql}\n")
         # 步骤2：建函数
         try:
             conn.execute(text(create_func_sql))
+            conn.commit()  # 提交事务
             print("log_ibkr_audit函数创建成功或已存在")
         except Exception as e:
             print(f"建函数SQL执行失败: {e}\nSQL: {create_func_sql}\n")
@@ -183,6 +185,7 @@ def setup_ibkr_audit_trigger():
         for stmt in trigger_sqls:
             try:
                 conn.execute(text(stmt))
+                conn.commit()  # 提交事务
                 print("触发器创建成功或已存在")
             except Exception as e:
                 print(f"建触发器SQL执行失败: {e}\nSQL: {stmt}\n")
