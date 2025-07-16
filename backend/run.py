@@ -136,17 +136,17 @@ def setup_postgresql_database(data_path):
                 for table_name, table_type in tables:
                     print(f"    - {table_name} ({table_type})")
                 
-                # 查询3: 检查audit_logs表是否存在
+                # 查询3: 检查audit_log表是否存在
                 result = conn.execute(text("""
                     SELECT table_name, table_schema 
                     FROM information_schema.tables 
-                    WHERE table_name = 'audit_logs'
+                    WHERE table_name = 'audit_log'
                 """))
                 audit_tables = [(row[0], row[1]) for row in result]
                 if audit_tables:
-                    print(f"✅ audit_logs表存在: {audit_tables}")
+                    print(f"✅ audit_log表存在: {audit_tables}")
                 else:
-                    print("❌ audit_logs表不存在")
+                    print("❌ audit_log表不存在")
                     
             except Exception as e:
                 print(f"⚠️  数据库诊断查询失败: {e}")
