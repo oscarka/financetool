@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
     is_railway = os.getenv("RAILWAY_ENVIRONMENT") is not None
     log_system(f"运行环境: {'Railway' if is_railway else '本地/其他'}")
     
+
     init_database()
     
     # 初始化可扩展调度器

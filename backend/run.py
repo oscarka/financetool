@@ -91,6 +91,7 @@ def setup_postgresql_database(data_path):
             
             if existing_tables:
                 print(f"⚠️  发现现有表: {existing_tables}")
+
                 
                 # 检查是否需要清理表（只在特定条件下）
                 should_clean_tables = os.getenv("CLEAN_DATABASE", "false").lower() == "true"
@@ -129,6 +130,7 @@ def setup_postgresql_database(data_path):
             # 检查SQLite文件是否存在，如果存在则迁移数据
             sqlite_file = os.path.join(data_path, "personalfinance.db")
             if os.path.exists(sqlite_file):
+
                 # 检查PostgreSQL是否已有数据
                 result = conn.execute(text("SELECT COUNT(*) FROM user_operations"))
                 pg_data_count = result.scalar()
@@ -143,6 +145,7 @@ def setup_postgresql_database(data_path):
             
             # 数据库诊断查询将在应用启动完成后执行
             print("ℹ️  数据库诊断查询将在应用启动完成后执行")
+
         
     except Exception as e:
         print(f"❌ PostgreSQL设置失败: {e}")

@@ -86,11 +86,13 @@ def init_database():
     data_dir = get_data_directory()
     print(f"数据目录: {data_dir}")
     
+
     # 只在SQLite环境下检查数据库文件
     if settings.database_url.startswith("sqlite://"):
         db_path = get_database_path()
         db_exists = os.path.exists(db_path)
         print(f"数据库文件: {db_path} (存在: {db_exists})")
+
     
     create_tables()
     
@@ -109,6 +111,7 @@ def init_database():
             db.add(init_config)
             print("数据库初始化完成")
         else:
+
             print("数据库已初始化，跳过初始化步骤")
     
     # 创建IBKR审计表和触发器
@@ -238,3 +241,4 @@ def clear_audit_context():
             conn.commit()
     except Exception as e:
         print(f"清除审计上下文失败: {e}") 
+
