@@ -575,3 +575,74 @@ class WiseAPIService:
             return {"success": False, "message": f"同步失败: {e}"}
         finally:
             db.close() 
+
+    @auto_log("database", log_result=True)
+    async def sync_balances_to_db(self) -> Dict[str, Any]:
+        """同步Wise余额数据到数据库"""
+        from app.models.database import WiseBalance
+        import sqlalchemy
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            # 获取所有账户余额
+            balances = await self.get_all_account_balances()
+            if not balances:
+                return {"success": False, "message": "未获取到Wise余额数据"}
+            
+            total_updated = 0
+            total_inserted = 0
+            
+            for balance in balances:
+                account_id = balance.get('account_id')
+                if not account_id:
+                    continue
+                
+                # 检查是否已存在
+                existing_balance = db.query(WiseBalance).filter_by(account_id=account_id).first()
+                
+                # 准备余额数据
+                balance_data = {
+                    "account_id": account_id,
+                    "currency": balance.get('currency'),
+                    "available_balance": self._safe_float(balance.get('available_balance', 0)),
+                    "reserved_balance": self._safe_float(balance.get('reserved_balance', 0)),
+                    "cash_amount": self._safe_float(balance.get('cash_amount', 0)),
+                    "total_worth": self._safe_float(balance.get('total_worth', 0)),
+                    "type": balance.get('type'),
+                    "investment_state": balance.get('investment_state'),
+                    "creation_time": datetime.fromisoformat(balance.get('creation_time', '').replace('Z', '+00:00')) if balance.get('creation_time') else datetime.now(),
+                    "modification_time": datetime.fromisoformat(balance.get('modification_time', '').replace('Z', '+00:00')) if balance.get('modification_time') else datetime.now(),
+                    "visible": balance.get('visible', True),
+                    "primary": balance.get('primary', False),
+                    "update_time": datetime.now()
+                }
+                
+                if existing_balance:
+                    # 更新现有记录
+                    for key, value in balance_data.items():
+                        if key != 'account_id':  # 不更新主键
+                            setattr(existing_balance, key, value)
+                    total_updated += 1
+                else:
+                    # 插入新记录
+                    new_balance = WiseBalance(**balance_data)
+                    db.add(new_balance)
+                    total_inserted += 1
+            
+            db.commit()
+            
+            return {
+                "success": True, 
+                "message": f"余额同步完成，更新{total_updated}条，新增{total_inserted}条",
+                "total_updated": total_updated,
+                "total_inserted": total_inserted,
+                "total_processed": len(balances)
+            }
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"同步Wise余额数据失败: {e}")
+            return {"success": False, "message": f"同步失败: {str(e)}"}
+        finally:
+            db.close() 

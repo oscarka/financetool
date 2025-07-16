@@ -91,30 +91,61 @@ def setup_postgresql_database(data_path):
             
             if existing_tables:
                 print(f"⚠️  发现现有表: {existing_tables}")
-                print("🗑️  清理现有表结构...")
+
                 
-                # 删除所有现有表
-                for table in reversed(existing_tables):
-                    try:
-                        conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
-                    except Exception as e:
-                        print(f"⚠️  删除表 {table} 时出错: {e}")
+                # 检查是否需要清理表（只在特定条件下）
+                should_clean_tables = os.getenv("CLEAN_DATABASE", "false").lower() == "true"
                 
-                conn.commit()
-                print("✅ 现有表已清理")
-            
-            # 创建新表结构
-            print("🏗️  创建PostgreSQL表结构...")
-            Base.metadata.create_all(bind=engine)
+                if should_clean_tables:
+                    print("🗑️  清理现有表结构...")
+                    
+                    # 删除所有现有表
+                    for table in reversed(existing_tables):
+                        try:
+                            conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
+                        except Exception as e:
+                            print(f"⚠️  删除表 {table} 时出错: {e}")
+                    
+                    conn.commit()
+                    print("✅ 现有表已清理")
+                    
+                    # 创建新表结构
+                    print("🏗️  创建PostgreSQL表结构...")
+                    Base.metadata.create_all(bind=engine)
+                    print("✅ PostgreSQL表结构创建成功")
+                else:
+                    print("ℹ️  保留现有表结构，跳过清理")
+                    
+                    # 只创建缺失的表
+                    print("🏗️  检查并创建缺失的表...")
+                    Base.metadata.create_all(bind=engine)
+                    print("✅ 表结构检查完成")
+            else:
+                # 没有现有表，创建所有表
+                print("🏗️  创建PostgreSQL表结构...")
+                Base.metadata.create_all(bind=engine)
+                print("✅ PostgreSQL表结构创建成功")
             print("✅ PostgreSQL表结构创建成功")
             
             # 检查SQLite文件是否存在，如果存在则迁移数据
             sqlite_file = os.path.join(data_path, "personalfinance.db")
             if os.path.exists(sqlite_file):
-                print("📦 发现SQLite数据文件，开始迁移...")
-                migrate_sqlite_to_postgresql(sqlite_file, engine)
+
+                # 检查PostgreSQL是否已有数据
+                result = conn.execute(text("SELECT COUNT(*) FROM user_operations"))
+                pg_data_count = result.scalar()
+                
+                if pg_data_count == 0:
+                    print("📦 发现SQLite数据文件，PostgreSQL为空，开始迁移...")
+                    migrate_sqlite_to_postgresql(sqlite_file, engine)
+                else:
+                    print(f"ℹ️  PostgreSQL已有 {pg_data_count} 条数据，跳过SQLite迁移")
             else:
                 print("ℹ️  未发现SQLite数据文件，跳过数据迁移")
+            
+            # 数据库诊断查询将在应用启动完成后执行
+            print("ℹ️  数据库诊断查询将在应用启动完成后执行")
+
         
     except Exception as e:
         print(f"❌ PostgreSQL设置失败: {e}")
@@ -142,8 +173,6 @@ def migrate_sqlite_to_postgresql(sqlite_file, pg_engine):
         success_count = 0
         for table_name in tables:
             try:
-                print(f"📊 迁移表: {table_name}")
-                
                 # 读取SQLite数据
                 df = pd.read_sql_query(f"SELECT * FROM {table_name}", sqlite_conn)
                 
@@ -163,7 +192,7 @@ def migrate_sqlite_to_postgresql(sqlite_file, pg_engine):
                     success_count += 1
                     
             except Exception as e:
-                print(f"❌ 迁移表 {table_name} 失败: {e}")
+                print(f"❌ {table_name}: {str(e)[:100]}...")  # 只显示前100个字符
         
         sqlite_conn.close()
         
@@ -200,7 +229,7 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=debug,  # 生产环境禁用reload
-        workers=1 if debug else int(os.environ.get("WORKERS", "2")),  # 生产环境使用多进程
+        workers=1,  # 固定使用单进程，避免并发问题
         access_log=debug,  # 生产环境可以禁用访问日志以提高性能
         log_level="info" if not debug else "debug"
     ) 

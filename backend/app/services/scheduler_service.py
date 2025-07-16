@@ -169,42 +169,44 @@ class SchedulerService:
             db.close()
     
     async def _sync_wise_data(self):
-        """同步Wise数据"""
+        """同步Wise数据到数据库"""
         logger.info("开始执行Wise数据同步任务")
         try:
             # 初始化Wise服务
             wise_service = WiseAPIService()
             
-            # 同步账户余额
-            balances = await wise_service.get_all_account_balances()
-            if balances:
-                logger.info(f"成功获取Wise账户余额，共 {len(balances)} 个账户")
-                # TODO: 将余额数据保存到数据库
-                for balance in balances:
-                    logger.debug(f"账户 {balance['account_id']} - {balance['currency']}: {balance['available_balance']}")
+            # 同步账户余额到数据库
+            balance_result = await wise_service.sync_balances_to_db()
+            if balance_result.get('success'):
+                logger.info(f"Wise余额同步成功: {balance_result['message']}")
             else:
-                logger.warning("获取Wise账户余额失败")
+                logger.warning(f"Wise余额同步失败: {balance_result.get('message', '未知错误')}")
             
-            # 同步最近交易记录
-            transactions = await wise_service.get_recent_transactions(1)  # 获取最近1天的交易
-            if transactions:
-                logger.info(f"成功获取Wise交易记录，共 {len(transactions)} 条")
-                # TODO: 将交易记录保存到数据库
-                for transaction in transactions[:5]:  # 只记录前5条
-                    logger.debug(f"交易: {transaction['type']} - {transaction['amount']} {transaction['currency']}")
+            # 同步交易记录到数据库
+            transaction_result = await wise_service.sync_all_transactions_to_db(days=7)  # 同步最近7天的交易
+            if transaction_result.get('success'):
+                logger.info(f"Wise交易记录同步成功: {transaction_result['message']}")
             else:
-                logger.info("没有新的Wise交易记录")
+                logger.warning(f"Wise交易记录同步失败: {transaction_result.get('message', '未知错误')}")
             
             # 同步汇率数据
             try:
-                rates = await wise_service.get_exchange_rates("USD", "CNY")
-                if rates:
-                    logger.info("成功获取Wise汇率数据")
-                    # TODO: 将汇率数据保存到数据库
+                # 获取当前持有币种
+                balances = await wise_service.get_all_account_balances()
+                if balances:
+                    currencies = list({b['currency'] for b in balances if b and 'currency' in b})
+                    if currencies:
+                        # 使用ExchangeRateService同步汇率数据
+                        from app.services.exchange_rate_service import ExchangeRateService
+                        service = ExchangeRateService(wise_service.api_token)
+                        await service.fetch_and_store_history(currencies, days=30, group='day')
+                        logger.info(f"Wise汇率数据同步成功，处理了{len(currencies)}个币种")
+                    else:
+                        logger.info("没有可用的币种进行汇率同步")
                 else:
-                    logger.warning("获取Wise汇率数据失败")
+                    logger.warning("获取Wise余额失败，无法同步汇率数据")
             except Exception as e:
-                logger.error(f"获取Wise汇率数据时出错: {e}")
+                logger.error(f"Wise汇率数据同步失败: {e}")
             
             logger.info("Wise数据同步任务完成")
             

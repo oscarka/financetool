@@ -27,7 +27,14 @@ class WiseBalanceSyncTask(BaseTask):
             # 初始化Wise服务
             wise_service = WiseAPIService()
             
-            # 同步账户余额
+            # 同步余额数据到数据库
+            sync_result = await wise_service.sync_balances_to_db()
+            
+            if not sync_result.get('success'):
+                context.log(f"Wise余额同步失败: {sync_result.get('message', '未知错误')}", "ERROR")
+                return TaskResult(success=False, error=sync_result.get('message', '余额同步失败'))
+            
+            # 获取同步后的余额数据
             balances = await wise_service.get_all_account_balances()
             
             if not balances:
@@ -43,7 +50,7 @@ class WiseBalanceSyncTask(BaseTask):
             if currencies:
                 filtered_balances = [b for b in filtered_balances if b['currency'] in currencies]
             
-            context.log(f"成功获取Wise账户余额，共 {len(filtered_balances)} 个账户")
+            context.log(f"成功同步Wise账户余额，共 {len(filtered_balances)} 个账户")
             
             # 处理余额数据
             processed_balances = []
@@ -72,7 +79,8 @@ class WiseBalanceSyncTask(BaseTask):
                 'total_balance': total_balance,
                 'currency_count': currency_count,
                 'account_count': len(filtered_balances),
-                'sync_time': datetime.now().isoformat()
+                'sync_time': datetime.now().isoformat(),
+                'sync_result': sync_result
             }
             
             context.log(f"Wise余额同步任务完成，同步了 {len(filtered_balances)} 个账户")

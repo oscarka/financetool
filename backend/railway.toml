@@ -11,7 +11,7 @@ restartPolicyType = "on_failure"
 [deploy.environment]
 PORT = "8000"
 DEBUG = "false"
-WORKERS = "2"
+WORKERS = "1"
 APP_ENV = "prod"
 
 # 添加数据卷配置
