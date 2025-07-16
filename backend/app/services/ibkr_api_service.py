@@ -7,7 +7,7 @@ from sqlalchemy import and_, desc, func
 from loguru import logger
 
 from app.settings import settings
-from app.utils.database import SessionLocal
+from app.utils.database import SessionLocal, set_audit_context, clear_audit_context
 from app.models.database import IBKRAccount, IBKRBalance, IBKRPosition, IBKRSyncLog
 from app.models.schemas import IBKRSyncRequest, IBKRSyncResponse
 from app.utils.auto_logger import auto_log
@@ -226,12 +226,23 @@ class IBKRAPIService:
             if client_ip and not self._validate_ip_address(client_ip):
                 raise ValueError(f"IP地址不在白名单中: {client_ip}")
             
-            # 3. 解析时间戳
+            # 3. 设置审计上下文
+            import uuid
+            request_id = str(uuid.uuid4())
+            set_audit_context(
+                source_ip=client_ip,
+                user_agent=user_agent,
+                api_key="IBKR_SYNC",  # 标识这是IBKR同步操作
+                request_id=request_id,
+                session_id=f"ibkr_sync_{request_data.account_id}"
+            )
+            
+            # 4. 解析时间戳
             snapshot_time = datetime.fromisoformat(request_data.timestamp.replace('Z', '+00:00'))
             if snapshot_time.tzinfo:
                 snapshot_time = snapshot_time.replace(tzinfo=None)
             
-            # 4. 确保账户存在
+            # 5. 确保账户存在
             self._ensure_account_exists(db, request_data.account_id)
             
             # 5. 同步余额数据
@@ -318,6 +329,8 @@ class IBKRAPIService:
             return response
             
         finally:
+            # 清除审计上下文
+            clear_audit_context()
             db.close()
     
     @auto_log("database", log_result=True)

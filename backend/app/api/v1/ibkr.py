@@ -5,6 +5,8 @@ from loguru import logger
 
 from app.services.ibkr_api_service import IBKRAPIService
 from app.models.schemas import IBKRSyncRequest, IBKRSyncResponse
+from app.utils.database import engine
+from sqlalchemy import text
 
 router = APIRouter(prefix="/ibkr", tags=["IBKR API"])
 
@@ -354,3 +356,101 @@ async def get_recent_requests(
     except Exception as e:
         logger.error(f"获取最近请求记录失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取请求记录失败: {str(e)}")
+
+
+@router.get("/audit-logs")
+async def get_audit_logs(
+    table_name: Optional[str] = Query(None, description="表名过滤"),
+    operation: Optional[str] = Query(None, description="操作类型过滤: INSERT, UPDATE, DELETE"),
+    limit: int = Query(50, ge=1, le=100, description="返回记录数量限制"),
+    offset: int = Query(0, ge=0, description="偏移量")
+):
+    """获取IBKR相关表的审计日志"""
+    try:
+        # 检查audit_log表是否存在
+        with engine.connect() as conn:
+            # 检查表是否存在
+            result = conn.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'audit_log'
+                )
+            """))
+            table_exists = result.scalar()
+            
+            if not table_exists:
+                return {
+                    "success": True,
+                    "data": [],
+                    "count": 0,
+                    "message": "audit_log表不存在"
+                }
+            
+            # 构建查询
+            query = """
+                SELECT 
+                    id,
+                    table_name,
+                    operation,
+                    old_data,
+                    new_data,
+                    source_ip,
+                    user_agent,
+                    api_key,
+                    request_id,
+                    session_id,
+                    changed_at
+                FROM audit_log
+                WHERE 1=1
+            """
+            params = {}
+            
+            if table_name:
+                query += " AND table_name = :table_name"
+                params['table_name'] = table_name
+            
+            if operation:
+                query += " AND operation = :operation"
+                params['operation'] = operation
+            
+            # 只查询IBKR相关表
+            query += " AND table_name IN ('ibkr_accounts', 'ibkr_balances', 'ibkr_positions', 'ibkr_sync_logs')"
+            
+            # 添加排序和分页
+            query += " ORDER BY changed_at DESC LIMIT :limit OFFSET :offset"
+            params['limit'] = limit
+            params['offset'] = offset
+            
+            # 执行查询
+            result = conn.execute(text(query), params)
+            rows = result.fetchall()
+            
+            # 格式化结果
+            audit_logs = []
+            for row in rows:
+                audit_log = {
+                    "id": row[0],
+                    "table_name": row[1],
+                    "operation": row[2],
+                    "old_data": row[3],
+                    "new_data": row[4],
+                    "source_ip": str(row[5]) if row[5] else None,
+                    "user_agent": row[6],
+                    "api_key": row[7],
+                    "request_id": row[8],
+                    "session_id": row[9],
+                    "changed_at": row[10].isoformat() if row[10] else None
+                }
+                audit_logs.append(audit_log)
+            
+            return {
+                "success": True,
+                "data": audit_logs,
+                "count": len(audit_logs),
+                "total_count": len(audit_logs)  # 简化，实际应该查询总数
+            }
+            
+    except Exception as e:
+        logger.error(f"获取审计日志失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取审计日志失败: {str(e)}")

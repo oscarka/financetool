@@ -127,24 +127,42 @@ def setup_ibkr_audit_trigger():
         operation text,
         old_data jsonb,
         new_data jsonb,
+        source_ip inet,
+        user_agent text,
+        api_key text,
+        request_id text,
+        session_id text,
         changed_at timestamp default now()
     );
     """
     # 2. 创建触发器函数
     create_func_sql = """
     CREATE OR REPLACE FUNCTION log_ibkr_audit() RETURNS trigger AS $$
+    DECLARE
+        current_ip inet;
+        current_user_agent text;
+        current_api_key text;
+        current_request_id text;
+        current_session_id text;
     BEGIN
+        -- 尝试从会话变量获取上下文信息
+        current_ip := current_setting('audit.source_ip', true)::inet;
+        current_user_agent := current_setting('audit.user_agent', true);
+        current_api_key := current_setting('audit.api_key', true);
+        current_request_id := current_setting('audit.request_id', true);
+        current_session_id := current_setting('audit.session_id', true);
+        
         IF (TG_OP = 'DELETE') THEN
-            INSERT INTO audit_log(table_name, operation, old_data, new_data)
-            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL);
+            INSERT INTO audit_log(table_name, operation, old_data, new_data, source_ip, user_agent, api_key, request_id, session_id)
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL, current_ip, current_user_agent, current_api_key, current_request_id, current_session_id);
             RETURN OLD;
         ELSIF (TG_OP = 'UPDATE') THEN
-            INSERT INTO audit_log(table_name, operation, old_data, new_data)
-            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW));
+            INSERT INTO audit_log(table_name, operation, old_data, new_data, source_ip, user_agent, api_key, request_id, session_id)
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), current_ip, current_user_agent, current_api_key, current_request_id, current_session_id);
             RETURN NEW;
         ELSIF (TG_OP = 'INSERT') THEN
-            INSERT INTO audit_log(table_name, operation, old_data, new_data)
-            VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW));
+            INSERT INTO audit_log(table_name, operation, old_data, new_data, source_ip, user_agent, api_key, request_id, session_id)
+            VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW), current_ip, current_user_agent, current_api_key, current_request_id, current_session_id);
             RETURN NEW;
         END IF;
         RETURN NULL;
@@ -189,4 +207,44 @@ def setup_ibkr_audit_trigger():
                 print("触发器创建成功或已存在")
             except Exception as e:
                 print(f"建触发器SQL执行失败: {e}\nSQL: {stmt}\n")
-    print("IBKR审计表和触发器分步创建流程已执行") 
+    print("IBKR审计表和触发器分步创建流程已执行")
+
+def set_audit_context(source_ip: str = None, user_agent: str = None, api_key: str = None, 
+                     request_id: str = None, session_id: str = None):
+    """设置审计上下文，用于触发器记录操作来源"""
+    if not settings.database_url.startswith("postgresql://"):
+        return
+    
+    try:
+        with engine.connect() as conn:
+            # 设置会话变量
+            if source_ip:
+                conn.execute(text(f"SET audit.source_ip = '{source_ip}'"))
+            if user_agent:
+                conn.execute(text(f"SET audit.user_agent = '{user_agent}'"))
+            if api_key:
+                conn.execute(text(f"SET audit.api_key = '{api_key}'"))
+            if request_id:
+                conn.execute(text(f"SET audit.request_id = '{request_id}'"))
+            if session_id:
+                conn.execute(text(f"SET audit.session_id = '{session_id}'"))
+            conn.commit()
+    except Exception as e:
+        print(f"设置审计上下文失败: {e}")
+
+def clear_audit_context():
+    """清除审计上下文"""
+    if not settings.database_url.startswith("postgresql://"):
+        return
+    
+    try:
+        with engine.connect() as conn:
+            # 清除会话变量
+            conn.execute(text("RESET audit.source_ip"))
+            conn.execute(text("RESET audit.user_agent"))
+            conn.execute(text("RESET audit.api_key"))
+            conn.execute(text("RESET audit.request_id"))
+            conn.execute(text("RESET audit.session_id"))
+            conn.commit()
+    except Exception as e:
+        print(f"清除审计上下文失败: {e}") 
