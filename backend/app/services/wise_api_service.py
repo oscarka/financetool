@@ -601,6 +601,7 @@ class WiseAPIService:
                         db.rollback()
                         continue
                     
+
                     fetched += len(activities)
                     if len(activities) < limit:
                         break

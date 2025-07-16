@@ -245,6 +245,7 @@ const WiseManagement: React.FC = () => {
                 message.error(syncRes.data.message || '同步数据库失败');
                 setBalancesLoading(false);
                 return;
+
             }
             // 再查数据库最新数据
             const res = await api.get('/wise/stored-balances');
@@ -254,6 +255,7 @@ const WiseManagement: React.FC = () => {
         } catch (e: any) {
             setBalancesError(e.response?.data?.detail || '获取余额失败');
             message.error(`同步或获取余额失败: ${e.response?.data?.detail || e.message}`);
+
         } finally {
             setBalancesLoading(false);
         }
@@ -299,6 +301,7 @@ const WiseManagement: React.FC = () => {
             message.warning('请先选择币种对');
             return;
         }
+
         setRateLoading(true);
         const from = dateRange[0].format('YYYY-MM-DD');
         const to = dateRange[1].format('YYYY-MM-DD');
@@ -551,6 +554,7 @@ const WiseManagement: React.FC = () => {
                     {balancesError && <Alert type="error" message={balancesError} showIcon style={{ marginBottom: 8 }} />}
                     <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
                         <Button onClick={fetchLatestBalances} loading={balancesLoading} type="default">同步API并写入数据库</Button>
+
                     </div>
                     {/* Debug: 展示原始balances数据 */}
                     <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f6f6f6', fontSize: 12, marginBottom: 8 }}>{JSON.stringify(balances, null, 2)}</pre>
@@ -571,6 +575,7 @@ const WiseManagement: React.FC = () => {
                     {transactionsError && <Alert type="error" message={transactionsError} showIcon style={{ marginBottom: 8 }} />}
                     <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
                         <Button onClick={fetchLatestTransactions} loading={transactionsLoading} type="default">同步API并写入数据库</Button>
+
                     </div>
                     {/* Debug: 展示原始transactions数据 */}
                     <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f6f6f6', fontSize: 12, marginBottom: 8 }}>{JSON.stringify(transactions, null, 2)}</pre>
