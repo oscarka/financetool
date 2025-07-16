@@ -116,40 +116,8 @@ def setup_postgresql_database(data_path):
             else:
                 print("ℹ️  未发现SQLite数据文件，跳过数据迁移")
             
-            # 执行数据库诊断查询
-            print("\n🔍 执行数据库诊断查询...")
-            try:
-                # 查询1: 列出所有schema
-                result = conn.execute(text("SELECT schema_name FROM information_schema.schemata"))
-                schemas = [row[0] for row in result]
-                print(f"📋 所有schema: {schemas}")
-                
-                # 查询2: 列出public schema中的所有表
-                result = conn.execute(text("""
-                    SELECT table_name, table_type 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public'
-                    ORDER BY table_name
-                """))
-                tables = [(row[0], row[1]) for row in result]
-                print(f"📋 public schema中的表 ({len(tables)}个):")
-                for table_name, table_type in tables:
-                    print(f"    - {table_name} ({table_type})")
-                
-                # 查询3: 检查audit_log表是否存在
-                result = conn.execute(text("""
-                    SELECT table_name, table_schema 
-                    FROM information_schema.tables 
-                    WHERE table_name = 'audit_log'
-                """))
-                audit_tables = [(row[0], row[1]) for row in result]
-                if audit_tables:
-                    print(f"✅ audit_log表存在: {audit_tables}")
-                else:
-                    print("❌ audit_log表不存在")
-                    
-            except Exception as e:
-                print(f"⚠️  数据库诊断查询失败: {e}")
+            # 数据库诊断查询将在应用启动完成后执行
+            print("ℹ️  数据库诊断查询将在应用启动完成后执行")
         
     except Exception as e:
         print(f"❌ PostgreSQL设置失败: {e}")
