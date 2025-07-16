@@ -1,15 +1,17 @@
 import akshare as ak
 import pandas as pd
-from typing import List, Dict, Any, Optional
+import httpx
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from loguru import logger
 import itertools
 from app.models.database import WiseExchangeRate, WiseTransaction
 from app.utils.database import SessionLocal
-import httpx
 from sqlalchemy import and_
 from app.utils.auto_logger import auto_log
+import re
+from dateutil import parser
 
 WISE_API_BASE = "https://api.transferwise.com"
 
@@ -167,52 +169,281 @@ class ExchangeRateService:
             logger.error(f"货币转换失败: {amount} {from_currency} -> {to_currency}, {e}")
             return None
 
-    async def fetch_and_store_history(self, currencies, days=365, group='day'):
-        """
-        拉取所有币种对的历史汇率并存储
-        currencies: List[str]，如['USD','AUD','CNY']
-        days: int，历史天数
-        group: 'day'/'hour'/'minute'
-        """
-        db = SessionLocal()
+    def _generate_currency_pairs(self, currencies: List[str]) -> List[Tuple[str, str]]:
+        """生成所有币种对"""
+        import itertools
+        return list(itertools.permutations(currencies, 2))
+    
+    async def _fetch_rates(self, source_currency: str, target_currency: str, days: int, group: str) -> List[Dict]:
+        """获取指定币种对的汇率数据"""
+        from datetime import datetime, timedelta
+
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
-        pairs = list(itertools.permutations(currencies, 2))
-        for source, target in pairs:
-            url = f"{WISE_API_BASE}/v1/rates"
-            params = {
-                'source': source,
-                'target': target,
-                'from': start_date.strftime('%Y-%m-%d'),
-                'to': end_date.strftime('%Y-%m-%d'),
-                'group': group
+
+        url = f"{WISE_API_BASE}/v1/rates"
+        params = {
+            'source': source_currency,
+            'target': target_currency,
+            'from': start_date.strftime('%Y-%m-%d'),
+            'to': end_date.strftime('%Y-%m-%d'),
+            'group': group
+        }
+
+        logger.debug(f"[Wise汇率] 请求API: {url}, 参数: {params}")
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(url, headers=self.headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                logger.debug(f"[Wise汇率] API响应成功，数据条数: {len(data)}")
+                return data
+            else:
+                logger.error(f"[Wise汇率] API请求失败: {resp.status_code}, {resp.text}")
+                return []
+
+    async def fetch_and_store_history(self, currencies: List[str], days: int = 30, group: str = 'day') -> Dict[str, Any]:
+        """获取并存储历史汇率数据"""
+        logger.info(f"[Wise汇率] 开始同步历史汇率数据，币种: {currencies}, 天数: {days}, 分组: {group}")
+        db = SessionLocal()
+        try:
+            # 获取所有币种对
+            currency_pairs = self._generate_currency_pairs(currencies)
+            logger.info(f"[Wise汇率] 生成币种对: {currency_pairs}")
+            
+            total_inserted = 0
+            total_updated = 0
+            total_processed = 0
+            
+            for source_currency, target_currency in currency_pairs:
+                logger.info(f"[Wise汇率] 处理币种对: {source_currency} -> {target_currency}")
+                
+                try:
+                    # 获取汇率数据
+                    rates_data = await self._fetch_rates(source_currency, target_currency, days, group)
+                    logger.info(f"[Wise汇率] 获取到 {len(rates_data)} 条汇率数据")
+                    
+                    if not rates_data:
+                        logger.warning(f"[Wise汇率] 币种对 {source_currency} -> {target_currency} 无数据")
+                        continue
+                    
+                    # 处理每条汇率数据
+                    for rate_data in rates_data:
+                        total_processed += 1
+                        rate = rate_data.get('rate')
+                        time_str = rate_data.get('time')
+                        
+                        logger.debug(f"[Wise汇率] 处理汇率数据: rate={rate}, time={time_str}")
+                        
+                        if not rate or not time_str:
+                            logger.warning(f"[Wise汇率] 跳过无效数据: rate={rate}, time={time_str}")
+                            continue
+                        
+                        # 更健壮的时间格式解析
+                        t = time_str.strip()
+                        logger.debug(f"[Wise汇率] 原始时间字符串: '{t}'")
+                        
+                        try:
+                            time_dt = parser.parse(t)
+                            logger.debug(f"[Wise汇率] 解析成功: {time_dt}")
+                        except Exception as e:
+                            logger.error(f"[Wise汇率] 无法解析时间字符串: '{t}', 原始: '{time_str}', 错误: {e}")
+                            continue
+                        
+                        # 检查是否已存在
+                        existing_rate = db.query(WiseExchangeRate).filter(
+                            WiseExchangeRate.source_currency == source_currency,
+                            WiseExchangeRate.target_currency == target_currency,
+                            WiseExchangeRate.time == time_dt
+                        ).first()
+                        
+                        if existing_rate:
+                            # 更新现有记录
+                            existing_rate.rate = rate
+                            existing_rate.updated_at = datetime.utcnow()
+                            total_updated += 1
+                            logger.debug(f"[Wise汇率] 更新汇率: {source_currency}->{target_currency} {time_dt}")
+                        else:
+                            # 新增记录
+                            new_rate = WiseExchangeRate(
+                                source_currency=source_currency,
+                                target_currency=target_currency,
+                                rate=rate,
+                                time=time_dt
+                            )
+                            db.add(new_rate)
+                            total_inserted += 1
+                            logger.debug(f"[Wise汇率] 新增汇率: {source_currency}->{target_currency} {time_dt}")
+                    
+                    # 提交当前币种对的数据
+                    db.commit()
+                    logger.info(f"[Wise汇率] 币种对 {source_currency} -> {target_currency} 处理完成")
+                    
+                except Exception as e:
+                    logger.error(f"[Wise汇率] 处理币种对 {source_currency} -> {target_currency} 时出错: {e}")
+                    db.rollback()
+                    continue
+            
+            logger.info(f"[Wise汇率] 历史汇率同步完成，总处理: {total_processed}, 新增: {total_inserted}, 更新: {total_updated}")
+            
+            return {
+                "success": True,
+                "message": f"历史汇率同步完成，新增{total_inserted}条，更新{total_updated}条",
+                "total_processed": total_processed,
+                "total_inserted": total_inserted,
+                "total_updated": total_updated
             }
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(url, headers=self.headers, params=params)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    for item in data:
-                        rate = item.get('rate')
-                        time_str = item.get('time')
+        except Exception as e:
+            logger.error(f"[Wise汇率] 历史汇率同步失败: {e}")
+            db.rollback()
+            return {
+                "success": False,
+                "message": f"历史汇率同步失败: {str(e)}"
+            }
+        finally:
+            db.close()
+
+    async def fetch_and_store_history_incremental(self, currencies: List[str], group: str = 'day') -> Dict[str, Any]:
+        """增量获取并存储历史汇率数据"""
+        logger.info(f"[Wise汇率] 开始增量同步历史汇率数据，币种: {currencies}, 分组: {group}")
+        db = SessionLocal()
+        try:
+            # 获取所有币种对
+            currency_pairs = self._generate_currency_pairs(currencies)
+            logger.info(f"[Wise汇率] 生成币种对: {currency_pairs}")
+            
+            total_inserted = 0
+            total_updated = 0
+            total_processed = 0
+            
+            for source_currency, target_currency in currency_pairs:
+                logger.info(f"[Wise汇率] 处理币种对: {source_currency} -> {target_currency}")
+                
+                try:
+                    # 获取数据库中该币种对的最新记录时间
+                    latest_record = db.query(WiseExchangeRate).filter(
+                        WiseExchangeRate.source_currency == source_currency,
+                        WiseExchangeRate.target_currency == target_currency
+                    ).order_by(WiseExchangeRate.time.desc()).first()
+                    
+                    # 计算需要同步的时间范围
+                    end_date = datetime.now()
+                    if latest_record:
+                        # 从最新记录的下一天开始同步
+                        start_date = latest_record.time + timedelta(days=1)
+                        logger.info(f"[Wise汇率] 增量同步: {source_currency}->{target_currency} 从 {start_date.date()} 到 {end_date.date()}")
+                    else:
+                        # 如果没有记录，同步最近30天
+                        start_date = end_date - timedelta(days=30)
+                        logger.info(f"[Wise汇率] 首次同步: {source_currency}->{target_currency} 最近30天")
+                    
+                    # 如果开始时间晚于结束时间，说明数据是最新的
+                    if start_date >= end_date:
+                        logger.info(f"[Wise汇率] 币种对 {source_currency} -> {target_currency} 数据已是最新")
+                        continue
+                    
+                    # 计算需要同步的天数
+                    days_to_sync = (end_date - start_date).days
+                    if days_to_sync <= 0:
+                        continue
+                    
+                    # 获取汇率数据
+                    rates_data = await self._fetch_rates_with_date_range(source_currency, target_currency, start_date, end_date, group)
+                    logger.info(f"[Wise汇率] 获取到 {len(rates_data)} 条新汇率数据")
+                    
+                    if not rates_data:
+                        logger.warning(f"[Wise汇率] 币种对 {source_currency} -> {target_currency} 无新数据")
+                        continue
+                    
+                    # 处理每条汇率数据
+                    for rate_data in rates_data:
+                        total_processed += 1
+                        rate = rate_data.get('rate')
+                        time_str = rate_data.get('time')
+                        
                         if not rate or not time_str:
                             continue
-                        time_dt = datetime.fromisoformat(time_str.replace('Z', '+00:00')) if 'Z' in time_str else datetime.fromisoformat(time_str)
-                        # 查重
-                        exists = db.query(WiseExchangeRate).filter(and_(
-                            WiseExchangeRate.source_currency==source,
-                            WiseExchangeRate.target_currency==target,
-                            WiseExchangeRate.time==time_dt
-                        )).first()
-                        if exists:
+                        
+                        # 解析时间
+                        try:
+                            time_dt = parser.parse(time_str.strip())
+                        except Exception as e:
+                            logger.error(f"[Wise汇率] 无法解析时间字符串: '{time_str}', 错误: {e}")
                             continue
-                        db.add(WiseExchangeRate(
-                            source_currency=source,
-                            target_currency=target,
+                        
+                        # 检查是否已存在
+                        existing_rate = db.query(WiseExchangeRate).filter(
+                            WiseExchangeRate.source_currency == source_currency,
+                            WiseExchangeRate.target_currency == target_currency,
+                            WiseExchangeRate.time == time_dt
+                        ).first()
+                        
+                        if existing_rate:
+                            # 更新现有记录
+                            existing_rate.rate = rate
+                            existing_rate.updated_at = datetime.utcnow()
+                            total_updated += 1
+                        else:
+                            # 新增记录
+                            new_rate = WiseExchangeRate(
+                                source_currency=source_currency,
+                                target_currency=target_currency,
                             rate=rate,
                             time=time_dt
-                        ))
+                            )
+                            db.add(new_rate)
+                            total_inserted += 1
+                    
+                    # 提交当前币种对的数据
                     db.commit()
-        db.close()
+                    logger.info(f"[Wise汇率] 币种对 {source_currency} -> {target_currency} 增量同步完成")
+                    
+                except Exception as e:
+                    logger.error(f"[Wise汇率] 处理币种对 {source_currency} -> {target_currency} 时出错: {e}")
+                    db.rollback()
+                    continue
+            
+            logger.info(f"[Wise汇率] 增量同步完成，总处理: {total_processed}, 新增: {total_inserted}, 更新: {total_updated}")
+            
+            return {
+                "success": True,
+                "message": f"增量同步完成，新增{total_inserted}条，更新{total_updated}条",
+                "total_processed": total_processed,
+                "total_inserted": total_inserted,
+                "total_updated": total_updated
+            }
+        except Exception as e:
+            logger.error(f"[Wise汇率] 增量同步失败: {e}")
+            db.rollback()
+            return {
+                "success": False,
+                "message": f"增量同步失败: {str(e)}"
+            }
+        finally:
+            db.close()
+
+    async def _fetch_rates_with_date_range(self, source_currency: str, target_currency: str, start_date: datetime, end_date: datetime, group: str) -> List[Dict]:
+        """获取指定日期范围的汇率数据"""
+        url = f"{WISE_API_BASE}/v1/rates"
+        params = {
+            'source': source_currency,
+            'target': target_currency,
+            'from': start_date.strftime('%Y-%m-%d'),
+            'to': end_date.strftime('%Y-%m-%d'),
+            'group': group
+        }
+        
+        logger.debug(f"[Wise汇率] 请求API: {url}, 参数: {params}")
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(url, headers=self.headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                logger.debug(f"[Wise汇率] API响应成功，数据条数: {len(data)}")
+                return data
+            else:
+                logger.error(f"[Wise汇率] API请求失败: {resp.status_code}, {resp.text}")
+                return []
 
     @staticmethod
     def get_my_currencies(db=None):

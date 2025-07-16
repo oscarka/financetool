@@ -202,12 +202,15 @@ async def get_stored_transactions(
     limit: int = Query(100, ge=1, le=1000, description="返回记录数量限制"),
     offset: int = Query(0, ge=0, description="偏移量"),
     profile_id: str = Query(None, description="过滤特定profile"),
-    account_id: str = Query(None, description="过滤特定账户")
+    account_id: str = Query(None, description="过滤特定账户"),
+    from_date: str = Query(None, description="开始日期 (YYYY-MM-DD)"),
+    to_date: str = Query(None, description="结束日期 (YYYY-MM-DD)")
 ):
     """从数据库获取已存储的Wise交易记录"""
     try:
         from app.models.database import WiseTransaction
         from app.utils.database import SessionLocal
+        from datetime import datetime
         
         db = SessionLocal()
         try:
@@ -218,6 +221,23 @@ async def get_stored_transactions(
                 query = query.filter(WiseTransaction.profile_id == profile_id)
             if account_id:
                 query = query.filter(WiseTransaction.account_id == account_id)
+            
+            # 添加时间范围过滤
+            if from_date:
+                try:
+                    from_datetime = datetime.strptime(from_date, '%Y-%m-%d')
+                    query = query.filter(WiseTransaction.date >= from_datetime)
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="开始日期格式错误，请使用YYYY-MM-DD格式")
+            
+            if to_date:
+                try:
+                    to_datetime = datetime.strptime(to_date, '%Y-%m-%d')
+                    # 结束日期包含当天，所以加1天
+                    to_datetime = to_datetime + timedelta(days=1)
+                    query = query.filter(WiseTransaction.date < to_datetime)
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="结束日期格式错误，请使用YYYY-MM-DD格式")
             
             # 按日期倒序排列
             query = query.order_by(WiseTransaction.date.desc())
@@ -582,7 +602,7 @@ async def sync_balances():
 
 @router.post("/exchange-rates/fetch-history")
 async def fetch_and_store_exchange_rate_history(days: int = 365, group: str = 'day'):
-    """拉取并存储持有币种对的历史汇率"""
+    """拉取并存储持有币种对的历史汇率（全量更新）"""
     # 获取当前持有币种
     balances = await wise_service.get_all_account_balances()
     currencies = list({b['currency'] for b in balances if b and 'currency' in b})
@@ -591,6 +611,19 @@ async def fetch_and_store_exchange_rate_history(days: int = 365, group: str = 'd
     service = ExchangeRateService(token)
     await service.fetch_and_store_history(currencies, days=days, group=group)
     return {"success": True, "msg": f"已拉取并存储{len(currencies)}币种的历史汇率"}
+
+
+@router.post("/exchange-rates/fetch-history-incremental")
+async def fetch_and_store_exchange_rate_history_incremental(group: str = 'day'):
+    """增量拉取并存储持有币种对的历史汇率（增量更新）"""
+    # 获取当前持有币种
+    balances = await wise_service.get_all_account_balances()
+    currencies = list({b['currency'] for b in balances if b and 'currency' in b})
+    # 获取token
+    token = wise_service.api_token
+    service = ExchangeRateService(token)
+    result = await service.fetch_and_store_history_incremental(currencies, group=group)
+    return result
 
 
 @router.get("/exchange-rates/history")

@@ -34,7 +34,7 @@ class ProdConfig(BaseConfig):
         
         super().__init__(**kwargs)
     
-    cors_origins: str = os.getenv("CORS_ORIGINS", '["https://yourdomain.com"]')
+    cors_origins: str = os.getenv("CORS_ORIGINS", '["*"]')
     log_level: str = "WARNING"  # 从INFO调整为WARNING
     log_file: str = "./logs/app.log"
     
