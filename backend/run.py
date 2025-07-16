@@ -129,8 +129,15 @@ def setup_postgresql_database(data_path):
             # 检查SQLite文件是否存在，如果存在则迁移数据
             sqlite_file = os.path.join(data_path, "personalfinance.db")
             if os.path.exists(sqlite_file):
-                print("📦 发现SQLite数据文件，开始迁移...")
-                migrate_sqlite_to_postgresql(sqlite_file, engine)
+                # 检查PostgreSQL是否已有数据
+                result = conn.execute(text("SELECT COUNT(*) FROM user_operations"))
+                pg_data_count = result.scalar()
+                
+                if pg_data_count == 0:
+                    print("📦 发现SQLite数据文件，PostgreSQL为空，开始迁移...")
+                    migrate_sqlite_to_postgresql(sqlite_file, engine)
+                else:
+                    print(f"ℹ️  PostgreSQL已有 {pg_data_count} 条数据，跳过SQLite迁移")
             else:
                 print("ℹ️  未发现SQLite数据文件，跳过数据迁移")
             
@@ -163,8 +170,6 @@ def migrate_sqlite_to_postgresql(sqlite_file, pg_engine):
         success_count = 0
         for table_name in tables:
             try:
-                print(f"📊 迁移表: {table_name}")
-                
                 # 读取SQLite数据
                 df = pd.read_sql_query(f"SELECT * FROM {table_name}", sqlite_conn)
                 
@@ -184,7 +189,7 @@ def migrate_sqlite_to_postgresql(sqlite_file, pg_engine):
                     success_count += 1
                     
             except Exception as e:
-                print(f"❌ 迁移表 {table_name} 失败: {e}")
+                print(f"❌ {table_name}: {str(e)[:100]}...")  # 只显示前100个字符
         
         sqlite_conn.close()
         
@@ -221,7 +226,7 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=debug,  # 生产环境禁用reload
-        workers=1 if debug else int(os.environ.get("WORKERS", "2")),  # 生产环境使用多进程
+        workers=1,  # 固定使用单进程，避免并发问题
         access_log=debug,  # 生产环境可以禁用访问日志以提高性能
         log_level="info" if not debug else "debug"
     ) 

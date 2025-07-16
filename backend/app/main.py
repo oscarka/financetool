@@ -26,16 +26,6 @@ async def lifespan(app: FastAPI):
     is_railway = os.getenv("RAILWAY_ENVIRONMENT") is not None
     log_system(f"运行环境: {'Railway' if is_railway else '本地/其他'}")
     
-    # 检查数据目录和数据库文件
-    data_dir = get_data_directory()
-    db_path = get_database_path()
-    log_system(f"数据目录: {data_dir}")
-    log_system(f"数据库文件: {db_path}")
-    
-    # 检查数据库文件是否存在
-    db_exists = os.path.exists(db_path)
-    log_system(f"数据库文件存在: {db_exists}")
-    
     init_database()
     
     # 初始化可扩展调度器
@@ -73,9 +63,7 @@ async def lifespan(app: FastAPI):
                     ORDER BY table_name
                 """))
                 tables = [(row[0], row[1]) for row in result]
-                log_system(f"📋 public schema中的表 ({len(tables)}个):")
-                for table_name, table_type in tables:
-                    log_system(f"    - {table_name} ({table_type})")
+                log_system(f"📋 public schema中的表: {len(tables)}个")
                 
                 # 查询3: 检查audit_log表是否存在
                 result = conn.execute(text("""

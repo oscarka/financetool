@@ -105,16 +105,8 @@ class IBKRAPIService:
         try:
             snapshot_date = snapshot_time.date()
             
-            # 详细日志：打印写入时的所有字段和类型
-            logger.info(f"🔍 准备写入余额数据:")
-            logger.info(f"   account_id: '{account_id}' (类型: {type(account_id)})")
-            logger.info(f"   snapshot_time: {snapshot_time} (类型: {type(snapshot_time)})")
-            logger.info(f"   snapshot_date: {snapshot_date} (类型: {type(snapshot_date)})")
-            logger.info(f"   currency: '{balances_data.get('currency')}' (类型: {type(balances_data.get('currency'))})")
-            logger.info(f"   total_cash: {balances_data.get('total_cash')} (类型: {type(balances_data.get('total_cash'))})")
-            logger.info(f"   net_liquidation: {balances_data.get('net_liquidation')} (类型: {type(balances_data.get('net_liquidation'))})")
-            logger.info(f"   buying_power: {balances_data.get('buying_power')} (类型: {type(balances_data.get('buying_power'))})")
-            logger.info(f"   sync_source: '{sync_source}' (类型: {type(sync_source)})")
+            # 简化日志
+            logger.info(f"🔍 准备写入余额数据: {account_id}")
             
             # 检查是否已存在相同时间的余额记录
             existing_balance = db.query(IBKRBalance).filter(
@@ -464,17 +456,7 @@ class IBKRAPIService:
             for balance in result:
                 logger.info(f"💰 账户 {balance['account_id']}: 现金 ${balance['total_cash']:.2f}, 净值 ${balance['net_liquidation']:.2f}")
             
-            # 打印原始数据的详细信息
-            for balance in balances:
-                logger.info(f"🔍 余额原始数据:")
-                logger.info(f"   account_id: '{balance.account_id}' (类型: {type(balance.account_id)})")
-                logger.info(f"   snapshot_time: {balance.snapshot_time} (类型: {type(balance.snapshot_time)})")
-                logger.info(f"   snapshot_date: {balance.snapshot_date} (类型: {type(balance.snapshot_date)})")
-                logger.info(f"   currency: '{balance.currency}' (类型: {type(balance.currency)})")
-                logger.info(f"   total_cash: {balance.total_cash} (类型: {type(balance.total_cash)})")
-                logger.info(f"   net_liquidation: {balance.net_liquidation} (类型: {type(balance.net_liquidation)})")
-                logger.info(f"   buying_power: {balance.buying_power} (类型: {type(balance.buying_power)})")
-                logger.info(f"   sync_source: '{balance.sync_source}' (类型: {type(balance.sync_source)})")
+            # 移除详细日志输出
             
             return result
         except Exception as e:
