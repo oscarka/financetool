@@ -233,22 +233,27 @@ const WiseManagement: React.FC = () => {
         }
     };
 
-    // 从API获取最新余额数据
+    // 从API获取最新余额数据并写入数据库
     const fetchLatestBalances = async () => {
+        setBalancesLoading(true);
+        setBalancesError(null);
+        const start = Date.now();
         try {
-            setBalancesLoading(true);
-            const start = Date.now();
-            const response = await api.get('/wise/all-balances');
-            const duration = Date.now() - start;
-            setBalanceLoadTime(duration);
-            if (response.data.success) {
-                setBalances(response.data.data || []);
-                message.success(`从API获取到 ${response.data.count || 0} 条最新余额记录`);
-            } else {
-                message.error('获取最新余额数据失败');
+            // 先同步到数据库
+            const syncRes = await api.post('/wise/sync-balances');
+            if (!syncRes.data.success) {
+                message.error(syncRes.data.message || '同步数据库失败');
+                setBalancesLoading(false);
+                return;
             }
+            // 再查数据库最新数据
+            const res = await api.get('/wise/stored-balances');
+            setBalances(res.data?.data || res.data || []);
+            setBalanceLoadTime(Date.now() - start);
+            message.success(`同步并获取到 ${res.data.count || 0} 条余额记录`);
         } catch (e: any) {
-            message.error(`获取最新余额数据失败: ${e.response?.data?.detail || e.message}`);
+            setBalancesError(e.response?.data?.detail || '获取余额失败');
+            message.error(`同步或获取余额失败: ${e.response?.data?.detail || e.message}`);
         } finally {
             setBalancesLoading(false);
         }
@@ -529,7 +534,7 @@ const WiseManagement: React.FC = () => {
                     </div>
                     {balancesError && <Alert type="error" message={balancesError} showIcon style={{ marginBottom: 8 }} />}
                     <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-                        <Button onClick={fetchLatestBalances} loading={balancesLoading} type="default">从API获取最新余额</Button>
+                        <Button onClick={fetchLatestBalances} loading={balancesLoading} type="default">同步API并写入数据库</Button>
                     </div>
                     {/* Debug: 展示原始balances数据 */}
                     <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f6f6f6', fontSize: 12, marginBottom: 8 }}>{JSON.stringify(balances, null, 2)}</pre>
