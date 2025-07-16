@@ -259,19 +259,35 @@ const WiseManagement: React.FC = () => {
         }
     };
 
-    // 从API获取最新交易数据
+    // 从API获取最新交易数据并写入数据库
     const fetchLatestTransactions = async () => {
+        setTransactionsLoading(true);
+        setTransactionsError(null);
+        const start = Date.now();
         try {
-            setTransactionsLoading(true);
-            const response = await api.get(`/wise/recent-transactions?days=${transactionDays}`);
-            if (response.data.success) {
-                setTransactions(response.data.data || []);
-                message.success(`从API获取到 ${response.data.count || 0} 条最新交易记录`);
-            } else {
-                message.error('获取最新交易数据失败');
+            // 先同步到数据库
+            const syncRes = await api.post('/wise/sync-transactions');
+            if (!syncRes.data.success) {
+                message.error(syncRes.data.message || '同步交易记录到数据库失败');
+                setTransactionsLoading(false);
+                return;
             }
+            // 再查数据库最新数据
+            const params: any = { limit: 100 };
+            if (transactionDays) {
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - transactionDays);
+                params.from_date = startDate.toISOString().split('T')[0];
+                params.to_date = endDate.toISOString().split('T')[0];
+            }
+            const res = await api.get('/wise/stored-transactions', { params });
+            setTransactions(res.data?.data || res.data || []);
+            setTransactionsLoadTime(Date.now() - start);
+            message.success(`同步并获取到 ${res.data.count || 0} 条交易记录`);
         } catch (e: any) {
-            message.error(`获取最新交易数据失败: ${e.response?.data?.detail || e.message}`);
+            setTransactionsError(e.response?.data?.detail || '获取交易记录失败');
+            message.error(`同步或获取交易记录失败: ${e.response?.data?.detail || e.message}`);
         } finally {
             setTransactionsLoading(false);
         }
@@ -554,7 +570,7 @@ const WiseManagement: React.FC = () => {
                     </div>
                     {transactionsError && <Alert type="error" message={transactionsError} showIcon style={{ marginBottom: 8 }} />}
                     <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-                        <Button onClick={fetchLatestTransactions} loading={transactionsLoading} type="default">从API获取最新交易</Button>
+                        <Button onClick={fetchLatestTransactions} loading={transactionsLoading} type="default">同步API并写入数据库</Button>
                     </div>
                     {/* Debug: 展示原始transactions数据 */}
                     <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f6f6f6', fontSize: 12, marginBottom: 8 }}>{JSON.stringify(transactions, null, 2)}</pre>
