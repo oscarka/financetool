@@ -9,6 +9,7 @@ from app.models.database import WiseTransaction
 import sqlalchemy
 import re
 from app.utils.auto_logger import auto_log
+from sqlalchemy.dialects.postgresql import insert
 
 
 class WiseAPIService:
@@ -499,12 +500,16 @@ class WiseAPIService:
         import sqlalchemy
         import re
         from datetime import datetime
+        from sqlalchemy.dialects.postgresql import insert
+        
         db = SessionLocal()
         try:
             profiles = await self.get_profile()
             if not profiles:
                 return {"success": False, "message": "未获取到Wise profile"}
             total_new = 0
+            total_updated = 0
+            
             for profile in profiles:
                 profile_id = profile.get('id')
                 if not profile_id:
@@ -520,6 +525,8 @@ class WiseAPIService:
                     activities = activities_result['activities']
                     if not activities:
                         break
+                    
+                    # 批量处理活动记录
                     for activity in activities:
                         created_on = activity.get('createdOn')
                         # 修复：将字符串转为datetime对象
@@ -530,6 +537,7 @@ class WiseAPIService:
                                 created_on_dt = datetime.fromisoformat(created_on.replace('Z', '+00:00'))
                             except Exception:
                                 created_on_dt = None
+                        
                         primary_amount = activity.get('primaryAmount', '')
                         amount_value = 0.0
                         currency = 'USD'
@@ -544,34 +552,70 @@ class WiseAPIService:
                                 except ValueError:
                                     logger.warning(f"[Wise] 无法转换交易金额: {amount_str}, 使用默认值: 0.0")
                                     amount_value = 0.0
-                        # 检查是否已存在
-                        exists = db.query(WiseTransaction).filter_by(transaction_id=activity.get('id')).first()
-                        if exists:
+                        
+                        # 准备交易数据
+                        transaction_data = {
+                            "profile_id": str(profile_id),
+                            "account_id": str(activity.get('resource', {}).get('id', '')),
+                            "transaction_id": activity.get('id'),
+                            "type": activity.get('type'),
+                            "amount": amount_value,
+                            "currency": currency,
+                            "description": activity.get('description', ''),
+                            "title": activity.get('title', ''),
+                            "date": created_on_dt,
+                            "status": activity.get('status'),
+                            "reference_number": activity.get('resource', {}).get('id', ''),
+                            "updated_at": datetime.now()
+                        }
+                        
+                        # 使用UPSERT逻辑，避免主键冲突
+                        try:
+                            # 检查是否已存在
+                            existing = db.query(WiseTransaction).filter_by(
+                                transaction_id=activity.get('id')
+                            ).first()
+                            
+                            if existing:
+                                # 更新现有记录
+                                for key, value in transaction_data.items():
+                                    if key != 'transaction_id':  # 不更新唯一键
+                                        setattr(existing, key, value)
+                                total_updated += 1
+                            else:
+                                # 插入新记录
+                                transaction_data["created_at"] = datetime.now()
+                                new_tx = WiseTransaction(**transaction_data)
+                                db.add(new_tx)
+                                total_new += 1
+                                
+                        except Exception as e:
+                            logger.error(f"[Wise] 处理交易记录失败: {e}, transaction_id: {activity.get('id')}")
                             continue
-                        # 新增
-                        tx = WiseTransaction(
-                            profile_id=str(profile_id),
-                            account_id=str(activity.get('resource', {}).get('id', '')),  # 确保account_id是字符串
-                            transaction_id=activity.get('id'),
-                            type=activity.get('type'),
-                            amount=amount_value,
-                            currency=currency,
-                            description=activity.get('description', ''),
-                            title=activity.get('title', ''),
-                            date=created_on_dt,
-                            status=activity.get('status'),
-                            reference_number=activity.get('resource', {}).get('id', ''),
-                        )
-                        db.add(tx)
-                        total_new += 1
-                    db.commit()
+                    
+                    # 提交当前批次
+                    try:
+                        db.commit()
+                    except Exception as e:
+                        logger.error(f"[Wise] 提交交易记录失败: {e}")
+                        db.rollback()
+                        continue
+                    
+
                     fetched += len(activities)
                     if len(activities) < limit:
                         break
                     offset += limit
-            return {"success": True, "message": f"同步完成，新增{total_new}条交易记录"}
+            
+            return {
+                "success": True, 
+                "message": f"同步完成，新增{total_new}条，更新{total_updated}条交易记录",
+                "total_new": total_new,
+                "total_updated": total_updated
+            }
         except Exception as e:
             db.rollback()
+            logger.error(f"[Wise] 同步交易记录失败: {e}")
             return {"success": False, "message": f"同步失败: {e}"}
         finally:
             db.close() 
