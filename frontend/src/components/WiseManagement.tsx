@@ -260,6 +260,7 @@ const WiseManagement: React.FC = () => {
 
     // 智能获取历史汇率数据
     const fetchHistoryRates = async () => {
+        const start = Date.now();
         console.log('fetchHistoryRates被调用，selectedPair:', selectedPair);
         if (!selectedPair) {
             console.log('selectedPair为null，显示警告');
