@@ -3,8 +3,8 @@ import { Card, Button, Table, Tabs, Badge, Alert, Select, Row, Col, Statistic, T
 import { ReloadOutlined, BankOutlined, DollarCircleOutlined } from '@ant-design/icons';
 import api from '../services/api';
 import { Line } from '@ant-design/charts';
+import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import moment from 'moment';
 
 const { TabPane } = Tabs;
 const { Option } = Select;
@@ -55,8 +55,9 @@ const WiseManagement: React.FC = () => {
     const [selectedPair, setSelectedPair] = useState<{ source: string, target: string } | null>(null);
     const [rateHistory, setRateHistory] = useState<any[]>([]);
     const [rateLoading, setRateLoading] = useState(false);
-    const [dateRange, setDateRange] = useState<[moment.Moment, moment.Moment]>([moment().subtract(30, 'days'), moment()]);
+    const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>([dayjs().subtract(30, 'days'), dayjs()]);
     const [latestRate, setLatestRate] = useState<number | null>(null);
+
 
     // 删除fetchData、fetchCardData相关的setLoading、setError、setTestLoading、setTestError等调用（如setLoading(true)、setError(null)等），只保留Tabs和下方区块原有逻辑，后续分步解耦。
 
@@ -104,12 +105,14 @@ const WiseManagement: React.FC = () => {
 
     // 汇率区块独立加载
     const fetchExchangeRate = async () => {
+        console.log('fetchExchangeRate被调用');
         setExchangeRatesLoading(true);
         setExchangeRatesError(null);
         const start = Date.now();
         try {
             const response = await api.get(`/wise/exchange-rates?source=${sourceCurrency}&target=${targetCurrency}`);
-            setExchangeRates(response.data.data);
+            console.log('API响应:', response.data);
+            setExchangeRates(response.data);
             setExchangeRatesLoadTime(Date.now() - start);
         } catch (err: any) {
             setExchangeRatesError(err.response?.data?.detail || '获取汇率失败');
@@ -118,6 +121,7 @@ const WiseManagement: React.FC = () => {
         }
     };
     useEffect(() => { fetchExchangeRate(); }, [sourceCurrency, targetCurrency]);
+
 
     // 概览/汇总独立加载
     useEffect(() => {
@@ -149,16 +153,52 @@ const WiseManagement: React.FC = () => {
 
     // 自动识别持有币种组合
     useEffect(() => {
+        console.log('summary状态:', summary);
+        console.log('summary.balance_by_currency:', summary?.balance_by_currency);
+
         if (summary && summary.balance_by_currency) {
             const currencies = Object.keys(summary.balance_by_currency);
+            console.log('识别到的币种:', currencies);
+
             const pairs: { source: string, target: string }[] = [];
             for (let i = 0; i < currencies.length; i++) {
                 for (let j = 0; j < currencies.length; j++) {
                     if (i !== j) pairs.push({ source: currencies[i], target: currencies[j] });
                 }
             }
+            console.log('生成的币种对:', pairs);
+
             setRatePairs(pairs);
-            if (!selectedPair && pairs.length > 0) setSelectedPair(pairs[0]);
+            if (!selectedPair && pairs.length > 0) {
+                console.log('设置selectedPair为:', pairs[0]);
+                setSelectedPair(pairs[0]);
+            }
+            // 立即加载第一个币种对的历史汇率数据
+            setTimeout(() => {
+                if (pairs[0]) {
+                    const tempSelectedPair = pairs[0];
+                    const from = dateRange[0].format('YYYY-MM-DD');
+                    const to = dateRange[1].format('YYYY-MM-DD');
+
+                    // 尝试从数据库获取数据
+                    api.get('/wise/exchange-rates/history', {
+                        params: {
+                            source: tempSelectedPair.source,
+                            target: tempSelectedPair.target,
+                            from_time: from,
+                            to_time: to,
+                            group: 'day',
+                        },
+                    }).then(res => {
+                        if (res.data.data && res.data.data.length > 0) {
+                            setRateHistory(res.data.data);
+                            setLatestRate(res.data.data[res.data.data.length - 1].rate);
+                        }
+                    }).catch(() => {
+                        // 如果数据库没有数据，静默失败，用户可以通过按钮手动获取
+                    });
+                }
+            }, 100);
         }
     }, [summary]);
 
@@ -218,18 +258,123 @@ const WiseManagement: React.FC = () => {
         // eslint-disable-next-line
     }, [selectedPair, dateRange]);
 
-    // 拉取历史汇率数据
+    // 智能获取历史汇率数据
     const fetchHistoryRates = async () => {
+        console.log('fetchHistoryRates被调用，selectedPair:', selectedPair);
+        if (!selectedPair) {
+            console.log('selectedPair为null，显示警告');
+            message.warning('请先选择币种对');
+            return;
+        }
+        setRateLoading(true);
+        const from = dateRange[0].format('YYYY-MM-DD');
+        const to = dateRange[1].format('YYYY-MM-DD');
+        console.log('请求参数:', { from, to, source: selectedPair.source, target: selectedPair.target });
         try {
-            await api.post('/wise/exchange-rates/fetch-history', {
-                days: 30,
-                group: 'day'
+            // 首先尝试从数据库获取数据
+            console.log('正在从数据库获取历史汇率数据...');
+            const dbRes = await api.get('/wise/exchange-rates/history', {
+                params: {
+                    source: selectedPair.source,
+                    target: selectedPair.target,
+                    from_time: from,
+                    to_time: to,
+                    group: 'day',
+                },
             });
-            message.success('历史汇率数据拉取成功');
-            // 重新获取当前选中的汇率历史
-            if (selectedPair) fetchRateHistory();
-        } catch (e) {
-            message.error('历史汇率数据拉取失败');
+            console.log('数据库响应:', dbRes.data);
+            console.log('dbRes.data类型:', typeof dbRes.data, '是否为数组:', Array.isArray(dbRes.data));
+            console.log('dbRes.data.data:', dbRes.data.data, '类型:', typeof dbRes.data.data, '是否为数组:', Array.isArray(dbRes.data.data));
+            console.log('dbRes.data.data长度:', dbRes.data.data?.length);
+            // 修正数据访问路径：直接使用 dbRes.data 而不是 dbRes.data.data
+            const dbData = Array.isArray(dbRes.data) ? dbRes.data : (dbRes.data?.data || []);
+            console.log('修正后的数据库数据:', dbData, '长度:', dbData.length);
+
+            if (dbData && dbData.length > 0) {
+                // 数据库有数据，直接显示
+                console.log('数据库有数据，设置rateHistory:', dbData);
+
+                // 数据清理：过滤掉无效的汇率数据
+                const validData = dbData.filter((item: any) =>
+                    item &&
+                    typeof item.rate === 'number' &&
+                    !isNaN(item.rate) &&
+                    item.rate > 0 &&
+                    item.time
+                );
+
+                console.log('数据清理后有效数据条数:', validData.length, '原始数据条数:', dbData.length);
+                if (validData.length < dbData.length) {
+                    console.log('过滤掉的无效数据:', dbData.filter((item: any) =>
+                        !item ||
+                        typeof item.rate !== 'number' ||
+                        isNaN(item.rate) ||
+                        item.rate <= 0 ||
+                        !item.time
+                    ));
+                }
+
+                setRateHistory(validData);
+                if (validData.length > 0) {
+                    setLatestRate(validData[validData.length - 1].rate);
+                }
+                message.success(`从数据库获取到 ${validData.length} 条有效历史汇率数据`);
+            } else {
+                // 数据库没有数据，从API获取
+                console.log('数据库无数据，从API获取...');
+                message.info('数据库中无数据，正在从API获取...');
+                const apiRes = await api.get('/wise/historical-rates', {
+                    params: {
+                        source: selectedPair.source,
+                        target: selectedPair.target,
+                        from_date: from,
+                        to_date: to,
+                        interval: 24,
+                    },
+                });
+                console.log('API响应:', apiRes.data);
+
+                // 修正API数据访问路径
+                const apiData = Array.isArray(apiRes.data) ? apiRes.data : (apiRes.data?.data || []);
+                console.log('修正后的API数据:', apiData, '长度:', apiData.length);
+
+                if (apiData && apiData.length > 0) {
+                    console.log('API有数据，设置rateHistory:', apiData);
+
+                    // 数据清理：过滤掉无效的汇率数据
+                    const validApiData = apiData.filter((item: any) =>
+                        item &&
+                        typeof item.rate === 'number' &&
+                        !isNaN(item.rate) &&
+                        item.rate > 0 &&
+                        item.time
+                    );
+
+                    console.log('API数据清理后有效数据条数:', validApiData.length, '原始数据条数:', apiData.length);
+
+                    setRateHistory(validApiData);
+                    setLatestRate(validApiData[validApiData.length - 1].rate);
+                    message.success(`从API获取到 ${validApiData.length} 条有效历史汇率数据`);
+                } else {
+                    console.log('API也无数据，设置空数组');
+                    setRateHistory([]);
+                    setLatestRate(null);
+                    message.info('API中也没有找到汇率历史数据');
+                }
+
+            }
+            // 再查数据库最新数据
+            const res = await api.get('/wise/stored-balances');
+            setBalances(res.data?.data || res.data || []);
+            setBalanceLoadTime(Date.now() - start);
+            message.success(`同步并获取到 ${res.data.count || 0} 条余额记录`);
+        } catch (e: any) {
+            console.error('获取汇率历史失败:', e);
+            message.error(`获取汇率历史失败: ${e.response?.data?.detail || e.message}`);
+            setRateHistory([]);
+            setLatestRate(null);
+        } finally {
+            setRateLoading(false);
         }
     };
 
@@ -245,7 +390,6 @@ const WiseManagement: React.FC = () => {
                 message.error(syncRes.data.message || '同步数据库失败');
                 setBalancesLoading(false);
                 return;
-
             }
             // 再查数据库最新数据
             const res = await api.get('/wise/stored-balances');
@@ -255,7 +399,6 @@ const WiseManagement: React.FC = () => {
         } catch (e: any) {
             setBalancesError(e.response?.data?.detail || '获取余额失败');
             message.error(`同步或获取余额失败: ${e.response?.data?.detail || e.message}`);
-
         } finally {
             setBalancesLoading(false);
         }
@@ -282,6 +425,7 @@ const WiseManagement: React.FC = () => {
                 startDate.setDate(startDate.getDate() - transactionDays);
                 params.from_date = startDate.toISOString().split('T')[0];
                 params.to_date = endDate.toISOString().split('T')[0];
+
             }
             const res = await api.get('/wise/stored-transactions', { params });
             setTransactions(res.data?.data || res.data || []);
@@ -292,48 +436,14 @@ const WiseManagement: React.FC = () => {
             message.error(`同步或获取交易记录失败: ${e.response?.data?.detail || e.message}`);
         } finally {
             setTransactionsLoading(false);
-        }
-    };
 
-    // 从API获取最新汇率历史数据
-    const fetchLatestRateHistory = async () => {
-        if (!selectedPair) {
-            message.warning('请先选择币种对');
-            return;
-        }
-
-        setRateLoading(true);
-        const from = dateRange[0].format('YYYY-MM-DD');
-        const to = dateRange[1].format('YYYY-MM-DD');
-        try {
-            const res = await api.get('/wise/historical-rates', {
-                params: {
-                    source: selectedPair.source,
-                    target: selectedPair.target,
-                    from_date: from,
-                    to_date: to,
-                    interval: 24,
-                },
-            });
-            setRateHistory(res.data.data || []);
-            if (res.data.data && res.data.data.length > 0) {
-                setLatestRate(res.data.data[res.data.data.length - 1].rate);
-                message.success(`从API获取到 ${res.data.data.length} 条最新汇率历史数据`);
-            } else {
-                setLatestRate(null);
-                message.info('API中没有找到汇率历史数据');
-            }
-        } catch (e: any) {
-            message.error(`从API获取汇率历史失败: ${e.response?.data?.detail || e.message}`);
-            setRateHistory([]);
-            setLatestRate(null);
         }
         setRateLoading(false);
     };
 
     // 页面加载后自动拉取一次历史汇率
     useEffect(() => {
-        if (selectedPair && rateHistory.length === 0) {
+        if (selectedPair) {
             fetchRateHistory();
         }
         // eslint-disable-next-line
@@ -616,98 +726,99 @@ const WiseManagement: React.FC = () => {
                 <TabPane tab="汇率查询" key="rates">
                     <div style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
                         {exchangeRatesLoadTime !== null ? `本次数据加载耗时：${exchangeRatesLoadTime} ms` : ''}
+
                     </div>
                     {exchangeRatesError && <Alert type="error" message={exchangeRatesError} showIcon style={{ marginBottom: 8 }} />}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-                        <span>源货币:</span>
-                        <Select style={{ width: 120 }} value={sourceCurrency} onChange={setSourceCurrency}>
-                            {currencyOptions.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
-                        </Select>
-                        <span>目标货币:</span>
-                        <Select style={{ width: 120 }} value={targetCurrency} onChange={setTargetCurrency}>
-                            {currencyOptions.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
-                        </Select>
-                        <Button onClick={fetchExchangeRate} loading={exchangeRatesLoading} icon={<ReloadOutlined />}>刷新汇率</Button>
-                    </div>
-                    {exchangeRates && (
-                        <Alert
-                            type="info"
-                            message={`1 ${sourceCurrency} = ${exchangeRates.rate} ${targetCurrency}`}
-                            description={`更新时间: ${exchangeRates.time ? formatDate(exchangeRates.time) : ''}`}
-                            showIcon
-                        />
-                    )}
+
+                    {/* 实时汇率查询区域 */}
+                    <Card style={{ marginBottom: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+                            <span>源货币:</span>
+                            <Select style={{ width: 120 }} value={sourceCurrency} onChange={setSourceCurrency}>
+                                {currencyOptions.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
+                            </Select>
+                            <span>目标货币:</span>
+                            <Select style={{ width: 120 }} value={targetCurrency} onChange={setTargetCurrency}>
+                                {currencyOptions.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
+                            </Select>
+                            <Button onClick={fetchExchangeRate} loading={exchangeRatesLoading} icon={<ReloadOutlined />}>刷新汇率</Button>
+                        </div>
+
+
+
+                        {Array.isArray(exchangeRates) && exchangeRates.length > 0 && (
+                            <Alert
+                                type="info"
+                                message={`1 ${sourceCurrency} = ${exchangeRates[0].rate} ${targetCurrency}`}
+                                description={`更新时间: ${exchangeRates[0].time ? formatDate(exchangeRates[0].time) : ''}`}
+                                showIcon
+                            />
+                        )}
+                    </Card>
+
+                    {/* 历史汇率图表区域 */}
+                    <Card>
+                        <div style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
+                            汇率历史最后同步时间：{
+                                Array.isArray(rateHistory) && rateHistory.length > 0
+                                    ? (rateHistory[rateHistory.length - 1]?.time || '-')
+                                    : '-'
+                            }
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+                            <div style={{ marginRight: 16, padding: 4, background: '#f0f0f0', borderRadius: 4 }}>
+                                selectedPair: {selectedPair ? JSON.stringify(selectedPair) : 'null'}
+                            </div>
+                            <Button
+                                type="primary"
+                                onClick={fetchHistoryRates}
+                                loading={rateLoading}
+                                style={{ marginRight: 16 }}
+                            >
+                                智能获取汇率
+                            </Button>
+                            <Select
+                                style={{ width: 180, marginRight: 16 }}
+                                value={selectedPair ? `${selectedPair.source}/${selectedPair.target}` : undefined}
+                                onChange={val => {
+                                    const [source, target] = val.split('/');
+                                    setSelectedPair({ source, target });
+                                }}
+                            >
+                                {ratePairs.map(pair => (
+                                    <Select.Option key={`${pair.source}/${pair.target}`} value={`${pair.source}/${pair.target}`}>{pair.source} / {pair.target}</Select.Option>
+                                ))}
+                            </Select>
+                            <DatePicker.RangePicker
+                                value={dateRange}
+                                onChange={(dates) => {
+                                    if (dates && dates[0] && dates[1]) {
+                                        setDateRange([dates[0], dates[1]]);
+                                    }
+                                }}
+                                style={{ marginRight: 16 }}
+                                format="YYYY-MM-DD"
+                                placeholder={['开始日期', '结束日期']}
+                            />
+                            <span>当前汇率：{latestRate !== null ? latestRate : '-'}</span>
+                        </div>
+
+                        {rateHistory.length === 0 ? (
+                            <div style={{ textAlign: 'center', color: '#aaa', padding: 32 }}>暂无数据</div>
+                        ) : (
+                            <Line
+                                loading={rateLoading}
+                                data={rateHistory}
+                                xField="time"
+                                yField="rate"
+                                point={{ size: 3 }}
+                                smooth
+                                height={320}
+                            />
+                        )}
+                    </Card>
                 </TabPane>
             </Tabs>
-
-            {/* 汇率历史可视化区域 */}
-            <Card style={{ marginTop: 24 }}>
-                {/* 最后同步时间展示 */}
-                <div style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
-                    汇率历史最后同步时间：{
-                        Array.isArray(rateHistory) && rateHistory.length > 0
-                            ? (rateHistory[rateHistory.length - 1]?.time || '-')
-                            : '-'
-                    }
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-                    <Button
-                        type="primary"
-                        onClick={fetchHistoryRates}
-                        style={{ marginRight: 16 }}
-                    >
-                        拉取历史汇率
-                    </Button>
-                    <Button
-                        onClick={fetchLatestRateHistory}
-                        loading={rateLoading}
-                        style={{ marginRight: 16 }}
-                    >
-                        从API获取最新汇率
-                    </Button>
-                    <Select
-                        style={{ width: 180, marginRight: 16 }}
-                        value={selectedPair ? `${selectedPair.source}/${selectedPair.target}` : undefined}
-                        onChange={val => {
-                            const [source, target] = val.split('/');
-                            setSelectedPair({ source, target });
-                        }}
-                    >
-                        {ratePairs.map(pair => (
-                            <Select.Option key={`${pair.source}/${pair.target}`} value={`${pair.source}/${pair.target}`}>{pair.source} / {pair.target}</Select.Option>
-                        ))}
-                    </Select>
-                    <DatePicker.RangePicker
-                        value={dateRange as any}
-                        onChange={range => setDateRange(range as [moment.Moment, moment.Moment])}
-                        style={{ marginRight: 16 }}
-                    />
-                    <span>当前汇率：{latestRate !== null ? latestRate : '-'}</span>
-                </div>
-                {/* 临时调试输出 */}
-                <pre style={{ color: '#aaa', fontSize: 12 }}>{JSON.stringify(rateHistory, null, 2)}</pre>
-                {rateHistory.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: '#aaa', padding: 32 }}>暂无数据</div>
-                ) : (
-                    <Line
-                        loading={rateLoading}
-                        data={rateHistory}
-                        xField="time"
-                        yField="rate"
-                        point={{ size: 3 }}
-                        tooltip={{ showMarkers: true }}
-                        xAxis={{
-                            type: 'time',
-                            label: { formatter: (v: string) => dayjs(v).format('MM-DD') },
-                        }}
-                        yAxis={{
-                            label: { formatter: (v: number) => v.toFixed(4) },
-                        }}
-                        smooth
-                        height={320}
-                    />
-                )}
-            </Card>
         </div>
     );
 };
