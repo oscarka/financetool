@@ -58,8 +58,6 @@ const WiseManagement: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>([dayjs().subtract(30, 'days'), dayjs()]);
     const [latestRate, setLatestRate] = useState<number | null>(null);
 
-    // 调试区域显示状态
-
 
     // 删除fetchData、fetchCardData相关的setLoading、setError、setTestLoading、setTestError等调用（如setLoading(true)、setError(null)等），只保留Tabs和下方区块原有逻辑，后续分步解耦。
 
@@ -123,6 +121,7 @@ const WiseManagement: React.FC = () => {
         }
     };
     useEffect(() => { fetchExchangeRate(); }, [sourceCurrency, targetCurrency]);
+
 
     // 概览/汇总独立加载
     useEffect(() => {
@@ -362,7 +361,13 @@ const WiseManagement: React.FC = () => {
                     setLatestRate(null);
                     message.info('API中也没有找到汇率历史数据');
                 }
+
             }
+            // 再查数据库最新数据
+            const res = await api.get('/wise/stored-balances');
+            setBalances(res.data?.data || res.data || []);
+            setBalanceLoadTime(Date.now() - start);
+            message.success(`同步并获取到 ${res.data.count || 0} 条余额记录`);
         } catch (e: any) {
             console.error('获取汇率历史失败:', e);
             message.error(`获取汇率历史失败: ${e.response?.data?.detail || e.message}`);
@@ -420,6 +425,7 @@ const WiseManagement: React.FC = () => {
                 startDate.setDate(startDate.getDate() - transactionDays);
                 params.from_date = startDate.toISOString().split('T')[0];
                 params.to_date = endDate.toISOString().split('T')[0];
+
             }
             const res = await api.get('/wise/stored-transactions', { params });
             setTransactions(res.data?.data || res.data || []);
@@ -430,7 +436,9 @@ const WiseManagement: React.FC = () => {
             message.error(`同步或获取交易记录失败: ${e.response?.data?.detail || e.message}`);
         } finally {
             setTransactionsLoading(false);
+
         }
+        setRateLoading(false);
     };
 
     // 页面加载后自动拉取一次历史汇率
@@ -656,6 +664,7 @@ const WiseManagement: React.FC = () => {
                     {balancesError && <Alert type="error" message={balancesError} showIcon style={{ marginBottom: 8 }} />}
                     <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
                         <Button onClick={fetchLatestBalances} loading={balancesLoading} type="default">同步API并写入数据库</Button>
+
                     </div>
                     {/* Debug: 展示原始balances数据 */}
                     <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f6f6f6', fontSize: 12, marginBottom: 8 }}>{JSON.stringify(balances, null, 2)}</pre>
@@ -676,6 +685,7 @@ const WiseManagement: React.FC = () => {
                     {transactionsError && <Alert type="error" message={transactionsError} showIcon style={{ marginBottom: 8 }} />}
                     <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
                         <Button onClick={fetchLatestTransactions} loading={transactionsLoading} type="default">同步API并写入数据库</Button>
+
                     </div>
                     {/* Debug: 展示原始transactions数据 */}
                     <pre style={{ maxHeight: 200, overflow: 'auto', background: '#f6f6f6', fontSize: 12, marginBottom: 8 }}>{JSON.stringify(transactions, null, 2)}</pre>
@@ -716,6 +726,7 @@ const WiseManagement: React.FC = () => {
                 <TabPane tab="汇率查询" key="rates">
                     <div style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
                         {exchangeRatesLoadTime !== null ? `本次数据加载耗时：${exchangeRatesLoadTime} ms` : ''}
+
                     </div>
                     {exchangeRatesError && <Alert type="error" message={exchangeRatesError} showIcon style={{ marginBottom: 8 }} />}
 
