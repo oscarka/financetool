@@ -3,8 +3,8 @@ import { Card, Button, Table, Tabs, Badge, Alert, Select, Row, Col, Statistic, T
 import { ReloadOutlined, BankOutlined, DollarCircleOutlined } from '@ant-design/icons';
 import api from '../services/api';
 import { Line } from '@ant-design/charts';
-
-import moment from 'moment';
+import type { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 
 const { TabPane } = Tabs;
 const { Option } = Select;
@@ -55,7 +55,7 @@ const WiseManagement: React.FC = () => {
     const [selectedPair, setSelectedPair] = useState<{ source: string, target: string } | null>(null);
     const [rateHistory, setRateHistory] = useState<any[]>([]);
     const [rateLoading, setRateLoading] = useState(false);
-    const [dateRange, setDateRange] = useState<[moment.Moment, moment.Moment]>([moment().subtract(30, 'days'), moment()]);
+    const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>([dayjs().subtract(30, 'days'), dayjs()]);
     const [latestRate, setLatestRate] = useState<number | null>(null);
 
     // 调试区域显示状态
@@ -779,9 +779,15 @@ const WiseManagement: React.FC = () => {
                                 ))}
                             </Select>
                             <DatePicker.RangePicker
-                                value={dateRange as any}
-                                onChange={range => setDateRange(range as [moment.Moment, moment.Moment])}
+                                value={dateRange}
+                                onChange={(dates) => {
+                                    if (dates && dates[0] && dates[1]) {
+                                        setDateRange([dates[0], dates[1]]);
+                                    }
+                                }}
                                 style={{ marginRight: 16 }}
+                                format="YYYY-MM-DD"
+                                placeholder={['开始日期', '结束日期']}
                             />
                             <span>当前汇率：{latestRate !== null ? latestRate : '-'}</span>
                         </div>
