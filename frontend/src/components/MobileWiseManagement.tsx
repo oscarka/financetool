@@ -51,7 +51,7 @@ const MobileWiseManagement: React.FC = () => {
   // 总资产
   const getTotalWorth = () => {
     if (!summary || !summary.balance_by_currency) return 0;
-    return Object.values(summary.balance_by_currency).reduce((a: any, b: any) => Number(a) + Number(b), 0);
+    return Object.values(summary.balance_by_currency as Record<string, number>).reduce((a: any, b: any) => Number(a) + Number(b), 0);
   };
 
   return (
