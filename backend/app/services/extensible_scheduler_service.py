@@ -44,19 +44,68 @@ class ExtensibleSchedulerService:
         self.event_bus.subscribe('wise.balance.synced', self._handle_wise_balance_synced)
         self.event_bus.subscribe('okx.balance.synced', self._handle_okx_balance_synced)
         self.event_bus.subscribe('ibkr.balance.synced', self._handle_ibkr_balance_synced)
+        self.event_bus.subscribe('web3.balance.synced', self._handle_web3_balance_synced)
         
     async def initialize(self):
-        """初始化调度器"""
+        """初始化调度器，并从配置文件加载任务"""
+        import os
+        import json
         try:
             # 加载插件
             await self._load_plugins()
-            
+
+            # ===== 新增：加载调度任务配置文件 =====
+            config_path = os.path.join(os.path.dirname(__file__), '../config/scheduler_tasks.json')
+            config_path = os.path.abspath(config_path)
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    tasks = json.load(f)
+                all_tasks = self.plugin_manager.get_tasks()
+                all_task_ids = {t['task_id']: t for t in all_tasks}
+                for task in tasks:
+                    if not task.get('enabled', True):
+                        continue
+                    # plugin路径转task_id（假设plugin_manager注册时task_id就是文件名）
+                    plugin_path = task['plugin']
+                    task_id = plugin_path.split('.')[-1]  # 例如 web3_balance_sync
+                    if task_id not in all_task_ids:
+                        logger.warning(f"调度任务配置中指定的task_id {task_id} 不存在于插件注册任务列表中，已跳过")
+                        continue
+                    # 解析cron表达式
+                    cron_expr = task['cron']
+                    try:
+                        from apscheduler.triggers.cron import CronTrigger
+                        cron_fields = cron_expr.strip().split()
+                        if len(cron_fields) == 5:
+                            trigger = CronTrigger(minute=cron_fields[0], hour=cron_fields[1], day=cron_fields[2], month=cron_fields[3], day_of_week=cron_fields[4])
+                        elif len(cron_fields) == 6:
+                            trigger = CronTrigger(second=cron_fields[0], minute=cron_fields[1], hour=cron_fields[2], day=cron_fields[3], month=cron_fields[4], day_of_week=cron_fields[5])
+                        else:
+                            logger.error(f"无效的cron表达式: {cron_expr}")
+                            continue
+                    except Exception as e:
+                        logger.error(f"解析cron表达式失败: {cron_expr}, 错误: {e}")
+                        continue
+                    # 注册任务
+                    self.scheduler.add_job(
+                        func=self._execute_task_wrapper,
+                        trigger=trigger,
+                        args=[task_id, task.get('args', {})],
+                        id=task['id'],
+                        name=task.get('name', task_id),
+                        replace_existing=True
+                    )
+                    logger.info(f"已注册调度任务: {task['id']} ({task.get('name', task_id)}) [{cron_expr}]")
+            else:
+                logger.warning(f"未找到调度任务配置文件: {config_path}")
+            # ===== 结束 =====
+
             # 启动调度器
             self.scheduler.start()
-            
+
             # 启动事件总线
             logger.info("可扩展调度器初始化完成")
-            
+
         except Exception as e:
             logger.error(f"可扩展调度器初始化失败: {e}")
             raise
@@ -289,6 +338,10 @@ class ExtensibleSchedulerService:
     async def _handle_ibkr_balance_synced(self, event: Dict[str, Any]):
         """处理IBKR余额同步事件"""
         logger.info(f"IBKR余额已同步: {event['data']['account_count']} 个账户")
+        
+    async def _handle_web3_balance_synced(self, event: Dict[str, Any]):
+        """处理Web3余额同步事件"""
+        logger.info(f"Web3余额已同步: 总余额 {event['data']['total_balance']}")
         
     async def shutdown(self):
         """关闭调度器"""

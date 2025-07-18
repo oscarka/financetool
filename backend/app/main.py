@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.settings import settings
 from app.utils.database import init_database, get_data_directory, get_database_path
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx
 from app.services.extensible_scheduler_service import ExtensibleSchedulerService
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
@@ -173,6 +173,13 @@ app.include_router(
     config.router,
     prefix=f"{settings.api_v1_prefix}/config",
     tags=["配置管理"]
+)
+
+# 注册OKX管理接口
+app.include_router(
+    okx.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["OKX管理"]
 )
 
 

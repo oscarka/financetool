@@ -2,28 +2,28 @@ import React, { useState, useEffect } from 'react';
 import {
     Card,
     Button,
-    
+
     Tabs,
-    
+
     Alert,
     Row,
     Col,
     Statistic,
     Tag,
-    
+
     message,
     Modal,
     Form,
     Input,
     Switch,
     InputNumber,
-    
+
     Space,
-    
+
     Typography,
     Descriptions,
-    
-    
+
+
     Drawer,
     Timeline,
     Popconfirm
@@ -55,17 +55,17 @@ const ConfigManagement: React.FC = () => {
     const [validationResult, setValidationResult] = useState<ConfigValidationResult | null>(null);
     const [environmentInfo, setEnvironmentInfo] = useState<EnvironmentInfo | null>(null);
     const [configHistory, setConfigHistory] = useState<any[]>([]);
-    
+
     // 模态框状态
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [importModalVisible, setImportModalVisible] = useState(false);
     const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
     const [environmentDrawerVisible, setEnvironmentDrawerVisible] = useState(false);
-    
+
     // 表单状态
     const [editForm] = Form.useForm();
     const [importForm] = Form.useForm();
-    
+
     // 加载状态
     const [configLoading, setConfigLoading] = useState(true);
     const [validationLoading, setValidationLoading] = useState(false);
@@ -285,9 +285,10 @@ const ConfigManagement: React.FC = () => {
                                 config?.okx_api_configured,
                                 config?.wise_api_configured,
                                 config?.paypal_api_configured,
-                                config?.ibkr_api_configured
+                                config?.ibkr_api_configured,
+                                config?.web3_api_configured // 新增Web3
                             ].filter(Boolean).length}
-                            suffix={`/ 4`}
+                            suffix="/ 5"
                             prefix={<ApiOutlined />}
                         />
                     </Card>
@@ -403,6 +404,12 @@ const ConfigManagement: React.FC = () => {
                                     {config?.ibkr_api_configured ? '已配置' : '未配置'}
                                 </Tag>
                             </div>
+                            <div>
+                                <Text>Web3 API: </Text>
+                                <Tag color={config?.web3_api_configured ? 'green' : 'red'}>
+                                    {config?.web3_api_configured ? '已配置' : '未配置'}
+                                </Tag>
+                            </div>
                         </Space>
                     </Card>
                 </Col>
@@ -470,7 +477,7 @@ const ConfigManagement: React.FC = () => {
                     showIcon
                     style={{ marginBottom: 16 }}
                 />
-                
+
                 {validationResult.errors.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
                         <Title level={5}>错误:</Title>
@@ -481,7 +488,7 @@ const ConfigManagement: React.FC = () => {
                         </ul>
                     </div>
                 )}
-                
+
                 {validationResult.warnings.length > 0 && (
                     <div>
                         <Title level={5}>警告:</Title>
@@ -500,48 +507,48 @@ const ConfigManagement: React.FC = () => {
         <div>
             <div style={{ marginBottom: 16 }}>
                 <Space>
-                    <Button 
-                        type="primary" 
-                        icon={<ReloadOutlined />} 
+                    <Button
+                        type="primary"
+                        icon={<ReloadOutlined />}
                         onClick={loadConfig}
                         loading={configLoading}
                     >
                         刷新配置
                     </Button>
-                    <Button 
-                        icon={<CheckCircleOutlined />} 
+                    <Button
+                        icon={<CheckCircleOutlined />}
                         onClick={validateConfig}
                         loading={validationLoading}
                     >
                         验证配置
                     </Button>
-                    <Button 
-                        icon={<ReloadOutlined />} 
+                    <Button
+                        icon={<ReloadOutlined />}
                         onClick={reloadConfig}
                         loading={loading}
                     >
                         重新加载
                     </Button>
-                    <Button 
-                        icon={<ExportOutlined />} 
+                    <Button
+                        icon={<ExportOutlined />}
                         onClick={exportConfig}
                     >
                         导出配置
                     </Button>
-                    <Button 
-                        icon={<ImportOutlined />} 
+                    <Button
+                        icon={<ImportOutlined />}
                         onClick={() => setImportModalVisible(true)}
                     >
                         导入配置
                     </Button>
-                    <Button 
-                        icon={<HistoryOutlined />} 
+                    <Button
+                        icon={<HistoryOutlined />}
                         onClick={viewConfigHistory}
                     >
                         配置历史
                     </Button>
-                    <Button 
-                        icon={<EnvironmentOutlined />} 
+                    <Button
+                        icon={<EnvironmentOutlined />}
                         onClick={() => setEnvironmentDrawerVisible(true)}
                     >
                         环境信息
@@ -552,8 +559,8 @@ const ConfigManagement: React.FC = () => {
                         okText="确定"
                         cancelText="取消"
                     >
-                        <Button 
-                            danger 
+                        <Button
+                            danger
                             icon={<UndoOutlined />}
                         >
                             重置配置
@@ -724,7 +731,7 @@ const ConfigManagement: React.FC = () => {
                                 <Descriptions.Item label="磁盘使用">{environmentInfo.system_info.disk_usage}</Descriptions.Item>
                             </Descriptions>
                         </Card>
-                        
+
                         <Card title="环境变量">
                             {Object.entries(environmentInfo.env_variables).map(([key, value]) => (
                                 <div key={key} style={{ marginBottom: 8 }}>

@@ -367,3 +367,191 @@ Index('idx_ibkr_positions_date', IBKRPosition.snapshot_date)
 Index('idx_ibkr_sync_logs_status', IBKRSyncLog.status)
 Index('idx_ibkr_sync_logs_date', IBKRSyncLog.created_at)
 Index('idx_ibkr_sync_logs_account', IBKRSyncLog.account_id) 
+
+# OKX相关模型
+class OKXBalance(Base):
+    """OKX余额表"""
+    __tablename__ = "okx_balances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    currency = Column(String(10), nullable=False, index=True)
+    available_balance = Column(DECIMAL(15, 8), nullable=False, default=0)
+    frozen_balance = Column(DECIMAL(15, 8), nullable=False, default=0)
+    total_balance = Column(DECIMAL(15, 8), nullable=False, default=0)
+    account_type = Column(String(20), nullable=False, default="trading")  # trading, funding, savings
+    update_time = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('account_id', 'currency', 'account_type', name='uq_okx_balance'),
+        Index('idx_okx_balance_currency', 'currency'),
+        Index('idx_okx_balance_account_type', 'account_type'),
+    )
+
+
+class OKXTransaction(Base):
+    """OKX交易记录表"""
+    __tablename__ = "okx_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(String(100), unique=True, nullable=False, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    inst_type = Column(String(20), nullable=False)  # SPOT, MARGIN, SWAP, FUTURES
+    inst_id = Column(String(50), nullable=False, index=True)  # 产品ID，如BTC-USDT
+    trade_id = Column(String(100), nullable=True)
+    order_id = Column(String(100), nullable=True)
+    bill_id = Column(String(100), nullable=True)
+    type = Column(String(20), nullable=False)  # 1: 转入, 2: 转出, 3: 开多, 4: 开空, 5: 平多, 6: 平空, 7: 强平, 8: 资金费, 9: 自动减仓, 10: 穿仓补偿, 11: 系统换币, 12: 策略委托, 13: 对冲减仓, 14: 大宗交易, 15: 自动换币, 16: 自动减仓, 17: 自动减仓, 18: 自动减仓, 19: 自动减仓, 20: 自动减仓
+    side = Column(String(10), nullable=True)  # buy, sell
+    amount = Column(DECIMAL(15, 8), nullable=False, default=0)
+    currency = Column(String(10), nullable=False, index=True)
+    fee = Column(DECIMAL(15, 8), nullable=False, default=0)
+    fee_currency = Column(String(10), nullable=True)
+    price = Column(DECIMAL(15, 8), nullable=True)
+    quantity = Column(DECIMAL(15, 8), nullable=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('transaction_id', name='uq_okx_transaction'),
+        Index('idx_okx_transaction_timestamp', 'timestamp'),
+        Index('idx_okx_transaction_inst_id', 'inst_id'),
+        Index('idx_okx_transaction_type', 'type'),
+    )
+
+
+class OKXPosition(Base):
+    """OKX持仓表"""
+    __tablename__ = "okx_positions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(String(50), nullable=False, index=True)
+    inst_type = Column(String(20), nullable=False)  # SPOT, MARGIN, SWAP, FUTURES
+    inst_id = Column(String(50), nullable=False, index=True)  # 产品ID
+    position_side = Column(String(10), nullable=False)  # long, short
+    position_id = Column(String(100), nullable=False)
+    quantity = Column(DECIMAL(15, 8), nullable=False, default=0)
+    avg_price = Column(DECIMAL(15, 8), nullable=False, default=0)
+    unrealized_pnl = Column(DECIMAL(15, 8), nullable=False, default=0)
+    realized_pnl = Column(DECIMAL(15, 8), nullable=False, default=0)
+    margin_ratio = Column(DECIMAL(15, 8), nullable=True)
+    leverage = Column(DECIMAL(15, 8), nullable=True)
+    mark_price = Column(DECIMAL(15, 8), nullable=True)
+    liquidation_price = Column(DECIMAL(15, 8), nullable=True)
+    currency = Column(String(10), nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('account_id', 'inst_id', 'position_side', 'timestamp', name='uq_okx_position'),
+        Index('idx_okx_position_inst_id', 'inst_id'),
+        Index('idx_okx_position_timestamp', 'timestamp'),
+    )
+
+
+class OKXMarketData(Base):
+    """OKX市场数据表"""
+    __tablename__ = "okx_market_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    inst_id = Column(String(50), nullable=False, index=True)  # 产品ID
+    inst_type = Column(String(20), nullable=False)  # SPOT, MARGIN, SWAP, FUTURES
+    last_price = Column(DECIMAL(20, 8), nullable=False)  # 增加精度以支持大数值
+    bid_price = Column(DECIMAL(20, 8), nullable=True)
+    ask_price = Column(DECIMAL(20, 8), nullable=True)
+    high_24h = Column(DECIMAL(20, 8), nullable=True)
+    low_24h = Column(DECIMAL(20, 8), nullable=True)
+    volume_24h = Column(DECIMAL(20, 8), nullable=True)
+    change_24h = Column(DECIMAL(20, 8), nullable=True)
+    change_rate_24h = Column(DECIMAL(20, 8), nullable=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('inst_id', 'inst_type', 'timestamp', name='uq_okx_market_data'),
+    )
+
+
+class OKXAccountOverview(Base):
+    """OKX账户总览表"""
+    __tablename__ = "okx_account_overview"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    trading_total_usd = Column(DECIMAL(15, 8), nullable=False, default=0)  # 交易账户总资产(USD)
+    funding_total_usd = Column(DECIMAL(15, 8), nullable=False, default=0)  # 资金账户总资产(USD)
+    savings_total_usd = Column(DECIMAL(15, 8), nullable=False, default=0)  # 储蓄账户总资产(USD)
+    total_assets_usd = Column(DECIMAL(15, 8), nullable=False, default=0)  # 总资产(USD)
+    total_currencies = Column(Integer, nullable=False, default=0)  # 总币种数
+    trading_currencies_count = Column(Integer, nullable=False, default=0)  # 交易账户币种数
+    funding_currencies_count = Column(Integer, nullable=False, default=0)  # 资金账户币种数
+    savings_currencies_count = Column(Integer, nullable=False, default=0)  # 储蓄账户币种数
+    last_update = Column(DateTime, nullable=False, index=True)
+    data_source = Column(String(20), nullable=False, default="api")  # api, database
+    created_at = Column(DateTime, default=func.now())
+
+
+class Web3Balance(Base):
+    """Web3余额表"""
+    __tablename__ = "web3_balances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(String(100), nullable=False, index=True)
+    account_id = Column(String(100), nullable=False, index=True)
+    total_value = Column(DECIMAL(20, 8), nullable=False, default=0)  # 总价值
+    currency = Column(String(10), nullable=False, default="USD")  # 货币单位
+    update_time = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('project_id', 'account_id', 'update_time', name='uq_web3_balance'),
+    )
+
+
+class Web3Token(Base):
+    """Web3代币表"""
+    __tablename__ = "web3_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(String(100), nullable=False, index=True)
+    account_id = Column(String(100), nullable=False, index=True)
+    token_symbol = Column(String(20), nullable=False, index=True)  # 代币符号
+    token_name = Column(String(100), nullable=False)  # 代币名称
+    token_address = Column(String(100), nullable=True)  # 代币合约地址
+    balance = Column(DECIMAL(20, 8), nullable=False, default=0)  # 余额
+    value_usd = Column(DECIMAL(20, 8), nullable=False, default=0)  # USD价值
+    price_usd = Column(DECIMAL(20, 8), nullable=True)  # USD价格
+    update_time = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('project_id', 'account_id', 'token_symbol', 'update_time', name='uq_web3_token'),
+    )
+
+
+class Web3Transaction(Base):
+    """Web3交易记录表"""
+    __tablename__ = "web3_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(String(100), nullable=False, index=True)
+    account_id = Column(String(100), nullable=False, index=True)
+    transaction_hash = Column(String(100), unique=True, nullable=False, index=True)  # 交易哈希
+    block_number = Column(Integer, nullable=True)  # 区块号
+    from_address = Column(String(100), nullable=True)  # 发送地址
+    to_address = Column(String(100), nullable=True)  # 接收地址
+    token_symbol = Column(String(20), nullable=True, index=True)  # 代币符号
+    amount = Column(DECIMAL(20, 8), nullable=False, default=0)  # 金额
+    value_usd = Column(DECIMAL(20, 8), nullable=True)  # USD价值
+    gas_used = Column(DECIMAL(20, 8), nullable=True)  # Gas使用量
+    gas_price = Column(DECIMAL(20, 8), nullable=True)  # Gas价格
+    transaction_type = Column(String(50), nullable=True)  # 交易类型
+    status = Column(String(20), nullable=False, default="success")  # 交易状态
+    timestamp = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('transaction_hash', name='uq_web3_transaction'),
+    )
+
+# OKX索引 - 这些索引已经在__table_args__中定义，这里不需要重复定义 

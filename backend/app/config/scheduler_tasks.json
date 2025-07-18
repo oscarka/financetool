@@ -1,0 +1,130 @@
+[
+    {
+        "id": "fund_nav_update",
+        "name": "基金净值更新",
+        "cron": "0 23 * * *",
+        "plugin": "financial_operations.tasks.fund_nav_update",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "dca_execute",
+        "name": "定投执行",
+        "cron": "0 10 * * 1-5",
+        "plugin": "financial_operations.tasks.dca_execute",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "fund_position_sync_afternoon",
+        "name": "基金持仓同步（15点）",
+        "cron": "0 15 * * *",
+        "plugin": "financial_operations.tasks.fund_position_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "fund_position_sync_evening",
+        "name": "基金持仓同步（20点）",
+        "cron": "0 20 * * *",
+        "plugin": "financial_operations.tasks.fund_position_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "wise_balance_sync",
+        "name": "Wise余额同步",
+        "cron": "0 18 * * *",
+        "plugin": "financial_operations.tasks.wise_balance_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "wise_transaction_sync",
+        "name": "Wise交易同步",
+        "cron": "0 18 * * *",
+        "plugin": "financial_operations.tasks.wise_transaction_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "wise_exchange_rate_sync",
+        "name": "Wise汇率同步",
+        "cron": "0 18 * * *",
+        "plugin": "financial_operations.tasks.wise_exchange_rate_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "okx_balance_sync",
+        "name": "OKX余额同步",
+        "cron": "0 18 * * *",
+        "plugin": "financial_operations.tasks.okx_balance_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "okx_position_sync",
+        "name": "OKX持仓同步",
+        "cron": "0 18 * * *",
+        "plugin": "financial_operations.tasks.okx_position_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "okx_market_data_sync",
+        "name": "OKX市场数据同步",
+        "cron": "0 18 * * *",
+        "plugin": "financial_operations.tasks.okx_market_data_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "crypto_exchange_rate_cache",
+        "name": "数字货币汇率缓存",
+        "cron": "*/5 * * * *",
+        "plugin": "financial_operations.tasks.crypto_exchange_rate_cache",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "ibkr_balance_sync_morning",
+        "name": "IBKR余额同步（早8点）",
+        "cron": "0 8 * * *",
+        "plugin": "financial_operations.tasks.ibkr_balance_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "ibkr_balance_sync_evening",
+        "name": "IBKR余额同步（晚19点）",
+        "cron": "0 19 * * *",
+        "plugin": "financial_operations.tasks.ibkr_balance_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "ibkr_position_sync_morning",
+        "name": "IBKR持仓同步（早8点）",
+        "cron": "0 8 * * *",
+        "plugin": "financial_operations.tasks.ibkr_position_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "ibkr_position_sync_evening",
+        "name": "IBKR持仓同步（晚19点）",
+        "cron": "0 19 * * *",
+        "plugin": "financial_operations.tasks.ibkr_position_sync",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "web3_balance_sync",
+        "name": "Web3余额同步",
+        "cron": "*/30 * * * *",
+        "plugin": "financial_operations.tasks.web3_balance_sync",
+        "args": {},
+        "enabled": true
+    }
+]

@@ -78,6 +78,12 @@ class FinancialOperationsPlugin(BaseTaskPlugin):
                 "description": "同步OKX市场行情数据",
                 "class": "app.plugins.financial_operations.tasks.okx_market_data_sync.OKXMarketDataSyncTask"
             },
+            {
+                "task_id": "crypto_exchange_rate_cache",
+                "name": "数字货币汇率缓存",
+                "description": "缓存用户持有的数字货币对USDT汇率",
+                "class": "app.plugins.financial_operations.tasks.crypto_exchange_rate_cache.CryptoExchangeRateCacheTask"
+            },
             
             # IBKR相关任务
             {
@@ -91,6 +97,14 @@ class FinancialOperationsPlugin(BaseTaskPlugin):
                 "name": "IBKR持仓同步",
                 "description": "同步IBKR持仓信息",
                 "class": "app.plugins.financial_operations.tasks.ibkr_position_sync.IBKRPositionSyncTask"
+            },
+            
+            # Web3相关任务
+            {
+                "task_id": "web3_balance_sync",
+                "name": "Web3余额同步",
+                "description": "同步Web3账户余额信息",
+                "class": "app.plugins.financial_operations.tasks.web3_balance_sync.Web3BalanceSyncTask"
             },
             
             # 数据处理任务

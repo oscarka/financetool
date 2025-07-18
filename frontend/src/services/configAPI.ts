@@ -9,36 +9,37 @@ export interface ConfigInfo {
     cors_origins: string[]
     log_level: string
     log_file: string
-    
+
     // API配置
     fund_api_timeout: number
     fund_api_retry_times: number
-    
+
     // 第三方API配置
     okx_api_configured: boolean
     wise_api_configured: boolean
     paypal_api_configured: boolean
     ibkr_api_configured: boolean
-    
+    web3_api_configured: boolean
+
     // 调度器配置
     enable_scheduler: boolean
     scheduler_timezone: string
-    
+
     // 安全配置
     security_enable_rate_limiting: boolean
     security_rate_limit_per_minute: number
-    
+
     // 性能配置
     performance_monitoring_enabled: boolean
     performance_sampling_rate: number
     cache_enabled: boolean
     cache_default_ttl: number
-    
+
     // 数据同步配置
     sync_batch_size: number
     sync_max_retries: number
     sync_retry_delay: number
-    
+
     // 系统配置
     notification_enabled: boolean
     backup_enabled: boolean

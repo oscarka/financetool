@@ -135,12 +135,12 @@ class OKXAPIService:
 
     @auto_log("system")
     async def get_config(self) -> Dict[str, Any]:
-        """获取当前配置信息"""
+        """获取OKX API配置信息"""
         return {
             "api_configured": bool(self.api_key and self.secret_key and self.passphrase),
             "sandbox_mode": self.sandbox,
             "base_url": self.base_url,
-            "api_key_prefix": self.api_key[:10] + "..." if self.api_key else "未配置"
+            "api_key_prefix": self.api_key[:10] + "..." if self.api_key else None
         }
 
     @auto_log("system")
@@ -194,4 +194,461 @@ class OKXAPIService:
         params = {}
         if ccy:
             params['ccy'] = ccy
-        return await self._make_request('GET', '/api/v5/finance/savings/balance', params=params) 
+        return await self._make_request('GET', '/api/v5/finance/savings/balance', params=params)
+
+    @auto_log("okx", log_result=True)
+    async def get_positions(self, inst_type: str = None) -> Optional[Dict[str, Any]]:
+        """获取持仓信息 (GET /api/v5/account/positions)"""
+        if not self._validate_config():
+            return None
+        params = {}
+        if inst_type:
+            params['instType'] = inst_type
+        return await self._make_request('GET', '/api/v5/account/positions', params=params)
+
+    @auto_log("okx", log_result=True)
+    async def get_trades(self, inst_id: str = None, limit: int = 100) -> Optional[Dict[str, Any]]:
+        """获取成交记录 (GET /api/v5/trade/orders-pending)"""
+        if not self._validate_config():
+            return None
+        params = {'limit': str(limit)}
+        if inst_id:
+            params['instId'] = inst_id
+        return await self._make_request('GET', '/api/v5/trade/orders-pending', params=params)
+
+    @auto_log("database", log_result=True)
+    async def sync_balances_to_db(self) -> Dict[str, Any]:
+        """同步OKX余额数据到数据库"""
+        from app.models.database import OKXBalance
+        from app.utils.database import SessionLocal
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            # 获取交易账户余额
+            trading_balances = await self.get_account_balance()
+            # 获取资金账户余额
+            asset_balances = await self.get_asset_balances()
+            # 获取储蓄账户余额
+            savings_balances = await self.get_savings_balance()
+            
+            total_updated = 0
+            total_inserted = 0
+            
+            # 处理交易账户余额
+            if trading_balances and trading_balances.get('data'):
+                for account in trading_balances['data']:
+                    if 'details' in account:
+                        for detail in account['details']:
+                            balance_data = {
+                                "account_id": account.get('acctId', 'trading'),
+                                "currency": detail.get('ccy', ''),
+                                "available_balance": float(detail.get('availBal', 0)),
+                                "frozen_balance": float(detail.get('frozenBal', 0)),
+                                "total_balance": float(detail.get('eq', 0)),
+                                "account_type": "trading",
+                                "update_time": datetime.now()
+                            }
+                            
+                            # 检查是否已存在
+                            existing = db.query(OKXBalance).filter_by(
+                                account_id=balance_data["account_id"],
+                                currency=balance_data["currency"],
+                                account_type=balance_data["account_type"]
+                            ).first()
+                            
+                            if existing:
+                                # 更新现有记录
+                                for key, value in balance_data.items():
+                                    if key not in ['account_id', 'currency', 'account_type']:
+                                        setattr(existing, key, value)
+                                total_updated += 1
+                            else:
+                                # 插入新记录
+                                new_balance = OKXBalance(**balance_data)
+                                db.add(new_balance)
+                                total_inserted += 1
+            
+            # 处理资金账户余额
+            if asset_balances and asset_balances.get('data'):
+                for balance in asset_balances['data']:
+                    balance_data = {
+                        "account_id": "funding",
+                        "currency": balance.get('ccy', ''),
+                        "available_balance": float(balance.get('availBal', 0)),
+                        "frozen_balance": float(balance.get('frozenBal', 0)),
+                        "total_balance": float(balance.get('bal', 0)),
+                        "account_type": "funding",
+                        "update_time": datetime.now()
+                    }
+                    
+                    # 检查是否已存在
+                    existing = db.query(OKXBalance).filter_by(
+                        account_id=balance_data["account_id"],
+                        currency=balance_data["currency"],
+                        account_type=balance_data["account_type"]
+                    ).first()
+                    
+                    if existing:
+                        # 更新现有记录
+                        for key, value in balance_data.items():
+                            if key not in ['account_id', 'currency', 'account_type']:
+                                setattr(existing, key, value)
+                        total_updated += 1
+                    else:
+                        # 插入新记录
+                        new_balance = OKXBalance(**balance_data)
+                        db.add(new_balance)
+                        total_inserted += 1
+            
+            # 处理储蓄账户余额
+            if savings_balances and savings_balances.get('data'):
+                for balance in savings_balances['data']:
+                    balance_data = {
+                        "account_id": "savings",
+                        "currency": balance.get('ccy', ''),
+                        "available_balance": float(balance.get('amt', 0)),
+                        "frozen_balance": 0,
+                        "total_balance": float(balance.get('amt', 0)),
+                        "account_type": "savings",
+                        "update_time": datetime.now()
+                    }
+                    
+                    # 检查是否已存在
+                    existing = db.query(OKXBalance).filter_by(
+                        account_id=balance_data["account_id"],
+                        currency=balance_data["currency"],
+                        account_type=balance_data["account_type"]
+                    ).first()
+                    
+                    if existing:
+                        # 更新现有记录
+                        for key, value in balance_data.items():
+                            if key not in ['account_id', 'currency', 'account_type']:
+                                setattr(existing, key, value)
+                        total_updated += 1
+                    else:
+                        # 插入新记录
+                        new_balance = OKXBalance(**balance_data)
+                        db.add(new_balance)
+                        total_inserted += 1
+            
+            db.commit()
+            
+            return {
+                "success": True, 
+                "message": f"余额同步完成，更新{total_updated}条，新增{total_inserted}条",
+                "total_updated": total_updated,
+                "total_inserted": total_inserted
+            }
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"同步OKX余额数据失败: {e}")
+            return {"success": False, "message": f"同步失败: {str(e)}"}
+        finally:
+            db.close()
+
+    @auto_log("database", log_result=True)
+    async def sync_transactions_to_db(self, days: int = 30) -> Dict[str, Any]:
+        """同步OKX交易记录到数据库"""
+        from app.models.database import OKXTransaction
+        from app.utils.database import SessionLocal
+        from datetime import datetime, timedelta
+        
+        db = SessionLocal()
+        try:
+            # 获取账单流水
+            bills = await self.get_bills(limit=1000)
+            
+            if not bills or not bills.get('data'):
+                return {"success": False, "message": "未获取到交易数据"}
+            
+            total_new = 0
+            total_updated = 0
+            
+            # 计算时间范围
+            end_time = datetime.now()
+            start_time = end_time - timedelta(days=days)
+            
+            for bill in bills['data']:
+                # 解析时间戳
+                bill_time = datetime.fromisoformat(bill.get('ts', '').replace('Z', '+00:00'))
+                
+                # 只处理指定时间范围内的记录
+                if bill_time < start_time:
+                    continue
+                
+                # 准备交易数据
+                transaction_data = {
+                    "transaction_id": bill.get('billId', ''),
+                    "account_id": bill.get('acctId', ''),
+                    "inst_type": bill.get('instType', ''),
+                    "inst_id": bill.get('instId', ''),
+                    "trade_id": bill.get('tradeId'),
+                    "order_id": bill.get('ordId'),
+                    "bill_id": bill.get('billId'),
+                    "type": bill.get('type', ''),
+                    "side": bill.get('side'),
+                    "amount": float(bill.get('bal', 0)),
+                    "currency": bill.get('ccy', ''),
+                    "fee": float(bill.get('fee', 0)),
+                    "fee_currency": bill.get('feeCcy'),
+                    "price": float(bill.get('px', 0)) if bill.get('px') else None,
+                    "quantity": float(bill.get('sz', 0)) if bill.get('sz') else None,
+                    "timestamp": bill_time
+                }
+                
+                # 检查是否已存在
+                existing = db.query(OKXTransaction).filter_by(
+                    transaction_id=transaction_data["transaction_id"]
+                ).first()
+                
+                if existing:
+                    # 更新现有记录
+                    for key, value in transaction_data.items():
+                        if key != 'transaction_id':  # 不更新唯一键
+                            setattr(existing, key, value)
+                    total_updated += 1
+                else:
+                    # 插入新记录
+                    new_tx = OKXTransaction(**transaction_data)
+                    db.add(new_tx)
+                    total_new += 1
+            
+            db.commit()
+            
+            return {
+                "success": True, 
+                "message": f"交易记录同步完成，新增{total_new}条，更新{total_updated}条",
+                "total_new": total_new,
+                "total_updated": total_updated
+            }
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"同步OKX交易记录失败: {e}")
+            return {"success": False, "message": f"同步失败: {str(e)}"}
+        finally:
+            db.close()
+
+    @auto_log("database", log_result=True)
+    async def sync_positions_to_db(self) -> Dict[str, Any]:
+        """同步OKX持仓数据到数据库"""
+        from app.models.database import OKXPosition
+        from app.utils.database import SessionLocal
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            # 获取持仓信息
+            positions = await self.get_positions()
+            
+            if not positions or not positions.get('data'):
+                return {"success": False, "message": "未获取到持仓数据"}
+            
+            total_new = 0
+            total_updated = 0
+            current_time = datetime.now()
+            
+            for position in positions['data']:
+                # 准备持仓数据
+                position_data = {
+                    "account_id": position.get('acctId', ''),
+                    "inst_type": position.get('instType', ''),
+                    "inst_id": position.get('instId', ''),
+                    "position_side": position.get('posSide', ''),
+                    "position_id": position.get('posId', ''),
+                    "quantity": float(position.get('pos', 0)),
+                    "avg_price": float(position.get('avgPx', 0)),
+                    "unrealized_pnl": float(position.get('upl', 0)),
+                    "realized_pnl": float(position.get('realizedPnl', 0)),
+                    "margin_ratio": float(position.get('mgnRatio', 0)) if position.get('mgnRatio') else None,
+                    "leverage": float(position.get('lever', 0)) if position.get('lever') else None,
+                    "mark_price": float(position.get('markPx', 0)) if position.get('markPx') else None,
+                    "liquidation_price": float(position.get('liqPx', 0)) if position.get('liqPx') else None,
+                    "currency": position.get('ccy', ''),
+                    "timestamp": current_time
+                }
+                
+                # 检查是否已存在
+                existing = db.query(OKXPosition).filter_by(
+                    account_id=position_data["account_id"],
+                    inst_id=position_data["inst_id"],
+                    position_side=position_data["position_side"],
+                    timestamp=position_data["timestamp"]
+                ).first()
+                
+                if existing:
+                    # 更新现有记录
+                    for key, value in position_data.items():
+                        if key not in ['account_id', 'inst_id', 'position_side', 'timestamp']:
+                            setattr(existing, key, value)
+                    total_updated += 1
+                else:
+                    # 插入新记录
+                    new_position = OKXPosition(**position_data)
+                    db.add(new_position)
+                    total_new += 1
+            
+            db.commit()
+            
+            return {
+                "success": True, 
+                "message": f"持仓数据同步完成，新增{total_new}条，更新{total_updated}条",
+                "total_new": total_new,
+                "total_updated": total_updated
+            }
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"同步OKX持仓数据失败: {e}")
+            return {"success": False, "message": f"同步失败: {str(e)}"}
+        finally:
+            db.close()
+
+    @auto_log("database", log_result=True)
+    async def sync_market_data_to_db(self, inst_ids: List[str] = None) -> Dict[str, Any]:
+        """同步OKX市场数据到数据库"""
+        from app.models.database import OKXMarketData
+        from app.utils.database import SessionLocal
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            # 如果没有指定产品，获取所有SPOT产品
+            if not inst_ids:
+                instruments = await self.get_instruments('SPOT')
+                if instruments and instruments.get('data'):
+                    inst_ids = [inst['instId'] for inst in instruments['data'][:50]]  # 限制数量
+                else:
+                    inst_ids = ['BTC-USDT', 'ETH-USDT', 'LTC-USDT']  # 默认产品
+            
+            total_new = 0
+            total_updated = 0
+            current_time = datetime.now()
+            
+            for inst_id in inst_ids:
+                # 获取单个产品行情
+                ticker = await self.get_ticker(inst_id)
+                
+                if not ticker or not ticker.get('data'):
+                    continue
+                
+                ticker_data = ticker['data'][0]
+                
+                # 准备市场数据
+                market_data = {
+                    "inst_id": inst_id,
+                    "inst_type": "SPOT",
+                    "last_price": float(ticker_data.get('last', 0)),
+                    "bid_price": float(ticker_data.get('bidPx', 0)) if ticker_data.get('bidPx') else None,
+                    "ask_price": float(ticker_data.get('askPx', 0)) if ticker_data.get('askPx') else None,
+                    "high_24h": float(ticker_data.get('high24h', 0)) if ticker_data.get('high24h') else None,
+                    "low_24h": float(ticker_data.get('low24h', 0)) if ticker_data.get('low24h') else None,
+                    "volume_24h": float(ticker_data.get('vol24h', 0)) if ticker_data.get('vol24h') else None,
+                    "change_24h": float(ticker_data.get('change24h', 0)) if ticker_data.get('change24h') else None,
+                    "change_rate_24h": float(ticker_data.get('changeRate24h', 0)) if ticker_data.get('changeRate24h') else None,
+                    "timestamp": current_time
+                }
+                
+                # 检查是否已存在（同一时间戳）
+                existing = db.query(OKXMarketData).filter_by(
+                    inst_id=market_data["inst_id"],
+                    timestamp=market_data["timestamp"]
+                ).first()
+                
+                if existing:
+                    # 更新现有记录
+                    for key, value in market_data.items():
+                        if key not in ['inst_id', 'timestamp']:
+                            setattr(existing, key, value)
+                    total_updated += 1
+                else:
+                    # 插入新记录
+                    new_market_data = OKXMarketData(**market_data)
+                    db.add(new_market_data)
+                    total_new += 1
+            
+            db.commit()
+            
+            return {
+                "success": True, 
+                "message": f"市场数据同步完成，新增{total_new}条，更新{total_updated}条",
+                "total_new": total_new,
+                "total_updated": total_updated
+            }
+            
+        except Exception as e:
+            db.rollback()
+            logger.error(f"同步OKX市场数据失败: {e}")
+            return {"success": False, "message": f"同步失败: {str(e)}"}
+        finally:
+            db.close()
+
+    @auto_log("okx", log_result=True)
+    async def get_summary(self) -> Dict[str, Any]:
+        """获取OKX账户汇总信息"""
+        try:
+            # 获取余额数据
+            balances = await self.get_asset_balances()
+            positions = await self.get_positions()
+            bills = await self.get_bills(limit=100)
+            
+            # 计算总余额（USD）
+            total_balance_usd = 0
+            balance_by_currency = {}
+            
+            if balances and balances.get('data'):
+                for balance in balances['data']:
+                    for detail in balance.get('details', []):
+                        currency = detail.get('ccy', '')
+                        amount = float(detail.get('bal', 0))
+                        balance_by_currency[currency] = amount
+                        
+                        # 简单转换为USD（实际应该使用汇率）
+                        if currency == 'USDT' or currency == 'USD':
+                            total_balance_usd += amount
+                        elif currency == 'BTC':
+                            total_balance_usd += amount * 50000  # 估算价格
+                        elif currency == 'ETH':
+                            total_balance_usd += amount * 3000   # 估算价格
+            
+            # 计算持仓数量
+            position_count = len(positions.get('data', [])) if positions else 0
+            
+            # 计算24小时交易数量
+            transaction_count_24h = len(bills.get('data', [])) if bills else 0
+            
+            # 计算未实现盈亏
+            unrealized_pnl = 0
+            realized_pnl = 0
+            if positions and positions.get('data'):
+                for position in positions['data']:
+                    unrealized_pnl += float(position.get('upl', 0))
+                    realized_pnl += float(position.get('realizedPnl', 0))
+            
+            return {
+                "total_balance_usd": total_balance_usd,
+                "total_balance_cny": total_balance_usd * 7.2,  # 简单汇率转换
+                "balance_by_currency": balance_by_currency,
+                "position_count": position_count,
+                "transaction_count_24h": transaction_count_24h,
+                "unrealized_pnl": unrealized_pnl,
+                "realized_pnl": realized_pnl,
+                "last_update": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"获取OKX汇总信息失败: {e}")
+            return {
+                "total_balance_usd": 0,
+                "total_balance_cny": 0,
+                "balance_by_currency": {},
+                "position_count": 0,
+                "transaction_count_24h": 0,
+                "unrealized_pnl": 0,
+                "realized_pnl": 0,
+                "last_update": datetime.now().isoformat(),
+                "error": str(e)
+            } 

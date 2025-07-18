@@ -74,22 +74,22 @@ function App() {
 
     return (
         <Router>
-                <LayoutComponent>
-                    <Routes>
-                        <Route path="/" element={<DashboardComponent />} />
-                        <Route path="/operations" element={<OperationsComponent />} />
-                        <Route path="/positions" element={<PositionsComponent />} />
-                        <Route path="/funds" element={<FundsComponent />} />
-                        <Route path="/analysis" element={<Analysis />} />
-                        <Route path="/exchange-rates" element={<ExchangeRates />} />
-                        <Route path="/okx" element={<OKXManagementPage />} />
-                        <Route path="/wise" element={<WiseManagementPage />} />
-                        <Route path="/paypal" element={<PayPalManagementPage />} />
-                        <Route path="/ibkr" element={<IBKRManagementPage />} />
+            <LayoutComponent>
+                <Routes>
+                    <Route path="/" element={<DashboardComponent />} />
+                    <Route path="/operations" element={<OperationsComponent />} />
+                    <Route path="/positions" element={<PositionsComponent />} />
+                    <Route path="/funds" element={<FundsComponent />} />
+                    <Route path="/analysis" element={<Analysis />} />
+                    <Route path="/exchange-rates" element={<ExchangeRates />} />
+                    <Route path="/okx" element={<OKXManagementPage />} />
+                    <Route path="/wise" element={<WiseManagementPage />} />
+                    <Route path="/paypal" element={<PayPalManagementPage />} />
+                    <Route path="/ibkr" element={<IBKRManagementPage />} />
                     <Route path="/config" element={<ConfigManagementPage />} />
                     <Route path="/scheduler" element={<SchedulerManagementPage />} />
-                    </Routes>
-                </LayoutComponent>
+                </Routes>
+            </LayoutComponent>
         </Router>
     )
 }

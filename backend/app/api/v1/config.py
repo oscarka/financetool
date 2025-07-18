@@ -55,6 +55,7 @@ async def get_config():
             "wise_api_configured": bool(settings.wise_api_token),
             "paypal_api_configured": bool(settings.paypal_client_id),
             "ibkr_api_configured": bool(settings.ibkr_api_key),
+            "web3_api_configured": bool(settings.web3_api_key),
             
             # 调度器配置
             "enable_scheduler": settings.enable_scheduler,
@@ -116,6 +117,9 @@ async def validate_config():
         
         if not settings.ibkr_api_key:
             warnings.append("IBKR API密钥未配置")
+        
+        if not settings.web3_api_key:
+            warnings.append("Web3 API密钥未配置")
         
         # 验证数据库连接
         try:

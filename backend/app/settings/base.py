@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 from typing import List, Optional
 
 class BaseConfig(BaseSettings):
@@ -38,6 +39,13 @@ class BaseConfig(BaseSettings):
     okx_secret_key: str = ""
     okx_passphrase: str = ""
     okx_sandbox: bool = True  # 是否使用沙盒环境
+    
+    # Web3 API配置
+    web3_api_key: str = Field(default="", alias="WEB3_API_KEY")
+    web3_api_secret: str = Field(default="", alias="WEB3_API_SECRET")
+    web3_project_id: str = Field(default="", alias="WEB3_PROJECT_ID")
+    web3_account_id: str = Field(default="", alias="WEB3_ACCOUNT_ID")
+    web3_passphrase: str = Field(default="", alias="WEB3_PASSPHRASE")
     
     # Wise API配置
     wise_api_token: str = ""
