@@ -66,6 +66,11 @@ export const OKXManagement: React.FC = () => {
     const [savingsBalancesError, setSavingsBalancesError] = useState<string | null>(null);
     const [savingsBalancesLoadTime, setSavingsBalancesLoadTime] = useState<number | null>(null);
 
+    // Web3总额状态
+    const [web3TotalBalance, setWeb3TotalBalance] = useState<any>(null);
+    const [web3TotalBalanceError, setWeb3TotalBalanceError] = useState<string | null>(null);
+    const [syncing, setSyncing] = useState(false); // 新增本地loading状态
+
     // 汇率数据状态
     const [exchangeRates, setExchangeRates] = useState<{ [key: string]: number }>({});
 
@@ -230,6 +235,24 @@ export const OKXManagement: React.FC = () => {
             message.error('储蓄账户余额获取失败');
         } finally {
             setSavingsBalancesLoading(false);
+        }
+    };
+
+    // 获取Web3总额（从数据库）
+    const fetchWeb3TotalBalance = async () => {
+        setWeb3TotalBalanceError(null);
+        try {
+            const response = await okxAPI.getStoredWeb3Balance();
+            if (response.success) {
+                setWeb3TotalBalance(response.data);
+                message.success('Web3总额获取成功');
+            } else {
+                setWeb3TotalBalanceError(response.message || 'Web3总额获取失败');
+                message.error(response.message || 'Web3总额获取失败');
+            }
+        } catch (error: any) {
+            setWeb3TotalBalanceError(error.response?.data?.detail || 'Web3总额获取失败');
+            message.error('Web3总额获取失败');
         }
     };
 
@@ -507,6 +530,30 @@ export const OKXManagement: React.FC = () => {
         fetchSavingsBalances();
         fetchExchangeRates();
     }, []);
+
+    // 页面加载时自动获取Web3总额
+    useEffect(() => {
+        fetchWeb3TotalBalance();
+    }, []);
+
+    // 主动同步Web3余额到数据库
+    const syncWeb3Balance = async () => {
+        setSyncing(true);
+        try {
+            const response = await okxAPI.syncWeb3Balance();
+            if (response.success && response.data?.success) {
+                message.success(response.data.message || 'Web3余额同步成功');
+                // 重新获取总额数据
+                fetchWeb3TotalBalance();
+            } else {
+                message.error(response.data?.error || 'Web3余额同步失败');
+            }
+        } catch (error: any) {
+            message.error('Web3余额同步失败');
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     const renderConfigCard = () => (
         <Card title={<><SettingOutlined /> OKX API 配置</>} style={{ marginBottom: 16 }}>
@@ -850,6 +897,43 @@ export const OKXManagement: React.FC = () => {
         );
     };
 
+    const renderWeb3TotalBalance = () => {
+        if (!web3TotalBalance) return <div>暂无Web3总额数据</div>;
+
+        return (
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Card>
+                            <Statistic
+                                title="Web3账户总价值"
+                                value={web3TotalBalance.total_value}
+                                precision={2}
+                                valueStyle={{ color: '#3f8600', fontSize: '24px' }}
+                                suffix="USD"
+                            />
+                            <div style={{ marginTop: '8px', color: '#666', fontSize: '12px' }}>
+                                货币: {web3TotalBalance.currency}
+                            </div>
+                        </Card>
+                    </Col>
+                    <Col span={12}>
+                        <Card>
+                            <Statistic
+                                title="最后更新时间"
+                                value={web3TotalBalance.update_time ? new Date(web3TotalBalance.update_time).toLocaleString() : '未知'}
+                                valueStyle={{ fontSize: '14px', color: '#666' }}
+                            />
+                            <div style={{ marginTop: '8px', color: '#666', fontSize: '12px' }}>
+                                数据来源: {web3TotalBalance.source}
+                            </div>
+                        </Card>
+                    </Col>
+                </Row>
+            </div>
+        );
+    };
+
     return (
         <div>
             {renderConfigCard()}
@@ -899,7 +983,50 @@ export const OKXManagement: React.FC = () => {
                         {savingsBalances.length > 0 && renderSavingsBalancesTable()}
                     </TabPane>
 
-                    <TabPane tab="持仓数据" key="4">
+                    <TabPane tab="Web3总额" key="4">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={syncWeb3Balance} loading={syncing}>
+                                同步并获取
+                            </Button>
+                        </Space>
+                        {web3TotalBalanceError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {web3TotalBalanceError}</div>}
+                        {renderWeb3TotalBalance()}
+                    </TabPane>
+
+                    {/* <TabPane tab="Web3账户余额" key="5">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchWeb3Balances} loading={web3BalancesLoading}>
+                                获取账户余额
+                            </Button>
+                        </Space>
+                        {web3BalancesError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {web3BalancesError}</div>}
+                        {web3BalancesLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {web3BalancesLoadTime}ms</div>}
+                        {web3Balances.length > 0 && renderWeb3BalancesTable()}
+                    </TabPane> */}
+
+                    {/* <TabPane tab="Web3代币列表" key="6">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchWeb3Tokens} loading={web3TokensLoading}>
+                                获取代币列表
+                            </Button>
+                        </Space>
+                        {web3TokensError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {web3TokensError}</div>}
+                        {web3TokensLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {web3TokensLoadTime}ms</div>}
+                        {web3Tokens.length > 0 && renderWeb3TokensTable()}
+                    </TabPane>
+
+                    <TabPane tab="Web3交易记录" key="7">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchWeb3Transactions} loading={web3TransactionsLoading}>
+                                获取交易记录
+                            </Button>
+                        </Space>
+                        {web3TransactionsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {web3TransactionsError}</div>}
+                        {web3TransactionsLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {web3TransactionsLoadTime}ms</div>}
+                        {web3Transactions.length > 0 && renderWeb3TransactionsTable()}
+                    </TabPane> */}
+
+                    <TabPane tab="持仓数据" key="8">
                         <Space style={{ marginBottom: 16 }}>
                             <Button type="primary" onClick={fetchPositionsData} loading={positionsLoading}>
                                 从数据库获取
@@ -929,7 +1056,7 @@ export const OKXManagement: React.FC = () => {
                         )}
                     </TabPane>
 
-                    <TabPane tab="交易记录" key="5">
+                    <TabPane tab="交易记录" key="9">
                         <Space style={{ marginBottom: 16 }}>
                             <Button type="primary" onClick={fetchTransactionsData} loading={transactionsLoading}>
                                 从数据库获取
@@ -958,7 +1085,7 @@ export const OKXManagement: React.FC = () => {
                         )}
                     </TabPane>
 
-                    <TabPane tab="行情数据" key="6">
+                    <TabPane tab="行情数据" key="10">
                         <Space style={{ marginBottom: 16 }}>
                             <Select
                                 value={selectedInstrument}
@@ -978,7 +1105,7 @@ export const OKXManagement: React.FC = () => {
                         {tickerData && renderTickerInfo()}
                     </TabPane>
 
-                    <TabPane tab="交易产品" key="7">
+                    <TabPane tab="交易产品" key="11">
                         <Space style={{ marginBottom: 16 }}>
                             <Button type="primary" onClick={fetchInstruments} loading={instrumentsLoading}>
                                 获取交易产品
@@ -990,7 +1117,7 @@ export const OKXManagement: React.FC = () => {
                         )}
                     </TabPane>
 
-                    <TabPane tab="账单流水" key="8">
+                    <TabPane tab="账单流水" key="12">
                         <Space style={{ marginBottom: 16 }}>
                             <Button type="primary" onClick={fetchBills} loading={billsLoading}>
                                 获取账单流水

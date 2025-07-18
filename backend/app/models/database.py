@@ -490,4 +490,68 @@ class OKXAccountOverview(Base):
     data_source = Column(String(20), nullable=False, default="api")  # api, database
     created_at = Column(DateTime, default=func.now())
 
+
+class Web3Balance(Base):
+    """Web3余额表"""
+    __tablename__ = "web3_balances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(String(100), nullable=False, index=True)
+    account_id = Column(String(100), nullable=False, index=True)
+    total_value = Column(DECIMAL(20, 8), nullable=False, default=0)  # 总价值
+    currency = Column(String(10), nullable=False, default="USD")  # 货币单位
+    update_time = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('project_id', 'account_id', 'update_time', name='uq_web3_balance'),
+    )
+
+
+class Web3Token(Base):
+    """Web3代币表"""
+    __tablename__ = "web3_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(String(100), nullable=False, index=True)
+    account_id = Column(String(100), nullable=False, index=True)
+    token_symbol = Column(String(20), nullable=False, index=True)  # 代币符号
+    token_name = Column(String(100), nullable=False)  # 代币名称
+    token_address = Column(String(100), nullable=True)  # 代币合约地址
+    balance = Column(DECIMAL(20, 8), nullable=False, default=0)  # 余额
+    value_usd = Column(DECIMAL(20, 8), nullable=False, default=0)  # USD价值
+    price_usd = Column(DECIMAL(20, 8), nullable=True)  # USD价格
+    update_time = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('project_id', 'account_id', 'token_symbol', 'update_time', name='uq_web3_token'),
+    )
+
+
+class Web3Transaction(Base):
+    """Web3交易记录表"""
+    __tablename__ = "web3_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(String(100), nullable=False, index=True)
+    account_id = Column(String(100), nullable=False, index=True)
+    transaction_hash = Column(String(100), unique=True, nullable=False, index=True)  # 交易哈希
+    block_number = Column(Integer, nullable=True)  # 区块号
+    from_address = Column(String(100), nullable=True)  # 发送地址
+    to_address = Column(String(100), nullable=True)  # 接收地址
+    token_symbol = Column(String(20), nullable=True, index=True)  # 代币符号
+    amount = Column(DECIMAL(20, 8), nullable=False, default=0)  # 金额
+    value_usd = Column(DECIMAL(20, 8), nullable=True)  # USD价值
+    gas_used = Column(DECIMAL(20, 8), nullable=True)  # Gas使用量
+    gas_price = Column(DECIMAL(20, 8), nullable=True)  # Gas价格
+    transaction_type = Column(String(50), nullable=True)  # 交易类型
+    status = Column(String(20), nullable=False, default="success")  # 交易状态
+    timestamp = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('transaction_hash', name='uq_web3_transaction'),
+    )
+
 # OKX索引 - 这些索引已经在__table_args__中定义，这里不需要重复定义 

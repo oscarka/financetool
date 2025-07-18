@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from app.services.okx_api_service import OKXAPIService
+from app.services.web3_api_service import Web3APIService
 from loguru import logger
-from app.models.database import OKXBalance, OKXTransaction, OKXPosition, OKXMarketData
+from app.models.database import OKXBalance, OKXTransaction, OKXPosition, OKXMarketData, Web3Balance, Web3Token, Web3Transaction
 from app.utils.database import SessionLocal
 import time
 
@@ -11,6 +12,7 @@ router = APIRouter(prefix="/okx", tags=["OKX API"])
 
 # 初始化OKX API服务
 okx_service = OKXAPIService()
+web3_service = Web3APIService()
 
 
 @router.get("/summary")
@@ -620,3 +622,201 @@ async def get_okx_account_overview():
     except Exception as e:
         logger.error(f"获取OKX账户总览失败: {str(e)}")
         return {"success": False, "message": f"获取账户总览失败: {str(e)}"}
+
+
+# Web3 API接口
+@router.get("/web3/config")
+async def get_web3_config():
+    """获取Web3 API配置信息"""
+    try:
+        config = await web3_service.get_config()
+        return {
+            "success": True,
+            "data": config
+        }
+    except Exception as e:
+        logger.error(f"获取Web3配置失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取Web3配置失败: {str(e)}")
+
+
+@router.get("/web3/test")
+async def test_web3_connection():
+    """测试Web3 API连接"""
+    try:
+        result = await web3_service.test_connection()
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"测试Web3连接失败: {e}")
+        return {
+            "success": False,
+            "data": {
+                "public_api": False,
+                "private_api": False,
+                "error": str(e),
+                "timestamp": int(time.time() * 1000)
+            }
+        }
+
+
+@router.get("/web3/balance")
+async def get_web3_balance():
+    """获取Web3账户余额信息"""
+    try:
+        result = await web3_service.get_account_balance()
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"获取Web3账户余额失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取Web3账户余额失败: {str(e)}")
+
+
+@router.get("/web3/tokens")
+async def get_web3_tokens():
+    """获取Web3账户代币列表"""
+    try:
+        result = await web3_service.get_account_tokens()
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"获取Web3代币列表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取Web3代币列表失败: {str(e)}")
+
+
+@router.get("/web3/transactions")
+async def get_web3_transactions(limit: int = Query(100, ge=1, le=1000)):
+    """获取Web3账户交易记录"""
+    try:
+        result = await web3_service.get_account_transactions(limit=limit)
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"获取Web3交易记录失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取Web3交易记录失败: {str(e)}")
+
+
+@router.post("/web3/sync-balance")
+async def sync_web3_balance():
+    """同步Web3余额到数据库"""
+    try:
+        result = await web3_service.sync_balance_to_db()
+        return {
+            "success": result.get("success", False),
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"同步Web3余额失败: {e}")
+        raise HTTPException(status_code=500, detail=f"同步余额失败: {str(e)}")
+
+
+@router.post("/web3/sync-tokens")
+async def sync_web3_tokens():
+    """同步Web3代币到数据库"""
+    try:
+        result = await web3_service.sync_tokens_to_db()
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"同步Web3代币失败: {e}")
+        raise HTTPException(status_code=500, detail=f"同步代币失败: {str(e)}")
+
+
+@router.post("/web3/sync-transactions")
+async def sync_web3_transactions(limit: int = Query(100, ge=1, le=1000)):
+    """同步Web3交易记录到数据库"""
+    try:
+        result = await web3_service.sync_transactions_to_db(limit=limit)
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"同步Web3交易记录失败: {e}")
+        raise HTTPException(status_code=500, detail=f"同步交易记录失败: {str(e)}")
+
+
+@router.get("/web3/stored-balance")
+async def get_stored_web3_balance():
+    """获取存储的Web3余额数据"""
+    try:
+        db = SessionLocal()
+        try:
+            # 获取最新的Web3余额记录
+            latest_balance = db.query(Web3Balance).filter(
+                Web3Balance.project_id == web3_service.project_id,
+                Web3Balance.account_id == web3_service.account_id
+            ).order_by(Web3Balance.update_time.desc()).first()
+            
+            if latest_balance:
+                return {
+                    "success": True,
+                    "data": {
+                        "total_value": float(latest_balance.total_value),
+                        "currency": latest_balance.currency,
+                        "update_time": latest_balance.update_time.isoformat(),
+                        "source": "database"
+                    }
+                }
+            else:
+                return {
+                    "success": True,
+                    "data": None
+                }
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"获取存储的Web3余额失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取存储余额失败: {str(e)}")
+
+
+@router.get("/web3/stored-tokens")
+async def get_stored_web3_tokens():
+    """获取存储的Web3代币数据"""
+    try:
+        db = SessionLocal()
+        try:
+            # 获取最新的Web3代币记录
+            latest_tokens = db.query(Web3Token).filter(
+                Web3Token.project_id == web3_service.project_id,
+                Web3Token.account_id == web3_service.account_id
+            ).order_by(Web3Token.update_time.desc()).all()
+            
+            if latest_tokens:
+                tokens_data = []
+                for token in latest_tokens:
+                    tokens_data.append({
+                        "token_symbol": token.token_symbol,
+                        "token_name": token.token_name,
+                        "token_address": token.token_address,
+                        "balance": float(token.balance),
+                        "value_usd": float(token.value_usd),
+                        "price_usd": float(token.price_usd) if token.price_usd else None,
+                        "update_time": token.update_time.isoformat()
+                    })
+                
+                return {
+                    "success": True,
+                    "data": tokens_data,
+                    "source": "database"
+                }
+            else:
+                return {
+                    "success": True,
+                    "data": [],
+                    "source": "database"
+                }
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"获取存储的Web3代币失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取存储代币失败: {str(e)}")

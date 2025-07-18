@@ -256,6 +256,10 @@ export const wiseAPI = {
     getExchangeRateHistory: (params: any): Promise<APIResponse> =>
         api.get('/wise/exchange-rates/history', { params }),
 
+    // 获取历史汇率（从API）
+    getHistoricalRates: (params: any): Promise<APIResponse> =>
+        api.get('/wise/historical-rates', { params }),
+
     // 同步余额数据
     syncBalances: (): Promise<APIResponse> =>
         api.post('/wise/sync-balances'),
@@ -342,6 +346,47 @@ export const okxAPI = {
     // 同步市场数据
     syncMarketData: (instIds?: string[]): Promise<APIResponse> =>
         api.post('/okx/sync-market-data', instIds || []),
+
+    // Web3相关API
+    // 获取Web3配置信息
+    getWeb3Config: (): Promise<APIResponse> =>
+        api.get('/okx/web3/config'),
+
+    // 测试Web3连接
+    testWeb3Connection: (): Promise<APIResponse> =>
+        api.get('/okx/web3/test'),
+
+    // 获取Web3账户余额
+    getWeb3Balance: (): Promise<APIResponse> =>
+        api.get('/okx/web3/balance'),
+
+    // 获取Web3代币列表
+    getWeb3Tokens: (): Promise<APIResponse> =>
+        api.get('/okx/web3/tokens'),
+
+    // 获取Web3交易记录
+    getWeb3Transactions: (params?: any): Promise<APIResponse> =>
+        api.get('/okx/web3/transactions', { params }),
+
+    // 获取存储的Web3余额数据
+    getStoredWeb3Balance: (): Promise<APIResponse> =>
+        api.get('/okx/web3/stored-balance'),
+
+    // 获取存储的Web3代币数据
+    getStoredWeb3Tokens: (): Promise<APIResponse> =>
+        api.get('/okx/web3/stored-tokens'),
+
+    // 同步Web3余额到数据库
+    syncWeb3Balance: (): Promise<APIResponse> =>
+        api.post('/okx/web3/sync-balance'),
+
+    // 同步Web3代币到数据库
+    syncWeb3Tokens: (): Promise<APIResponse> =>
+        api.post('/okx/web3/sync-tokens'),
+
+    // 同步Web3交易记录到数据库
+    syncWeb3Transactions: (params?: any): Promise<APIResponse> =>
+        api.post('/okx/web3/sync-transactions', null, { params }),
 }
 
 // 汇率相关API
