@@ -22,17 +22,21 @@ const MobileWiseManagement: React.FC = () => {
   const [tab, setTab] = useState('balances');
   const [loading, setLoading] = useState(true);
 
+  // 总览快速加载（只从数据库）
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      api.get('/wise/summary'),
-      api.get('/wise/stored-balances'),
-      api.get('/wise/stored-transactions', { params: { limit: 20 } })
-    ]).then(([summaryRes, balRes, txRes]) => {
-      setSummary(summaryRes.data?.data || summaryRes.data);
-      setBalances(balRes.data?.data || balRes.data || []);
-      setTransactions(txRes.data?.data || txRes.data || []);
-    }).finally(() => setLoading(false));
+    api.get('/wise/summary').then(res => {
+      setSummary(res.data?.data || res.data);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  // 下方数据加载
+  useEffect(() => {
+    api.get('/wise/stored-balances').then(res => {
+      setBalances(res.data?.data || res.data || []);
+    }).catch(() => {});
+    api.get('/wise/stored-transactions', { params: { limit: 20 } }).then(res => {
+      setTransactions(res.data?.data || res.data || []);
+    }).catch(() => {});
   }, []);
 
   const refresh = () => {

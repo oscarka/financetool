@@ -73,10 +73,8 @@ const MobileOKXManagement: React.FC = () => {
     return rate ? amount * rate : 0;
   };
 
-  // 总资产
+  // OKX总资产（不含Web3）
   const okxTotalUSDT = [trading, funding, savings].flat().reduce((sum, item) => sum + calcUSDT(item.currency, Number(item.total_balance)), 0);
-  const web3USD = web3?.total_value ? Number(web3.total_value) : 0;
-  const totalAssets = okxTotalUSDT + web3USD;
 
   // 美化列表
   const renderBalanceList = (data: any[]) => (
@@ -111,7 +109,7 @@ const MobileOKXManagement: React.FC = () => {
   return (
     <div style={{ padding: 0 }}>
       <Card
-        title={<span><SettingOutlined /> OKX 汇总</span>}
+        title={<span><SettingOutlined /> OKX 账户汇总</span>}
         extra={<Button icon={<ReloadOutlined />} size="small" onClick={refresh} />}
         style={{ marginBottom: 12, borderRadius: 12, boxShadow: '0 2px 8px #f0f1f2' }}
         bodyStyle={{ padding: 12 }}
@@ -120,7 +118,7 @@ const MobileOKXManagement: React.FC = () => {
           <>
             <Row gutter={8}>
               <Col span={12}>
-                <Statistic title="总资产(USD)" value={totalAssets.toFixed(2)} precision={2} valueStyle={{ color: '#3f8600', fontWeight: 700 }} prefix={<DollarCircleOutlined />} />
+                <Statistic title="总资产(USD)" value={okxTotalUSDT.toFixed(2)} precision={2} valueStyle={{ color: '#3f8600', fontWeight: 700 }} prefix={<DollarCircleOutlined />} />
               </Col>
               <Col span={12}>
                 <Statistic title="总资产(CNY)" value={summary?.total_balance_cny?.toFixed(2) || 0} precision={2} valueStyle={{ color: '#3f8600' }} prefix="¥" />
@@ -131,7 +129,7 @@ const MobileOKXManagement: React.FC = () => {
                 <Statistic title="24h交易数" value={summary?.transaction_count_24h || 0} valueStyle={{ color: '#722ed1' }} />
               </Col>
               <Col span={12}>
-                <Statistic title="Web3资产(USD)" value={web3USD.toFixed(2)} valueStyle={{ color: '#faad14', fontWeight: 700 }} prefix={<DollarCircleOutlined />} />
+                <Statistic title="持仓数量" value={summary?.position_count || 0} valueStyle={{ color: '#1890ff' }} />
               </Col>
             </Row>
             <Divider style={{ margin: '10px 0' }} />
@@ -143,11 +141,37 @@ const MobileOKXManagement: React.FC = () => {
         <TabPane tab="交易账户" key="trading" />
         <TabPane tab="资金账户" key="funding" />
         <TabPane tab="储蓄账户" key="savings" />
+        <TabPane tab="Web3账户" key="web3" />
         <TabPane tab="持仓" key="positions" />
       </Tabs>
       {tab === 'trading' && renderBalanceList(trading)}
       {tab === 'funding' && renderBalanceList(funding)}
       {tab === 'savings' && renderBalanceList(savings)}
+      {tab === 'web3' && (
+        <List
+          size="small"
+          bordered
+          dataSource={web3?.tokens || []}
+          renderItem={item => (
+            <List.Item style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: 10 }}>
+              <Row style={{ width: '100%' }}>
+                <Col flex="auto">
+                  <span style={{ fontWeight: 600 }}>{item.symbol}</span>
+                  <span style={{ color: '#888', fontSize: 12, marginLeft: 8 }}>({item.chain})</span>
+                </Col>
+                <Col>
+                  <span style={{ color: '#faad14', fontWeight: 500 }}>{Number(item.balance).toFixed(4)}</span>
+                </Col>
+              </Row>
+              <Row style={{ width: '100%', marginTop: 2 }}>
+                <Col flex="auto">
+                  <span style={{ color: '#3f8600', fontSize: 13 }}>≈ ${Number(item.usd_value || 0).toFixed(2)} USD</span>
+                </Col>
+              </Row>
+            </List.Item>
+          )}
+        />
+      )}
       {tab === 'positions' && (
         <List
           size="small"
