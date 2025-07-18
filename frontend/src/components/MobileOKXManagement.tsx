@@ -152,7 +152,7 @@ const MobileOKXManagement: React.FC = () => {
           size="small"
           bordered
           dataSource={web3?.tokens || []}
-          renderItem={item => (
+          renderItem={(item: any) => (
             <List.Item style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: 10 }}>
               <Row style={{ width: '100%' }}>
                 <Col flex="auto">
