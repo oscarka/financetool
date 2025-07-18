@@ -457,30 +457,37 @@ class OKXMarketData(Base):
     id = Column(Integer, primary_key=True, index=True)
     inst_id = Column(String(50), nullable=False, index=True)  # 产品ID
     inst_type = Column(String(20), nullable=False)  # SPOT, MARGIN, SWAP, FUTURES
-    last_price = Column(DECIMAL(15, 8), nullable=False)
-    bid_price = Column(DECIMAL(15, 8), nullable=True)
-    ask_price = Column(DECIMAL(15, 8), nullable=True)
-    high_24h = Column(DECIMAL(15, 8), nullable=True)
-    low_24h = Column(DECIMAL(15, 8), nullable=True)
-    volume_24h = Column(DECIMAL(15, 8), nullable=True)
-    change_24h = Column(DECIMAL(15, 8), nullable=True)
-    change_rate_24h = Column(DECIMAL(15, 8), nullable=True)
+    last_price = Column(DECIMAL(20, 8), nullable=False)  # 增加精度以支持大数值
+    bid_price = Column(DECIMAL(20, 8), nullable=True)
+    ask_price = Column(DECIMAL(20, 8), nullable=True)
+    high_24h = Column(DECIMAL(20, 8), nullable=True)
+    low_24h = Column(DECIMAL(20, 8), nullable=True)
+    volume_24h = Column(DECIMAL(20, 8), nullable=True)
+    change_24h = Column(DECIMAL(20, 8), nullable=True)
+    change_rate_24h = Column(DECIMAL(20, 8), nullable=True)
     timestamp = Column(DateTime, nullable=False, index=True)
     created_at = Column(DateTime, default=func.now())
     
     __table_args__ = (
-        UniqueConstraint('inst_id', 'timestamp', name='uq_okx_market_data'),
-        Index('idx_okx_market_data_inst_id', 'inst_id'),
-        Index('idx_okx_market_data_timestamp', 'timestamp'),
+        UniqueConstraint('inst_id', 'inst_type', 'timestamp', name='uq_okx_market_data'),
     )
 
 
-# OKX索引
-Index('idx_okx_balances_account', OKXBalance.account_id)
-Index('idx_okx_balances_currency', OKXBalance.currency)
-Index('idx_okx_transactions_account', OKXTransaction.account_id)
-Index('idx_okx_transactions_timestamp', OKXTransaction.timestamp)
-Index('idx_okx_positions_account', OKXPosition.account_id)
-Index('idx_okx_positions_timestamp', OKXPosition.timestamp)
-Index('idx_okx_market_data_inst_id', OKXMarketData.inst_id)
-Index('idx_okx_market_data_timestamp', OKXMarketData.timestamp) 
+class OKXAccountOverview(Base):
+    """OKX账户总览表"""
+    __tablename__ = "okx_account_overview"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    trading_total_usd = Column(DECIMAL(15, 8), nullable=False, default=0)  # 交易账户总资产(USD)
+    funding_total_usd = Column(DECIMAL(15, 8), nullable=False, default=0)  # 资金账户总资产(USD)
+    savings_total_usd = Column(DECIMAL(15, 8), nullable=False, default=0)  # 储蓄账户总资产(USD)
+    total_assets_usd = Column(DECIMAL(15, 8), nullable=False, default=0)  # 总资产(USD)
+    total_currencies = Column(Integer, nullable=False, default=0)  # 总币种数
+    trading_currencies_count = Column(Integer, nullable=False, default=0)  # 交易账户币种数
+    funding_currencies_count = Column(Integer, nullable=False, default=0)  # 资金账户币种数
+    savings_currencies_count = Column(Integer, nullable=False, default=0)  # 储蓄账户币种数
+    last_update = Column(DateTime, nullable=False, index=True)
+    data_source = Column(String(20), nullable=False, default="api")  # api, database
+    created_at = Column(DateTime, default=func.now())
+
+# OKX索引 - 这些索引已经在__table_args__中定义，这里不需要重复定义 
