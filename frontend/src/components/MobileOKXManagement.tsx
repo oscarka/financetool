@@ -131,7 +131,7 @@ const MobileOKXManagement: React.FC = () => {
                 <Statistic title="24h交易数" value={summary?.transaction_count_24h || 0} valueStyle={{ color: '#722ed1' }} />
               </Col>
               <Col span={12}>
-                <Statistic title="Web3资产(USD)" value={web3USD.toFixed(2)} valueStyle={{ color: '#faad14' }} />
+                <Statistic title="Web3资产(USD)" value={web3USD.toFixed(2)} valueStyle={{ color: '#faad14', fontWeight: 700 }} prefix={<DollarCircleOutlined />} />
               </Col>
             </Row>
             <Divider style={{ margin: '10px 0' }} />
