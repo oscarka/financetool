@@ -21,238 +21,491 @@ interface OKXConnectionTest {
     timestamp: number;
 }
 
-interface OKXAccount {
-    code: string;
-    msg: string;
-    data: Array<{
-        adjEq: string;
-        details: Array<{
-            availBal: string;
-            bal: string;
-            ccy: string;
-            cashBal: string;
-            uTime: string;
-        }>;
-    }>;
-}
+
 
 export const OKXManagement: React.FC = () => {
-    const [loading, setLoading] = useState(false);
-    const [config, setConfig] = useState<OKXConfig | null>(null);
-    const [connectionTest, setConnectionTest] = useState<OKXConnectionTest | null>(null);
-    const [accountData, setAccountData] = useState<OKXAccount | null>(null);
-    const [tickerData, setTickerData] = useState<any>(null);
-    const [instrumentsData, setInstrumentsData] = useState<any>(null);
-    const [billsData, setBillsData] = useState<any>(null);
-    const [selectedInstrument, setSelectedInstrument] = useState('BTC-USDT');
-    const [activeTab, setActiveTab] = useState('1');
-    const [assetBalances, setAssetBalances] = useState<any[]>([]);
-    const [savingsBalances, setSavingsBalances] = useState<any[]>([]);
+    // 概览/汇总区块
     const [summary, setSummary] = useState<any>(null);
 
-    // 获取配置信息
-    const fetchConfig = async () => {
-        try {
-            const response = await okxAPI.getConfig();
-            if (response.success) {
-                setConfig(response.data);
-            }
-        } catch (error) {
-            message.error('获取配置信息失败');
-        }
-    };
+    // API配置区块
+    const [config, setConfig] = useState<OKXConfig | null>(null);
 
-    // 测试连接
-    const testConnection = async () => {
-        setLoading(true);
+    // 连接状态区块
+    const [connectionTest, setConnectionTest] = useState<OKXConnectionTest | null>(null);
+    const [testLoading, setTestLoading] = useState(true);
+
+
+
+    // 持仓数据区块独立状态
+    const [positionsData, setPositionsData] = useState<any[]>([]);
+    const [positionsLoading, setPositionsLoading] = useState(false);
+    const [positionsError, setPositionsError] = useState<string | null>(null);
+    const [positionsLoadTime, setPositionsLoadTime] = useState<number | null>(null);
+
+    // 交易记录区块独立状态
+    const [transactionsData, setTransactionsData] = useState<any[]>([]);
+    const [transactionsLoading, setTransactionsLoading] = useState(false);
+    const [transactionsError, setTransactionsError] = useState<string | null>(null);
+    const [transactionsLoadTime, setTransactionsLoadTime] = useState<number | null>(null);
+
+    // 交易账户余额区块独立状态
+    const [tradingBalances, setTradingBalances] = useState<any[]>([]);
+    const [tradingBalancesLoading, setTradingBalancesLoading] = useState(false);
+    const [tradingBalancesError, setTradingBalancesError] = useState<string | null>(null);
+    const [tradingBalancesLoadTime, setTradingBalancesLoadTime] = useState<number | null>(null);
+
+    // 资金账户余额区块独立状态
+    const [fundingBalances, setFundingBalances] = useState<any[]>([]);
+    const [fundingBalancesLoading, setFundingBalancesLoading] = useState(false);
+    const [fundingBalancesError, setFundingBalancesError] = useState<string | null>(null);
+    const [fundingBalancesLoadTime, setFundingBalancesLoadTime] = useState<number | null>(null);
+
+    // 储蓄账户余额区块独立状态
+    const [savingsBalances, setSavingsBalances] = useState<any[]>([]);
+    const [savingsBalancesLoading, setSavingsBalancesLoading] = useState(false);
+    const [savingsBalancesError, setSavingsBalancesError] = useState<string | null>(null);
+    const [savingsBalancesLoadTime, setSavingsBalancesLoadTime] = useState<number | null>(null);
+
+    // 汇率数据状态
+    const [exchangeRates, setExchangeRates] = useState<{ [key: string]: number }>({});
+
+    // 行情数据区块独立状态
+    const [tickerData, setTickerData] = useState<any>(null);
+    const [tickerLoading, setTickerLoading] = useState(false);
+    const [tickerError, setTickerError] = useState<string | null>(null);
+    const [selectedInstrument, setSelectedInstrument] = useState('BTC-USDT');
+
+    // 交易产品信息区块独立状态
+    const [instrumentsData, setInstrumentsData] = useState<any>(null);
+    const [instrumentsLoading, setInstrumentsLoading] = useState(false);
+    const [instrumentsError, setInstrumentsError] = useState<string | null>(null);
+
+    // 账单流水区块独立状态
+    const [billsData, setBillsData] = useState<any>(null);
+    const [billsLoading, setBillsLoading] = useState(false);
+    const [billsError, setBillsError] = useState<string | null>(null);
+
+    const [activeTab, setActiveTab] = useState('1');
+
+    // 概览/汇总独立加载
+    useEffect(() => {
+        okxAPI.getSummary()
+            .then(res => setSummary(res.data))
+            .catch(e => console.error('账户汇总获取失败:', e));
+    }, []);
+
+    // API配置独立加载
+    useEffect(() => {
+        okxAPI.getConfig()
+            .then(res => setConfig(res.data))
+            .catch(e => console.error('API配置获取失败:', e));
+    }, []);
+
+    // 连接状态独立加载
+    useEffect(() => {
+        setTestLoading(true);
+        okxAPI.testConnection()
+            .then(res => setConnectionTest(res.data))
+            .catch(e => console.error('连接状态获取失败:', e))
+            .finally(() => setTestLoading(false));
+    }, []);
+
+
+
+    // 从数据库获取持仓数据
+    const fetchPositionsData = async () => {
+        setPositionsLoading(true);
+        setPositionsError(null);
+        const start = Date.now();
         try {
-            const response = await okxAPI.testConnection();
-            setConnectionTest(response.data);
+            const response = await okxAPI.getStoredPositions();
             if (response.success) {
-                message.success('连接测试完成');
+                setPositionsData(response.data || []);
+                setPositionsLoadTime(Date.now() - start);
+                message.success('持仓数据获取成功');
             } else {
-                message.warning('连接测试有问题');
+                setPositionsError(response.message || '持仓数据获取失败');
+                message.error(response.message || '持仓数据获取失败');
             }
-        } catch (error) {
-            message.error('连接测试失败');
+        } catch (error: any) {
+            setPositionsError(error.response?.data?.detail || '持仓数据获取失败');
+            message.error('持仓数据获取失败');
         } finally {
-            setLoading(false);
+            setPositionsLoading(false);
         }
     };
 
-    // 获取汇总信息
-    const fetchSummary = async () => {
+    // 从数据库获取交易记录
+    const fetchTransactionsData = async () => {
+        setTransactionsLoading(true);
+        setTransactionsError(null);
+        const start = Date.now();
         try {
-            const response = await okxAPI.getSummary();
+            const response = await okxAPI.getStoredTransactions({ limit: 100 });
             if (response.success) {
-                setSummary(response.data);
-            }
-        } catch (error) {
-            message.error('获取汇总信息失败');
-        }
-    };
-
-    // 获取账户信息
-    const fetchAccountData = async () => {
-        setLoading(true);
-        try {
-            const response = await okxAPI.getAccount();
-            console.log('[OKX] 获取账户信息接口返回：', response);
-            if (response.success) {
-                setAccountData(response.data);
-                message.success('账户信息获取成功');
+                setTransactionsData(response.data || []);
+                setTransactionsLoadTime(Date.now() - start);
+                message.success('交易记录获取成功');
             } else {
-                message.error(response.message || '账户信息获取失败');
+                setTransactionsError(response.message || '交易记录获取失败');
+                message.error(response.message || '交易记录获取失败');
             }
-        } catch (error) {
-            message.error('账户信息获取失败');
+        } catch (error: any) {
+            setTransactionsError(error.response?.data?.detail || '交易记录获取失败');
+            message.error('交易记录获取失败');
         } finally {
-            setLoading(false);
+            setTransactionsLoading(false);
         }
     };
 
-    // 获取行情数据
+    // 从数据库获取交易账户余额
+    const fetchTradingBalances = async () => {
+        setTradingBalancesLoading(true);
+        setTradingBalancesError(null);
+        const start = Date.now();
+        try {
+            const response = await okxAPI.getStoredBalances();
+            if (response.success) {
+                // 过滤出交易账户余额
+                const tradingData = (response.data || []).filter((item: any) => item.account_type === 'trading');
+                setTradingBalances(tradingData);
+                setTradingBalancesLoadTime(Date.now() - start);
+                message.success('交易账户余额获取成功');
+            } else {
+                setTradingBalancesError(response.message || '交易账户余额获取失败');
+                message.error(response.message || '交易账户余额获取失败');
+            }
+        } catch (error: any) {
+            setTradingBalancesError(error.response?.data?.detail || '交易账户余额获取失败');
+            message.error('交易账户余额获取失败');
+        } finally {
+            setTradingBalancesLoading(false);
+        }
+    };
+
+    // 从数据库获取资金账户余额
+    const fetchFundingBalances = async () => {
+        setFundingBalancesLoading(true);
+        setFundingBalancesError(null);
+        const start = Date.now();
+        try {
+            const response = await okxAPI.getStoredBalances();
+            if (response.success) {
+                // 过滤出资金账户余额
+                const fundingData = (response.data || []).filter((item: any) => item.account_type === 'funding');
+                setFundingBalances(fundingData);
+                setFundingBalancesLoadTime(Date.now() - start);
+                message.success('资金账户余额获取成功');
+            } else {
+                setFundingBalancesError(response.message || '资金账户余额获取失败');
+                message.error(response.message || '资金账户余额获取失败');
+            }
+        } catch (error: any) {
+            setFundingBalancesError(error.response?.data?.detail || '资金账户余额获取失败');
+            message.error('资金账户余额获取失败');
+        } finally {
+            setFundingBalancesLoading(false);
+        }
+    };
+
+    // 从数据库获取储蓄账户余额
+    const fetchSavingsBalances = async () => {
+        setSavingsBalancesLoading(true);
+        setSavingsBalancesError(null);
+        const start = Date.now();
+        try {
+            const response = await okxAPI.getStoredBalances();
+            if (response.success) {
+                // 过滤出储蓄账户余额
+                const savingsData = (response.data || []).filter((item: any) => item.account_type === 'savings');
+                setSavingsBalances(savingsData);
+                setSavingsBalancesLoadTime(Date.now() - start);
+                message.success('储蓄账户余额获取成功');
+            } else {
+                setSavingsBalancesError(response.message || '储蓄账户余额获取失败');
+                message.error(response.message || '储蓄账户余额获取失败');
+            }
+        } catch (error: any) {
+            setSavingsBalancesError(error.response?.data?.detail || '储蓄账户余额获取失败');
+            message.error('储蓄账户余额获取失败');
+        } finally {
+            setSavingsBalancesLoading(false);
+        }
+    };
+
+    // 获取汇率数据
+    const fetchExchangeRates = async () => {
+        try {
+            const response = await okxAPI.getStoredMarketData();
+            if (response.success) {
+                const rates: { [key: string]: number } = {};
+                (response.data || []).forEach((item: any) => {
+                    if (item.inst_id && item.last_price) {
+                        // 提取币种名称（去掉-USDT后缀）
+                        const currency = item.inst_id.replace('-USDT', '');
+                        rates[currency] = Number(item.last_price);
+                    }
+                });
+                setExchangeRates(rates);
+                console.log('获取到汇率数据:', rates);
+            } else {
+                console.warn('获取汇率数据失败:', response.message);
+            }
+        } catch (error: any) {
+            console.error('获取汇率数据异常:', error);
+        }
+    };
+
+    // 计算USDT估值
+    const calculateUSDTValue = (currency: string, amount: number): number => {
+        if (currency === 'USDT' || currency === 'USD') {
+            return amount;
+        }
+        const rate = exchangeRates[currency];
+        return rate ? amount * rate : 0;
+    };
+
+    // 获取行情数据（实时数据）
     const fetchTickerData = async () => {
-        setLoading(true);
+        setTickerLoading(true);
+        setTickerError(null);
         try {
             const response = await okxAPI.getTicker(selectedInstrument);
             if (response.success) {
                 setTickerData(response.data);
                 message.success('行情数据获取成功');
             } else {
-                message.error('行情数据获取失败');
+                setTickerError(response.message || '行情数据获取失败');
+                message.error(response.message || '行情数据获取失败');
             }
-        } catch (error) {
+        } catch (error: any) {
+            setTickerError(error.response?.data?.detail || '行情数据获取失败');
             message.error('行情数据获取失败');
         } finally {
-            setLoading(false);
+            setTickerLoading(false);
         }
     };
 
-    // 获取交易产品信息
+    // 获取交易产品信息（实时数据）
     const fetchInstruments = async () => {
-        setLoading(true);
+        setInstrumentsLoading(true);
+        setInstrumentsError(null);
         try {
             const response = await okxAPI.getInstruments('SPOT');
             if (response.success) {
                 setInstrumentsData(response.data);
                 message.success('交易产品信息获取成功');
             } else {
-                message.error('交易产品信息获取失败');
+                setInstrumentsError(response.message || '交易产品信息获取失败');
+                message.error(response.message || '交易产品信息获取失败');
             }
-        } catch (error) {
+        } catch (error: any) {
+            setInstrumentsError(error.response?.data?.detail || '交易产品信息获取失败');
             message.error('交易产品信息获取失败');
         } finally {
-            setLoading(false);
+            setInstrumentsLoading(false);
         }
     };
 
-    // 获取账单流水
+    // 获取账单流水（实时数据）
     const fetchBills = async () => {
-        setLoading(true);
+        setBillsLoading(true);
+        setBillsError(null);
         try {
             const response = await okxAPI.getBills({ limit: 50 });
             if (response.success) {
                 setBillsData(response.data);
                 message.success('账单流水获取成功');
             } else {
+                setBillsError(response.message || '账单流水获取失败');
                 message.error(response.message || '账单流水获取失败');
             }
-        } catch (error) {
+        } catch (error: any) {
+            setBillsError(error.response?.data?.detail || '账单流水获取失败');
             message.error('账单流水获取失败');
         } finally {
-            setLoading(false);
-        }
-    };
-
-    // 获取资金账户余额
-    const fetchAssetBalances = async () => {
-        setLoading(true);
-        try {
-            const response = await okxAPI.getAssetBalances();
-            console.log('[OKX] 资金账户余额接口返回：', response);
-            setAssetBalances(response.data?.data || []);
-            message.success('资金账户余额获取成功');
-        } catch (error) {
-            message.error('资金账户余额获取失败');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // 获取储蓄账户余额
-    const fetchSavingsBalances = async () => {
-        setLoading(true);
-        try {
-            const response = await okxAPI.getSavingsBalance();
-            console.log('[OKX] 储蓄账户余额接口返回：', response);
-            setSavingsBalances(response.data?.data || []);
-            message.success('储蓄账户余额获取成功');
-        } catch (error) {
-            message.error('储蓄账户余额获取失败');
-        } finally {
-            setLoading(false);
+            setBillsLoading(false);
         }
     };
 
     // 同步余额数据
     const syncBalances = async () => {
-        setLoading(true);
+        setTradingBalancesLoading(true);
+        setFundingBalancesLoading(true);
+        setSavingsBalancesLoading(true);
         try {
             const response = await okxAPI.syncBalances();
             if (response.success) {
                 message.success(response.message || '余额同步成功');
-                // 重新获取余额数据
-                fetchAssetBalances();
+                // 重新获取所有余额数据
+                fetchTradingBalances();
+                fetchFundingBalances();
                 fetchSavingsBalances();
             } else {
                 message.error(response.message || '余额同步失败');
             }
-        } catch (error) {
+        } catch (error: any) {
             message.error('余额同步失败');
         } finally {
-            setLoading(false);
+            setTradingBalancesLoading(false);
+            setFundingBalancesLoading(false);
+            setSavingsBalancesLoading(false);
         }
     };
 
     // 同步交易记录
     const syncTransactions = async () => {
-        setLoading(true);
+        setTransactionsLoading(true);
         try {
             const response = await okxAPI.syncTransactions(30);
             if (response.success) {
                 message.success(response.message || '交易记录同步成功');
+                // 重新获取交易数据
+                fetchTransactionsData();
             } else {
                 message.error(response.message || '交易记录同步失败');
             }
-        } catch (error) {
+        } catch (error: any) {
             message.error('交易记录同步失败');
         } finally {
-            setLoading(false);
+            setTransactionsLoading(false);
         }
     };
 
     // 同步持仓数据
     const syncPositions = async () => {
-        setLoading(true);
+        setPositionsLoading(true);
         try {
             const response = await okxAPI.syncPositions();
             if (response.success) {
                 message.success(response.message || '持仓数据同步成功');
+                // 重新获取持仓数据
+                fetchPositionsData();
             } else {
                 message.error(response.message || '持仓数据同步失败');
             }
-        } catch (error) {
+        } catch (error: any) {
             message.error('持仓数据同步失败');
         } finally {
-            setLoading(false);
+            setPositionsLoading(false);
         }
     };
 
+
+
+    // 从API获取最新持仓数据并写入数据库
+    const fetchLatestPositionsData = async () => {
+        setPositionsLoading(true);
+        setPositionsError(null);
+        const start = Date.now();
+        try {
+            // 先同步到数据库
+            const syncRes = await okxAPI.syncPositions();
+            if (!syncRes.success) {
+                message.error(syncRes.message || '同步持仓数据到数据库失败');
+                setPositionsLoading(false);
+                return;
+            }
+            // 再查数据库最新数据
+            const res = await okxAPI.getStoredPositions();
+            setPositionsData(res.data || []);
+            setPositionsLoadTime(Date.now() - start);
+            message.success(`同步并获取到 ${res.data?.length || 0} 条持仓记录`);
+        } catch (e: any) {
+            setPositionsError(e.response?.data?.detail || '获取持仓数据失败');
+            message.error(`同步或获取持仓数据失败: ${e.response?.data?.detail || e.message}`);
+        } finally {
+            setPositionsLoading(false);
+        }
+    };
+
+    // 从API获取最新交易数据并写入数据库
+    const fetchLatestTransactionsData = async () => {
+        setTransactionsLoading(true);
+        setTransactionsError(null);
+        const start = Date.now();
+        try {
+            // 先同步到数据库
+            const syncRes = await okxAPI.syncTransactions(30);
+            if (!syncRes.success) {
+                message.error(syncRes.message || '同步交易记录到数据库失败');
+                setTransactionsLoading(false);
+                return;
+            }
+            // 再查数据库最新数据
+            const res = await okxAPI.getStoredTransactions({ limit: 100 });
+            setTransactionsData(res.data || []);
+            setTransactionsLoadTime(Date.now() - start);
+            message.success(`同步并获取到 ${res.data?.length || 0} 条交易记录`);
+        } catch (e: any) {
+            setTransactionsError(e.response?.data?.detail || '获取交易记录失败');
+            message.error(`同步或获取交易记录失败: ${e.response?.data?.detail || e.message}`);
+        } finally {
+            setTransactionsLoading(false);
+        }
+    };
+
+    // 从API获取最新余额数据并写入数据库
+    const fetchLatestBalances = async () => {
+        setTradingBalancesLoading(true);
+        setFundingBalancesLoading(true);
+        setSavingsBalancesLoading(true);
+        setTradingBalancesError(null);
+        setFundingBalancesError(null);
+        setSavingsBalancesError(null);
+        const start = Date.now();
+        try {
+            // 先同步到数据库
+            const syncRes = await okxAPI.syncBalances();
+            if (!syncRes.success) {
+                message.error(syncRes.message || '同步数据库失败');
+                setTradingBalancesLoading(false);
+                setFundingBalancesLoading(false);
+                setSavingsBalancesLoading(false);
+                return;
+            }
+            // 再查数据库最新数据
+            const res = await okxAPI.getStoredBalances();
+            const allBalances = res.data || [];
+
+            // 按账户类型分类
+            const tradingData = allBalances.filter((item: any) => item.account_type === 'trading');
+            const fundingData = allBalances.filter((item: any) => item.account_type === 'funding');
+            const savingsData = allBalances.filter((item: any) => item.account_type === 'savings');
+
+            setTradingBalances(tradingData);
+            setFundingBalances(fundingData);
+            setSavingsBalances(savingsData);
+
+            // 同步汇率数据
+            await fetchExchangeRates();
+
+            const totalTime = Date.now() - start;
+            setTradingBalancesLoadTime(totalTime);
+            setFundingBalancesLoadTime(totalTime);
+            setSavingsBalancesLoadTime(totalTime);
+
+            message.success(`同步并获取到 ${allBalances.length} 条余额记录，汇率数据已更新`);
+        } catch (e: any) {
+            setTradingBalancesError(e.response?.data?.detail || '获取余额失败');
+            setFundingBalancesError(e.response?.data?.detail || '获取余额失败');
+            setSavingsBalancesError(e.response?.data?.detail || '获取余额失败');
+            message.error(`同步或获取余额失败: ${e.response?.data?.detail || e.message}`);
+        } finally {
+            setTradingBalancesLoading(false);
+            setFundingBalancesLoading(false);
+            setSavingsBalancesLoading(false);
+        }
+    };
+
+    // 页面加载时自动从数据库获取数据
     useEffect(() => {
-        fetchConfig();
-        testConnection();
-        fetchSummary();
+        fetchPositionsData();
+        fetchTransactionsData();
+        fetchTradingBalances();
+        fetchFundingBalances();
+        fetchSavingsBalances();
+        fetchExchangeRates();
     }, []);
 
     const renderConfigCard = () => (
@@ -279,7 +532,13 @@ export const OKXManagement: React.FC = () => {
                     />
                 </Col>
                 <Col span={6}>
-                    <Button type="primary" onClick={testConnection} loading={loading} icon={<ReloadOutlined />}>
+                    <Button type="primary" onClick={() => {
+                        setTestLoading(true);
+                        okxAPI.testConnection()
+                            .then(res => setConnectionTest(res.data))
+                            .catch(e => console.error('连接状态获取失败:', e))
+                            .finally(() => setTestLoading(false));
+                    }} loading={testLoading} icon={<ReloadOutlined />}>
                         测试连接
                     </Button>
                 </Col>
@@ -355,13 +614,13 @@ export const OKXManagement: React.FC = () => {
             )}
             <div style={{ marginTop: 16 }}>
                 <Space>
-                    <Button type="primary" onClick={syncBalances} loading={loading}>
+                    <Button type="primary" onClick={syncBalances} loading={tradingBalancesLoading || fundingBalancesLoading || savingsBalancesLoading}>
                         <ReloadOutlined /> 同步余额
                     </Button>
-                    <Button onClick={syncTransactions} loading={loading}>
+                    <Button onClick={syncTransactions} loading={transactionsLoading}>
                         <ReloadOutlined /> 同步交易
                     </Button>
-                    <Button onClick={syncPositions} loading={loading}>
+                    <Button onClick={syncPositions} loading={positionsLoading}>
                         <ReloadOutlined /> 同步持仓
                     </Button>
                 </Space>
@@ -369,56 +628,7 @@ export const OKXManagement: React.FC = () => {
         </Card>
     );
 
-    const renderAccountTable = () => {
-        // 兼容后端返回结构
-        console.log('[OKX] accountData:', accountData);
-        const details = accountData?.data?.[0]?.details || [];
-        console.log('[OKX] account details:', details);
-        const data = details; // 不做过滤，全部显示
-        console.log('[OKX] table data:', data);
 
-        const columns = [
-            { title: '币种', dataIndex: 'ccy', key: 'ccy' },
-            {
-                title: '余额',
-                dataIndex: 'bal',
-                key: 'bal',
-                render: (val: any) => {
-                    const num = Number(val);
-                    return isNaN(num) ? '0' : num.toFixed(8);
-                }
-            },
-            {
-                title: '可用余额',
-                dataIndex: 'availBal',
-                key: 'availBal',
-                render: (val: any) => {
-                    const num = Number(val);
-                    return isNaN(num) ? '0' : num.toFixed(8);
-                }
-            },
-            {
-                title: '现金余额',
-                dataIndex: 'cashBal',
-                key: 'cashBal',
-                render: (val: any) => {
-                    const num = Number(val);
-                    return isNaN(num) ? '0' : num.toFixed(8);
-                }
-            },
-            { title: '更新时间', dataIndex: 'uTime', key: 'uTime', render: (val: string) => val ? new Date(parseInt(val)).toLocaleString() : '-' },
-        ];
-
-        return (
-            <Table
-                columns={columns}
-                dataSource={data}
-                rowKey="ccy"
-                pagination={false}
-                size="small"
-            />
-        );
-    };
 
     const renderTickerInfo = () => {
         if (!tickerData?.data?.[0]) return null;
@@ -459,20 +669,126 @@ export const OKXManagement: React.FC = () => {
         );
     };
 
-    const renderAssetBalancesTable = () => {
-        if (!assetBalances.length) return <div>No data</div>;
+    const renderTradingBalancesTable = () => {
+        if (!tradingBalances.length) return <div>暂无交易账户余额数据</div>;
         const columns = [
-            { title: '币种', dataIndex: 'ccy', key: 'ccy' },
-            { title: '余额', dataIndex: 'bal', key: 'bal' },
-            { title: '可用余额', dataIndex: 'availBal', key: 'availBal' },
-            { title: '冻结余额', dataIndex: 'frozenBal', key: 'frozenBal' },
-            { title: '更新时间', dataIndex: 'uTime', key: 'uTime', render: (val: string) => val ? new Date(Number(val)).toLocaleString() : '-' },
+            { title: '币种', dataIndex: 'currency', key: 'currency' },
+            {
+                title: '总余额',
+                dataIndex: 'total_balance',
+                key: 'total_balance',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: '可用余额',
+                dataIndex: 'available_balance',
+                key: 'available_balance',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: '冻结余额',
+                dataIndex: 'frozen_balance',
+                key: 'frozen_balance',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: 'USDT估值',
+                key: 'usdt_value',
+                render: (record: any) => {
+                    const amount = Number(record.total_balance);
+                    const currency = record.currency;
+                    const usdtValue = calculateUSDTValue(currency, amount);
+                    return (
+                        <span style={{ color: usdtValue > 0 ? '#3f8600' : '#999' }}>
+                            {usdtValue > 0 ? `$${usdtValue.toFixed(2)}` : '-'}
+                        </span>
+                    );
+                }
+            },
+            {
+                title: '更新时间',
+                dataIndex: 'update_time',
+                key: 'update_time',
+                render: (val: string) => val ? new Date(val).toLocaleString() : '-'
+            },
         ];
         return (
             <Table
                 columns={columns}
-                dataSource={assetBalances}
-                rowKey={(row) => row.ccy + (row.uTime || Math.random())}
+                dataSource={tradingBalances}
+                rowKey={(row) => row.currency + (row.update_time || Math.random())}
+                pagination={false}
+                size="small"
+            />
+        );
+    };
+
+    const renderFundingBalancesTable = () => {
+        if (!fundingBalances.length) return <div>暂无资金账户余额数据</div>;
+        const columns = [
+            { title: '币种', dataIndex: 'currency', key: 'currency' },
+            {
+                title: '总余额',
+                dataIndex: 'total_balance',
+                key: 'total_balance',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: '可用余额',
+                dataIndex: 'available_balance',
+                key: 'available_balance',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: '冻结余额',
+                dataIndex: 'frozen_balance',
+                key: 'frozen_balance',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: 'USDT估值',
+                key: 'usdt_value',
+                render: (record: any) => {
+                    const amount = Number(record.total_balance);
+                    const currency = record.currency;
+                    const usdtValue = calculateUSDTValue(currency, amount);
+                    return (
+                        <span style={{ color: usdtValue > 0 ? '#3f8600' : '#999' }}>
+                            {usdtValue > 0 ? `$${usdtValue.toFixed(2)}` : '-'}
+                        </span>
+                    );
+                }
+            },
+            {
+                title: '更新时间',
+                dataIndex: 'update_time',
+                key: 'update_time',
+                render: (val: string) => val ? new Date(val).toLocaleString() : '-'
+            },
+        ];
+        return (
+            <Table
+                columns={columns}
+                dataSource={fundingBalances}
+                rowKey={(row) => row.currency + (row.update_time || Math.random())}
                 pagination={false}
                 size="small"
             />
@@ -480,29 +796,54 @@ export const OKXManagement: React.FC = () => {
     };
 
     const renderSavingsBalancesTable = () => {
-        if (!savingsBalances.length) return <div>No data</div>;
+        if (!savingsBalances.length) return <div>暂无储蓄账户余额数据</div>;
         const columns = [
-            { title: '币种', dataIndex: 'ccy', key: 'ccy' },
+            { title: '币种', dataIndex: 'currency', key: 'currency' },
             {
-                title: '余额', dataIndex: 'amt', key: 'amt',
+                title: '总余额', dataIndex: 'total_balance', key: 'total_balance',
                 render: (val: any) => {
                     const num = Number(val);
                     return isNaN(num) ? '0' : num.toFixed(8);
                 }
             },
             {
-                title: '收益', dataIndex: 'earnings', key: 'earnings',
+                title: '可用余额', dataIndex: 'available_balance', key: 'available_balance',
                 render: (val: any) => {
                     const num = Number(val);
                     return isNaN(num) ? '0' : num.toFixed(8);
                 }
+            },
+            {
+                title: '冻结余额', dataIndex: 'frozen_balance', key: 'frozen_balance',
+                render: (val: any) => {
+                    const num = Number(val);
+                    return isNaN(num) ? '0' : num.toFixed(8);
+                }
+            },
+            {
+                title: 'USDT估值',
+                key: 'usdt_value',
+                render: (record: any) => {
+                    const amount = Number(record.total_balance);
+                    const currency = record.currency;
+                    const usdtValue = calculateUSDTValue(currency, amount);
+                    return (
+                        <span style={{ color: usdtValue > 0 ? '#3f8600' : '#999' }}>
+                            {usdtValue > 0 ? `$${usdtValue.toFixed(2)}` : '-'}
+                        </span>
+                    );
+                }
+            },
+            {
+                title: '更新时间', dataIndex: 'update_time', key: 'update_time',
+                render: (val: string) => val ? new Date(val).toLocaleString() : '-'
             },
         ];
         return (
             <Table
                 columns={columns}
                 dataSource={savingsBalances}
-                rowKey={(row) => row.ccy + (row.amt || Math.random())}
+                rowKey={(row) => row.currency + (row.update_time || Math.random())}
                 pagination={false}
                 size="small"
             />
@@ -516,16 +857,108 @@ export const OKXManagement: React.FC = () => {
 
             <Card>
                 <Tabs activeKey={activeTab} onChange={setActiveTab}>
-                    <TabPane tab="账户信息" key="1">
+                    <TabPane tab="交易账户余额" key="1">
                         <Space style={{ marginBottom: 16 }}>
-                            <Button type="primary" onClick={fetchAccountData} loading={loading}>
-                                获取账户信息
+                            <Button type="primary" onClick={fetchTradingBalances} loading={tradingBalancesLoading}>
+                                从数据库获取
+                            </Button>
+                            <Button onClick={fetchLatestBalances} loading={tradingBalancesLoading}>
+                                从API同步并获取
                             </Button>
                         </Space>
-                        {accountData && renderAccountTable()}
+                        {tradingBalancesError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {tradingBalancesError}</div>}
+                        {tradingBalancesLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {tradingBalancesLoadTime}ms</div>}
+                        {tradingBalances.length > 0 && renderTradingBalancesTable()}
                     </TabPane>
 
-                    <TabPane tab="行情数据" key="2">
+                    <TabPane tab="资金账户余额" key="2">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchFundingBalances} loading={fundingBalancesLoading}>
+                                从数据库获取
+                            </Button>
+                            <Button onClick={fetchLatestBalances} loading={fundingBalancesLoading}>
+                                从API同步并获取
+                            </Button>
+                        </Space>
+                        {fundingBalancesError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {fundingBalancesError}</div>}
+                        {fundingBalancesLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {fundingBalancesLoadTime}ms</div>}
+                        {fundingBalances.length > 0 && renderFundingBalancesTable()}
+                    </TabPane>
+
+                    <TabPane tab="储蓄账户余额" key="3">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchSavingsBalances} loading={savingsBalancesLoading}>
+                                从数据库获取
+                            </Button>
+                            <Button onClick={fetchLatestBalances} loading={savingsBalancesLoading}>
+                                从API同步并获取
+                            </Button>
+                        </Space>
+                        {savingsBalancesError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {savingsBalancesError}</div>}
+                        {savingsBalancesLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {savingsBalancesLoadTime}ms</div>}
+                        {savingsBalances.length > 0 && renderSavingsBalancesTable()}
+                    </TabPane>
+
+                    <TabPane tab="持仓数据" key="4">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchPositionsData} loading={positionsLoading}>
+                                从数据库获取
+                            </Button>
+                            <Button onClick={fetchLatestPositionsData} loading={positionsLoading}>
+                                从API同步并获取
+                            </Button>
+                        </Space>
+                        {positionsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {positionsError}</div>}
+                        {positionsLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {positionsLoadTime}ms</div>}
+                        {positionsData.length > 0 && (
+                            <Table
+                                columns={[
+                                    { title: '交易对', dataIndex: 'instId', key: 'instId' },
+                                    { title: '持仓方向', dataIndex: 'posSide', key: 'posSide' },
+                                    { title: '持仓数量', dataIndex: 'pos', key: 'pos' },
+                                    { title: '可用数量', dataIndex: 'availPos', key: 'availPos' },
+                                    { title: '平均价格', dataIndex: 'avgPx', key: 'avgPx' },
+                                    { title: '未实现盈亏', dataIndex: 'upl', key: 'upl' },
+                                    { title: '更新时间', dataIndex: 'uTime', key: 'uTime', render: (val: string) => val ? new Date(Number(val)).toLocaleString() : '-' },
+                                ]}
+                                dataSource={positionsData}
+                                rowKey={(row) => row.instId + row.posSide}
+                                pagination={false}
+                                size="small"
+                            />
+                        )}
+                    </TabPane>
+
+                    <TabPane tab="交易记录" key="5">
+                        <Space style={{ marginBottom: 16 }}>
+                            <Button type="primary" onClick={fetchTransactionsData} loading={transactionsLoading}>
+                                从数据库获取
+                            </Button>
+                            <Button onClick={fetchLatestTransactionsData} loading={transactionsLoading}>
+                                从API同步并获取
+                            </Button>
+                        </Space>
+                        {transactionsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {transactionsError}</div>}
+                        {transactionsLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {transactionsLoadTime}ms</div>}
+                        {transactionsData.length > 0 && (
+                            <Table
+                                columns={[
+                                    { title: '交易对', dataIndex: 'instId', key: 'instId' },
+                                    { title: '交易方向', dataIndex: 'side', key: 'side' },
+                                    { title: '交易数量', dataIndex: 'sz', key: 'sz' },
+                                    { title: '交易价格', dataIndex: 'px', key: 'px' },
+                                    { title: '手续费', dataIndex: 'fee', key: 'fee' },
+                                    { title: '交易时间', dataIndex: 'ts', key: 'ts', render: (val: string) => val ? new Date(Number(val)).toLocaleString() : '-' },
+                                ]}
+                                dataSource={transactionsData}
+                                rowKey={(row) => row.tradeId || row.ts + Math.random()}
+                                pagination={false}
+                                size="small"
+                            />
+                        )}
+                    </TabPane>
+
+                    <TabPane tab="行情数据" key="6">
                         <Space style={{ marginBottom: 16 }}>
                             <Select
                                 value={selectedInstrument}
@@ -537,49 +970,34 @@ export const OKXManagement: React.FC = () => {
                                 <Option value="SOL-USDT">SOL-USDT</Option>
                                 <Option value="ADA-USDT">ADA-USDT</Option>
                             </Select>
-                            <Button type="primary" onClick={fetchTickerData} loading={loading}>
+                            <Button type="primary" onClick={fetchTickerData} loading={tickerLoading}>
                                 获取行情
                             </Button>
                         </Space>
+                        {tickerError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {tickerError}</div>}
                         {tickerData && renderTickerInfo()}
                     </TabPane>
 
-                    <TabPane tab="交易产品" key="3">
+                    <TabPane tab="交易产品" key="7">
                         <Space style={{ marginBottom: 16 }}>
-                            <Button type="primary" onClick={fetchInstruments} loading={loading}>
+                            <Button type="primary" onClick={fetchInstruments} loading={instrumentsLoading}>
                                 获取交易产品
                             </Button>
                         </Space>
+                        {instrumentsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {instrumentsError}</div>}
                         {instrumentsData && (
                             <div>共找到 {instrumentsData.data?.length || 0} 个交易对</div>
                         )}
                     </TabPane>
 
-                    <TabPane tab="账单流水" key="4">
+                    <TabPane tab="账单流水" key="8">
                         <Space style={{ marginBottom: 16 }}>
-                            <Button type="primary" onClick={fetchBills} loading={loading}>
+                            <Button type="primary" onClick={fetchBills} loading={billsLoading}>
                                 获取账单流水
                             </Button>
                         </Space>
+                        {billsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {billsError}</div>}
                         {billsData && renderBillsTable()}
-                    </TabPane>
-
-                    <TabPane tab="资金账户余额" key="5">
-                        <Space style={{ marginBottom: 16 }}>
-                            <Button type="primary" onClick={fetchAssetBalances} loading={loading}>
-                                获取资金账户余额
-                            </Button>
-                        </Space>
-                        {assetBalances.length > 0 && renderAssetBalancesTable()}
-                    </TabPane>
-
-                    <TabPane tab="储蓄账户余额" key="6">
-                        <Space style={{ marginBottom: 16 }}>
-                            <Button type="primary" onClick={fetchSavingsBalances} loading={loading}>
-                                获取储蓄账户余额
-                            </Button>
-                        </Space>
-                        {savingsBalances.length > 0 && renderSavingsBalancesTable()}
                     </TabPane>
                 </Tabs>
             </Card>

@@ -135,12 +135,12 @@ class OKXAPIService:
 
     @auto_log("system")
     async def get_config(self) -> Dict[str, Any]:
-        """获取当前配置信息"""
+        """获取OKX API配置信息"""
         return {
             "api_configured": bool(self.api_key and self.secret_key and self.passphrase),
             "sandbox_mode": self.sandbox,
             "base_url": self.base_url,
-            "api_key_prefix": self.api_key[:10] + "..." if self.api_key else "未配置"
+            "api_key_prefix": self.api_key[:10] + "..." if self.api_key else None
         }
 
     @auto_log("system")
@@ -225,6 +225,8 @@ class OKXAPIService:
         
         db = SessionLocal()
         try:
+            # 获取交易账户余额
+            trading_balances = await self.get_account_balance()
             # 获取资金账户余额
             asset_balances = await self.get_asset_balances()
             # 获取储蓄账户余额
@@ -233,38 +235,71 @@ class OKXAPIService:
             total_updated = 0
             total_inserted = 0
             
+            # 处理交易账户余额
+            if trading_balances and trading_balances.get('data'):
+                for account in trading_balances['data']:
+                    if 'details' in account:
+                        for detail in account['details']:
+                            balance_data = {
+                                "account_id": account.get('acctId', 'trading'),
+                                "currency": detail.get('ccy', ''),
+                                "available_balance": float(detail.get('availBal', 0)),
+                                "frozen_balance": float(detail.get('frozenBal', 0)),
+                                "total_balance": float(detail.get('eq', 0)),
+                                "account_type": "trading",
+                                "update_time": datetime.now()
+                            }
+                            
+                            # 检查是否已存在
+                            existing = db.query(OKXBalance).filter_by(
+                                account_id=balance_data["account_id"],
+                                currency=balance_data["currency"],
+                                account_type=balance_data["account_type"]
+                            ).first()
+                            
+                            if existing:
+                                # 更新现有记录
+                                for key, value in balance_data.items():
+                                    if key not in ['account_id', 'currency', 'account_type']:
+                                        setattr(existing, key, value)
+                                total_updated += 1
+                            else:
+                                # 插入新记录
+                                new_balance = OKXBalance(**balance_data)
+                                db.add(new_balance)
+                                total_inserted += 1
+            
             # 处理资金账户余额
             if asset_balances and asset_balances.get('data'):
                 for balance in asset_balances['data']:
-                    for detail in balance.get('details', []):
-                        balance_data = {
-                            "account_id": balance.get('adjEq', ''),
-                            "currency": detail.get('ccy', ''),
-                            "available_balance": float(detail.get('availBal', 0)),
-                            "frozen_balance": float(detail.get('bal', 0)) - float(detail.get('availBal', 0)),
-                            "total_balance": float(detail.get('bal', 0)),
-                            "account_type": "trading",
-                            "update_time": datetime.fromisoformat(detail.get('uTime', '').replace('Z', '+00:00')) if detail.get('uTime') else datetime.now()
-                        }
-                        
-                        # 检查是否已存在
-                        existing = db.query(OKXBalance).filter_by(
-                            account_id=balance_data["account_id"],
-                            currency=balance_data["currency"],
-                            account_type=balance_data["account_type"]
-                        ).first()
-                        
-                        if existing:
-                            # 更新现有记录
-                            for key, value in balance_data.items():
-                                if key not in ['account_id', 'currency', 'account_type']:
-                                    setattr(existing, key, value)
-                            total_updated += 1
-                        else:
-                            # 插入新记录
-                            new_balance = OKXBalance(**balance_data)
-                            db.add(new_balance)
-                            total_inserted += 1
+                    balance_data = {
+                        "account_id": "funding",
+                        "currency": balance.get('ccy', ''),
+                        "available_balance": float(balance.get('availBal', 0)),
+                        "frozen_balance": float(balance.get('frozenBal', 0)),
+                        "total_balance": float(balance.get('bal', 0)),
+                        "account_type": "funding",
+                        "update_time": datetime.now()
+                    }
+                    
+                    # 检查是否已存在
+                    existing = db.query(OKXBalance).filter_by(
+                        account_id=balance_data["account_id"],
+                        currency=balance_data["currency"],
+                        account_type=balance_data["account_type"]
+                    ).first()
+                    
+                    if existing:
+                        # 更新现有记录
+                        for key, value in balance_data.items():
+                            if key not in ['account_id', 'currency', 'account_type']:
+                                setattr(existing, key, value)
+                        total_updated += 1
+                    else:
+                        # 插入新记录
+                        new_balance = OKXBalance(**balance_data)
+                        db.add(new_balance)
+                        total_inserted += 1
             
             # 处理储蓄账户余额
             if savings_balances and savings_balances.get('data'):
@@ -272,9 +307,9 @@ class OKXAPIService:
                     balance_data = {
                         "account_id": "savings",
                         "currency": balance.get('ccy', ''),
-                        "available_balance": float(balance.get('availBal', 0)),
+                        "available_balance": float(balance.get('amt', 0)),
                         "frozen_balance": 0,
-                        "total_balance": float(balance.get('bal', 0)),
+                        "total_balance": float(balance.get('amt', 0)),
                         "account_type": "savings",
                         "update_time": datetime.now()
                     }
