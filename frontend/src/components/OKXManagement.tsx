@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, message, Row, Col, Statistic, Tag, Descriptions, Tabs, Select } from 'antd';
+import { Card, Button, Table, Space, message, Row, Col, Statistic, Tag, Descriptions, Tabs, Select, Switch } from 'antd';
 import { ReloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined, DollarCircleOutlined } from '@ant-design/icons';
 import { okxAPI } from '../services/api';
 
@@ -91,6 +91,9 @@ export const OKXManagement: React.FC = () => {
     const [billsError, setBillsError] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState('1');
+
+    // 小额币种隐藏开关
+    const [hideSmall, setHideSmall] = useState(true);
 
     // 概览/汇总独立加载
     useEffect(() => {
@@ -555,6 +558,19 @@ export const OKXManagement: React.FC = () => {
         }
     };
 
+    // 对余额数据按USDT估值排序，并根据小额开关过滤
+    const filterAndSortByUSDTValue = (arr: any[]) => {
+        let filtered = arr;
+        if (hideSmall) {
+            filtered = arr.filter(item => calculateUSDTValue(item.currency, Number(item.total_balance)) >= 1);
+        }
+        return filtered.slice().sort((a, b) => {
+            const aVal = calculateUSDTValue(a.currency, Number(a.total_balance));
+            const bVal = calculateUSDTValue(b.currency, Number(b.total_balance));
+            return bVal - aVal;
+        });
+    };
+
     const renderConfigCard = () => (
         <Card title={<><SettingOutlined /> OKX API 配置</>} style={{ marginBottom: 16 }}>
             <Row gutter={16}>
@@ -619,14 +635,53 @@ export const OKXManagement: React.FC = () => {
         </Card>
     );
 
-    const renderSummaryCard = () => (
-        <Card title={<><DollarCircleOutlined /> OKX 账户汇总</>} style={{ marginBottom: 16 }}>
-            {summary ? (
+    const renderSummaryCard = () => {
+        // 计算OKX三账户USDT估值合计
+        const getOKXTotalUSDT = () => {
+            let tradingUSDT = 0;
+            tradingBalances.forEach((item: any) => {
+                tradingUSDT += calculateUSDTValue(item.currency, Number(item.total_balance));
+            });
+            let fundingUSDT = 0;
+            fundingBalances.forEach((item: any) => {
+                fundingUSDT += calculateUSDTValue(item.currency, Number(item.total_balance));
+            });
+            let savingsUSDT = 0;
+            savingsBalances.forEach((item: any) => {
+                savingsUSDT += calculateUSDTValue(item.currency, Number(item.total_balance));
+            });
+            return tradingUSDT + fundingUSDT + savingsUSDT;
+        };
+
+        // 统计币种
+        const allCoins: { currency: string, usdtValue: number }[] = [];
+        tradingBalances.forEach((item: any) => {
+            allCoins.push({ currency: item.currency, usdtValue: calculateUSDTValue(item.currency, Number(item.total_balance)) });
+        });
+        fundingBalances.forEach((item: any) => {
+            allCoins.push({ currency: item.currency, usdtValue: calculateUSDTValue(item.currency, Number(item.total_balance)) });
+        });
+        savingsBalances.forEach((item: any) => {
+            allCoins.push({ currency: item.currency, usdtValue: calculateUSDTValue(item.currency, Number(item.total_balance)) });
+        });
+        // 主持仓数量：USDT估值>=1的币种（去重）
+        const mainCoinSet = new Set(
+            allCoins.filter(c => c.usdtValue >= 1).map(c => c.currency)
+        );
+        // 总持仓数量：所有币种（去重）
+        const allCoinSet = new Set(allCoins.map(c => c.currency));
+
+        const okxTotalUSDT = getOKXTotalUSDT();
+        const web3USD = web3TotalBalance?.total_value ? Number(web3TotalBalance.total_value) : 0;
+        const totalAssets = okxTotalUSDT + web3USD;
+
+        return (
+            <Card title={<><DollarCircleOutlined /> OKX 账户汇总</>} style={{ marginBottom: 16 }}>
                 <Row gutter={16}>
                     <Col span={6}>
                         <Statistic
                             title="总资产 (USD)"
-                            value={summary.total_balance_usd?.toFixed(2) || 0}
+                            value={totalAssets.toFixed(2)}
                             precision={2}
                             valueStyle={{ color: '#3f8600' }}
                             prefix="$"
@@ -635,7 +690,7 @@ export const OKXManagement: React.FC = () => {
                     <Col span={6}>
                         <Statistic
                             title="总资产 (CNY)"
-                            value={summary.total_balance_cny?.toFixed(2) || 0}
+                            value={summary?.total_balance_cny?.toFixed(2) || 0}
                             precision={2}
                             valueStyle={{ color: '#3f8600' }}
                             prefix="¥"
@@ -644,36 +699,40 @@ export const OKXManagement: React.FC = () => {
                     <Col span={6}>
                         <Statistic
                             title="持仓数量"
-                            value={summary.position_count || 0}
+                            value={mainCoinSet.size}
                             valueStyle={{ color: '#1890ff' }}
                         />
+                        <div style={{ color: '#888', fontSize: 12, marginTop: 2 }}>
+                            包含所有小额币种后总持仓数量：{allCoinSet.size}
+                        </div>
                     </Col>
                     <Col span={6}>
                         <Statistic
                             title="24h交易数"
-                            value={summary.transaction_count_24h || 0}
+                            value={summary?.transaction_count_24h || 0}
                             valueStyle={{ color: '#722ed1' }}
                         />
                     </Col>
                 </Row>
-            ) : (
-                <div>暂无汇总数据</div>
-            )}
-            <div style={{ marginTop: 16 }}>
-                <Space>
-                    <Button type="primary" onClick={syncBalances} loading={tradingBalancesLoading || fundingBalancesLoading || savingsBalancesLoading}>
-                        <ReloadOutlined /> 同步余额
-                    </Button>
-                    <Button onClick={syncTransactions} loading={transactionsLoading}>
-                        <ReloadOutlined /> 同步交易
-                    </Button>
-                    <Button onClick={syncPositions} loading={positionsLoading}>
-                        <ReloadOutlined /> 同步持仓
-                    </Button>
-                </Space>
-            </div>
-        </Card>
-    );
+                <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
+                    账户余额 {okxTotalUSDT.toFixed(2)} + web3余额 {web3USD.toFixed(2)}
+                </div>
+                <div style={{ marginTop: 16 }}>
+                    <Space>
+                        <Button type="primary" onClick={syncBalances} loading={tradingBalancesLoading || fundingBalancesLoading || savingsBalancesLoading}>
+                            <ReloadOutlined /> 同步余额
+                        </Button>
+                        <Button onClick={syncTransactions} loading={transactionsLoading}>
+                            <ReloadOutlined /> 同步交易
+                        </Button>
+                        <Button onClick={syncPositions} loading={positionsLoading}>
+                            <ReloadOutlined /> 同步持仓
+                        </Button>
+                    </Space>
+                </div>
+            </Card>
+        );
+    };
 
 
 
@@ -718,6 +777,7 @@ export const OKXManagement: React.FC = () => {
 
     const renderTradingBalancesTable = () => {
         if (!tradingBalances.length) return <div>暂无交易账户余额数据</div>;
+        const sorted = filterAndSortByUSDTValue(tradingBalances);
         const columns = [
             { title: '币种', dataIndex: 'currency', key: 'currency' },
             {
@@ -769,18 +829,24 @@ export const OKXManagement: React.FC = () => {
             },
         ];
         return (
-            <Table
-                columns={columns}
-                dataSource={tradingBalances}
-                rowKey={(row) => row.currency + (row.update_time || Math.random())}
-                pagination={false}
-                size="small"
-            />
+            <div>
+                <div style={{ marginBottom: 8 }}>
+                    <Switch checked={hideSmall} onChange={setHideSmall} size="small" /> 隐藏小额币种（{'<'}1 USDT）
+                </div>
+                <Table
+                    columns={columns}
+                    dataSource={sorted}
+                    rowKey={(row) => row.currency + (row.update_time || Math.random())}
+                    pagination={false}
+                    size="small"
+                />
+            </div>
         );
     };
 
     const renderFundingBalancesTable = () => {
         if (!fundingBalances.length) return <div>暂无资金账户余额数据</div>;
+        const sorted = filterAndSortByUSDTValue(fundingBalances);
         const columns = [
             { title: '币种', dataIndex: 'currency', key: 'currency' },
             {
@@ -832,18 +898,24 @@ export const OKXManagement: React.FC = () => {
             },
         ];
         return (
-            <Table
-                columns={columns}
-                dataSource={fundingBalances}
-                rowKey={(row) => row.currency + (row.update_time || Math.random())}
-                pagination={false}
-                size="small"
-            />
+            <div>
+                <div style={{ marginBottom: 8 }}>
+                    <Switch checked={hideSmall} onChange={setHideSmall} size="small" /> 隐藏小额币种（{'<'}1 USDT）
+                </div>
+                <Table
+                    columns={columns}
+                    dataSource={sorted}
+                    rowKey={(row) => row.currency + (row.update_time || Math.random())}
+                    pagination={false}
+                    size="small"
+                />
+            </div>
         );
     };
 
     const renderSavingsBalancesTable = () => {
         if (!savingsBalances.length) return <div>暂无储蓄账户余额数据</div>;
+        const sorted = filterAndSortByUSDTValue(savingsBalances);
         const columns = [
             { title: '币种', dataIndex: 'currency', key: 'currency' },
             {
@@ -887,13 +959,18 @@ export const OKXManagement: React.FC = () => {
             },
         ];
         return (
-            <Table
-                columns={columns}
-                dataSource={savingsBalances}
-                rowKey={(row) => row.currency + (row.update_time || Math.random())}
-                pagination={false}
-                size="small"
-            />
+            <div>
+                <div style={{ marginBottom: 8 }}>
+                    <Switch checked={hideSmall} onChange={setHideSmall} size="small" /> 隐藏小额币种（{'<'}1 USDT）
+                </div>
+                <Table
+                    columns={columns}
+                    dataSource={sorted}
+                    rowKey={(row) => row.currency + (row.update_time || Math.random())}
+                    pagination={false}
+                    size="small"
+                />
+            </div>
         );
     };
 
