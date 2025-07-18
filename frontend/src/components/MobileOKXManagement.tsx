@@ -148,29 +148,35 @@ const MobileOKXManagement: React.FC = () => {
       {tab === 'funding' && renderBalanceList(funding)}
       {tab === 'savings' && renderBalanceList(savings)}
       {tab === 'web3' && (
-        <List
-          size="small"
-          bordered
-          dataSource={web3?.tokens || []}
-          renderItem={(item: any) => (
-            <List.Item style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: 10 }}>
-              <Row style={{ width: '100%' }}>
-                <Col flex="auto">
-                  <span style={{ fontWeight: 600 }}>{item.symbol}</span>
-                  <span style={{ color: '#888', fontSize: 12, marginLeft: 8 }}>({item.chain})</span>
+        <div>
+          {web3 ? (
+            <Card style={{ marginBottom: 12 }}>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Statistic
+                    title="Web3账户总价值"
+                    value={web3.total_value || 0}
+                    precision={2}
+                    valueStyle={{ color: '#3f8600', fontSize: '18px' }}
+                    suffix="USD"
+                  />
+                  <div style={{ marginTop: '4px', color: '#666', fontSize: '12px' }}>
+                    货币: {web3.currency || 'USD'}
+                  </div>
                 </Col>
-                <Col>
-                  <span style={{ color: '#faad14', fontWeight: 500 }}>{Number(item.balance).toFixed(4)}</span>
+                <Col span={12}>
+                  <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>
+                    <div>最后更新:</div>
+                    <div>{web3.update_time ? new Date(web3.update_time).toLocaleString() : '未知'}</div>
+                    <div style={{ marginTop: '4px' }}>来源: {web3.source || '未知'}</div>
+                  </div>
                 </Col>
               </Row>
-              <Row style={{ width: '100%', marginTop: 2 }}>
-                <Col flex="auto">
-                  <span style={{ color: '#3f8600', fontSize: 13 }}>≈ ${Number(item.usd_value || 0).toFixed(2)} USD</span>
-                </Col>
-              </Row>
-            </List.Item>
+            </Card>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>暂无Web3数据</div>
           )}
-        />
+        </div>
       )}
       {tab === 'positions' && (
         <List
