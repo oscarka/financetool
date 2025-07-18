@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Statistic, Tabs, List, Button, message, Spin } from 'antd';
-import { SettingOutlined, DollarCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Card, Statistic, Tabs, List, Button, Spin } from 'antd';
+import { SettingOutlined, ReloadOutlined } from '@ant-design/icons';
 import { okxAPI } from '../services/api';
 
 const { TabPane } = Tabs;
