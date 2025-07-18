@@ -60,16 +60,33 @@ def create_tables():
     """创建所有数据库表"""
     from app.models.database import (
         UserOperation, AssetPosition, FundInfo, FundNav, 
-        DCAPlan, ExchangeRate, SystemConfig
+        DCAPlan, ExchangeRate, SystemConfig,
+        # 添加OKX相关模型
+        OKXBalance, OKXTransaction, OKXPosition, OKXMarketData,
+        # 添加Wise相关模型
+        WiseTransaction, WiseBalance, WiseExchangeRate,
+        # 添加IBKR相关模型
+        IBKRAccount, IBKRBalance, IBKRPosition, IBKRSyncLog
     )
     
     # 确保数据目录存在
     data_dir = get_data_directory()
     print(f"使用数据目录: {data_dir}")
     
-    # 创建所有表
+    # 在PostgreSQL环境下，也创建表（Railway会自动处理，但本地环境需要手动创建）
+    if settings.database_url.startswith("postgresql://"):
+        print("PostgreSQL环境，创建表结构...")
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("✅ PostgreSQL表结构创建成功")
+        except Exception as e:
+            print(f"⚠️  PostgreSQL表创建警告: {e}")
+            print("ℹ️  表可能已存在，继续启动")
+        return
+    
+    # SQLite环境下正常创建
     Base.metadata.create_all(bind=engine)
-    print("数据库表创建完成")
+    print("SQLite数据库表创建完成")
 
 
 def drop_tables():

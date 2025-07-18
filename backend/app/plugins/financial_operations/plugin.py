@@ -99,6 +99,14 @@ class FinancialOperationsPlugin(BaseTaskPlugin):
                 "class": "app.plugins.financial_operations.tasks.ibkr_position_sync.IBKRPositionSyncTask"
             },
             
+            # Web3相关任务
+            {
+                "task_id": "web3_balance_sync",
+                "name": "Web3余额同步",
+                "description": "同步Web3账户余额信息",
+                "class": "app.plugins.financial_operations.tasks.web3_balance_sync.Web3BalanceSyncTask"
+            },
+            
             # 数据处理任务
             {
                 "task_id": "data_cleanup",

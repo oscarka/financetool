@@ -44,6 +44,7 @@ class ExtensibleSchedulerService:
         self.event_bus.subscribe('wise.balance.synced', self._handle_wise_balance_synced)
         self.event_bus.subscribe('okx.balance.synced', self._handle_okx_balance_synced)
         self.event_bus.subscribe('ibkr.balance.synced', self._handle_ibkr_balance_synced)
+        self.event_bus.subscribe('web3.balance.synced', self._handle_web3_balance_synced)
         
     async def initialize(self):
         """初始化调度器"""
@@ -289,6 +290,10 @@ class ExtensibleSchedulerService:
     async def _handle_ibkr_balance_synced(self, event: Dict[str, Any]):
         """处理IBKR余额同步事件"""
         logger.info(f"IBKR余额已同步: {event['data']['account_count']} 个账户")
+        
+    async def _handle_web3_balance_synced(self, event: Dict[str, Any]):
+        """处理Web3余额同步事件"""
+        logger.info(f"Web3余额已同步: 总余额 {event['data']['total_balance']}")
         
     async def shutdown(self):
         """关闭调度器"""

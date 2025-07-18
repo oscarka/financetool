@@ -170,7 +170,7 @@ const WiseManagement: React.FC = () => {
         const to = dateRange[1].format('YYYY-MM-DD');
         try {
             // 优先从数据库获取汇率历史数据
-            const res = await api.get('/wise/exchange-rates/history', {
+            const res = await wiseAPI.getExchangeRateHistory({
                 params: {
                     source: selectedPair.source,
                     target: selectedPair.target,
@@ -189,14 +189,12 @@ const WiseManagement: React.FC = () => {
             console.log('从数据库获取汇率历史失败，尝试从API获取:', e);
             // 如果数据库没有数据，尝试从API获取
             try {
-                const res = await api.get('/wise/historical-rates', {
-                    params: {
-                        source: selectedPair.source,
-                        target: selectedPair.target,
-                        from_date: from,
-                        to_date: to,
-                        interval: 24,
-                    },
+                const res = await wiseAPI.getHistoricalRates({
+                    source: selectedPair.source,
+                    target: selectedPair.target,
+                    from_date: from,
+                    to_date: to,
+                    interval: 24,
                 });
                 setRateHistory(res.data.data || []);
                 if (res.data.data && res.data.data.length > 0) {
@@ -221,7 +219,7 @@ const WiseManagement: React.FC = () => {
     // 拉取历史汇率数据
     const fetchHistoryRates = async () => {
         try {
-            await api.post('/wise/exchange-rates/fetch-history', {
+            await wiseAPI.getExchangeRateHistory({
                 days: 30,
                 group: 'day'
             });
@@ -240,15 +238,15 @@ const WiseManagement: React.FC = () => {
         const start = Date.now();
         try {
             // 先同步到数据库
-            const syncRes = await api.post('/wise/sync-balances');
-            if (!syncRes.data.success) {
-                message.error(syncRes.data.message || '同步数据库失败');
+            const syncRes = await wiseAPI.syncBalances();
+            if (!syncRes.success) {
+                message.error(syncRes.message || '同步数据库失败');
                 setBalancesLoading(false);
                 return;
 
             }
             // 再查数据库最新数据
-            const res = await api.get('/wise/stored-balances');
+            const res = await wiseAPI.getStoredBalances();
             setBalances(res.data?.data || res.data || []);
             setBalanceLoadTime(Date.now() - start);
             message.success(`同步并获取到 ${res.data.count || 0} 条余额记录`);
@@ -268,9 +266,9 @@ const WiseManagement: React.FC = () => {
         const start = Date.now();
         try {
             // 先同步到数据库
-            const syncRes = await api.post('/wise/sync-transactions');
-            if (!syncRes.data.success) {
-                message.error(syncRes.data.message || '同步交易记录到数据库失败');
+            const syncRes = await wiseAPI.syncTransactions();
+            if (!syncRes.success) {
+                message.error(syncRes.message || '同步交易记录到数据库失败');
                 setTransactionsLoading(false);
                 return;
             }
@@ -283,7 +281,7 @@ const WiseManagement: React.FC = () => {
                 params.from_date = startDate.toISOString().split('T')[0];
                 params.to_date = endDate.toISOString().split('T')[0];
             }
-            const res = await api.get('/wise/stored-transactions', { params });
+            const res = await wiseAPI.getStoredTransactions(params);
             setTransactions(res.data?.data || res.data || []);
             setTransactionsLoadTime(Date.now() - start);
             message.success(`同步并获取到 ${res.data.count || 0} 条交易记录`);
@@ -306,14 +304,12 @@ const WiseManagement: React.FC = () => {
         const from = dateRange[0].format('YYYY-MM-DD');
         const to = dateRange[1].format('YYYY-MM-DD');
         try {
-            const res = await api.get('/wise/historical-rates', {
-                params: {
-                    source: selectedPair.source,
-                    target: selectedPair.target,
-                    from_date: from,
-                    to_date: to,
-                    interval: 24,
-                },
+            const res = await wiseAPI.getHistoricalRates({
+                source: selectedPair.source,
+                target: selectedPair.target,
+                from_date: from,
+                to_date: to,
+                interval: 24,
             });
             setRateHistory(res.data.data || []);
             if (res.data.data && res.data.data.length > 0) {
