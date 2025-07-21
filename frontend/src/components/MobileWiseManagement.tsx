@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Card, Statistic, Tabs, List, Button, Spin, Row, Col, Divider } from 'antd';
-import { BankOutlined, ReloadOutlined, DollarCircleOutlined } from '@ant-design/icons';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Card, Statistic, Tabs, List, Button, Spin, Row, Col, Divider, message, Space } from 'antd';
+import { BankOutlined, ReloadOutlined, DollarCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import api from '../services/api';
 
 const { TabPane } = Tabs;
@@ -21,36 +21,60 @@ const MobileWiseManagement: React.FC = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [tab, setTab] = useState('balances');
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
-  // 总览快速加载（只从数据库）
-  useEffect(() => {
-    api.get('/wise/summary').then(res => {
-      setSummary(res.data?.data || res.data);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  // 下方数据加载
-  useEffect(() => {
-    api.get('/wise/stored-balances').then(res => {
-      setBalances(res.data?.data || res.data || []);
-    }).catch(() => {});
-    api.get('/wise/stored-transactions', { params: { limit: 20 } }).then(res => {
-      setTransactions(res.data?.data || res.data || []);
-    }).catch(() => {});
-  }, []);
-
-  const refresh = () => {
+  // 从数据库加载数据
+  const loadDataFromDB = useCallback(async () => {
     setLoading(true);
-    Promise.all([
-      api.get('/wise/summary'),
-      api.get('/wise/stored-balances'),
-      api.get('/wise/stored-transactions', { params: { limit: 20 } })
-    ]).then(([summaryRes, balRes, txRes]) => {
+    try {
+      const [summaryRes, balRes, txRes] = await Promise.all([
+        api.get('/wise/summary'),
+        api.get('/wise/stored-balances'),
+        api.get('/wise/stored-transactions', { params: { limit: 20 } })
+      ]);
+      
       setSummary(summaryRes.data?.data || summaryRes.data);
       setBalances(balRes.data?.data || balRes.data || []);
       setTransactions(txRes.data?.data || txRes.data || []);
-    }).finally(() => setLoading(false));
+    } catch (error) {
+      message.error('加载数据失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 同步数据到数据库（调用外部API）
+  const syncData = async () => {
+    setSyncing(true);
+    try {
+      message.loading('正在同步数据...', 0);
+      
+      // 并行同步所有数据
+      const syncPromises = [
+        api.post('/wise/sync-balances'),
+        api.post('/wise/sync-transactions')
+      ];
+      
+      await Promise.all(syncPromises);
+      
+      message.destroy();
+      message.success('数据同步成功');
+      
+      // 同步完成后重新加载数据
+      await loadDataFromDB();
+    } catch (error) {
+      message.destroy();
+      message.error('数据同步失败');
+      console.error('同步失败:', error);
+    } finally {
+      setSyncing(false);
+    }
   };
+
+  // 总览快速加载（只从数据库）
+  useEffect(() => {
+    loadDataFromDB();
+  }, [loadDataFromDB]);
 
   // 总资产
   const getTotalWorth = () => {
@@ -62,7 +86,27 @@ const MobileWiseManagement: React.FC = () => {
     <div style={{ padding: 0 }}>
       <Card
         title={<span><BankOutlined /> Wise 汇总</span>}
-        extra={<Button icon={<ReloadOutlined />} size="small" onClick={refresh} />}
+        extra={
+          <Space>
+            <Button 
+              icon={<SyncOutlined spin={syncing} />} 
+              size="small" 
+              onClick={syncData}
+              loading={syncing}
+              type="primary"
+            >
+              同步
+            </Button>
+            <Button 
+              icon={<ReloadOutlined />} 
+              size="small" 
+              onClick={loadDataFromDB}
+              disabled={syncing}
+            >
+              刷新
+            </Button>
+          </Space>
+        }
         style={{ marginBottom: 12, borderRadius: 12, boxShadow: '0 2px 8px #f0f1f2' }}
         bodyStyle={{ padding: 12 }}
       >
