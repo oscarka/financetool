@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -36,7 +37,9 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.execute(text("DROP INDEX IF EXISTS ix_okx_account_overview_id"))
     op.create_index(op.f('ix_okx_account_overview_id'), 'okx_account_overview', ['id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_okx_account_overview_last_update"))
     op.create_index(op.f('ix_okx_account_overview_last_update'), 'okx_account_overview', ['last_update'], unique=False)
     op.drop_index(op.f('idx_okx_market_data_inst_id'), table_name='okx_market_data')
     op.drop_index(op.f('idx_okx_market_data_timestamp'), table_name='okx_market_data')
