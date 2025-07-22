@@ -11,11 +11,10 @@ const { Option } = Select;
 
 const currencyOptions = [
     { value: 'USD', label: 'USD - 美元' },
-    { value: 'EUR', label: 'EUR - 欧元' },
-    { value: 'GBP', label: 'GBP - 英镑' },
     { value: 'CNY', label: 'CNY - 人民币' },
-    { value: 'JPY', label: 'JPY - 日元' },
+    { value: 'EUR', label: 'EUR - 欧元' },
     { value: 'AUD', label: 'AUD - 澳元' },
+    { value: 'JPY', label: 'JPY - 日元' },
 ];
 
 const WiseManagement: React.FC = () => {
@@ -58,6 +57,12 @@ const WiseManagement: React.FC = () => {
     const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>([dayjs().subtract(30, 'days'), dayjs()]);
     const [latestRate, setLatestRate] = useState<number | null>(null);
 
+    // 新增：基准币种
+    const [baseCurrency, setBaseCurrency] = useState<string>('CNY');
+    // 新增：币种=>基准币种汇率映射
+    const [ratesMap, setRatesMap] = useState<Record<string, number>>({});
+    const [ratesLoading, setRatesLoading] = useState(false);
+    const [ratesError, setRatesError] = useState<string | null>(null);
 
     // 删除fetchData、fetchCardData相关的setLoading、setError、setTestLoading、setTestError等调用（如setLoading(true)、setError(null)等），只保留Tabs和下方区块原有逻辑，后续分步解耦。
 
@@ -411,8 +416,8 @@ const WiseManagement: React.FC = () => {
         setTransactionsError(null);
         const start = Date.now();
         try {
-            // 先同步到数据库
-            const syncRes = await api.post('/wise/sync-transactions');
+            // 先同步到数据库，带上天数参数
+            const syncRes = await api.post('/wise/sync-transactions', { days: transactionDays });
             if (!syncRes.data.success) {
                 message.error(syncRes.data.message || '同步交易记录到数据库失败');
                 setTransactionsLoading(false);
@@ -426,7 +431,6 @@ const WiseManagement: React.FC = () => {
                 startDate.setDate(startDate.getDate() - transactionDays);
                 params.from_date = startDate.toISOString().split('T')[0];
                 params.to_date = endDate.toISOString().split('T')[0];
-
             }
             const res = await api.get('/wise/stored-transactions', { params });
             setTransactions(res.data?.data || res.data || []);
@@ -437,7 +441,6 @@ const WiseManagement: React.FC = () => {
             message.error(`同步或获取交易记录失败: ${e.response?.data?.detail || e.message}`);
         } finally {
             setTransactionsLoading(false);
-
         }
         setRateLoading(false);
     };
@@ -449,6 +452,43 @@ const WiseManagement: React.FC = () => {
         }
         // eslint-disable-next-line
     }, [selectedPair]);
+
+    // 获取所有币种到基准币种的汇率
+    const fetchAllRates = async (target: string) => {
+        if (!summary?.balance_by_currency) return;
+        setRatesLoading(true);
+        setRatesError(null);
+        const currencies = Object.keys(summary.balance_by_currency);
+        const newRates: Record<string, number> = {};
+        try {
+            await Promise.all(currencies.map(async (cur) => {
+                if (cur === target) {
+                    newRates[cur] = 1;
+                } else {
+                    const res: any = await api.get(`/wise/exchange-rates?source=${cur}&target=${target}`);
+                    // 兼容返回数组或对象
+                    let rate = 1;
+                    if (Array.isArray(res.data) && res.data.length > 0) {
+                        rate = res.data[0].rate;
+                    } else if (res.data?.rate) {
+                        rate = res.data.rate;
+                    }
+                    newRates[cur] = rate;
+                }
+            }));
+            setRatesMap(newRates);
+        } catch (e: any) {
+            setRatesError(e.response?.data?.detail || '获取汇率失败');
+        } finally {
+            setRatesLoading(false);
+        }
+    };
+
+    // 监听基准币种或summary变化时刷新汇率
+    useEffect(() => {
+        fetchAllRates(baseCurrency);
+        // eslint-disable-next-line
+    }, [baseCurrency, summary]);
 
     const formatCurrency = (amount: number, currency: string) => {
         return new Intl.NumberFormat('zh-CN', {
@@ -489,6 +529,17 @@ const WiseManagement: React.FC = () => {
             const bNum = typeof b === 'number' ? b : 0;
             return aNum + bNum;
         }, 0);
+    };
+
+    // 计算折算后的总资产
+    const getTotalWorthInBase = (): number => {
+        if (!summary || !summary.balance_by_currency) return 0;
+        let total = 0;
+        Object.entries(summary.balance_by_currency).forEach(([cur, amount]) => {
+            const rate = ratesMap[cur] || 0;
+            total += (typeof amount === 'number' ? amount : 0) * rate;
+        });
+        return total;
     };
 
     const columnsBalances = [
@@ -535,12 +586,16 @@ const WiseManagement: React.FC = () => {
             title: '总价值',
             dataIndex: 'total_worth',
             key: 'total_worth',
-            width: 120,
-            render: (v: number, r: any) => (
-                <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
-                    {formatCurrency(v, r.currency)}
-                </span>
-            )
+            width: 140,
+            render: (v: number, r: any) => {
+                const rate = ratesMap[r.currency] || 0;
+                const baseValue = v * rate;
+                return (
+                    <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
+                        {ratesLoading ? '...' : `≈${formatCurrency(baseValue, baseCurrency)}`}
+                    </span>
+                );
+            }
         },
         {
             title: '账户类型',
@@ -591,13 +646,124 @@ const WiseManagement: React.FC = () => {
         },
     ];
 
+    // 优化交易记录表格列
     const columnsTransactions = [
-        { title: '日期', dataIndex: 'date', key: 'date', render: (v: string) => formatDate(v) },
-        { title: '类型', dataIndex: 'type', key: 'type', render: (v: string) => <Badge color={v === 'credit' ? 'green' : v === 'debit' ? 'red' : 'blue'} text={v} /> },
-        { title: '金额', dataIndex: 'amount', key: 'amount', render: (v: number, r: any) => formatCurrency(v, r.currency) },
-        { title: '描述', dataIndex: 'description', key: 'description' },
-        { title: '状态', dataIndex: 'status', key: 'status', render: (v: string) => <Badge color={v === 'completed' ? 'green' : v === 'pending' ? 'gold' : 'red'} text={v} /> },
-        { title: '参考号', dataIndex: 'reference_number', key: 'reference_number' },
+        {
+            title: '日期',
+            dataIndex: 'createdOn',
+            key: 'createdOn',
+            render: (v: string, r: any) => {
+                const date = v || r.date || r.created_at || r.created_at;
+                return date ? new Date(date).toLocaleString('zh-CN') : '-';
+            }
+        },
+        {
+            title: '类型',
+            dataIndex: 'type',
+            key: 'type',
+            render: (v: string) => {
+                if (v === 'INTERBALANCE') return '币种互转';
+                if (v === 'TRANSFER') return '外部转账';
+                return v || '-';
+            }
+        },
+        {
+            title: '金额',
+            key: 'amount',
+            render: (_: any, r: any) => {
+                if (r.amount && r.currency) {
+                    return `${r.amount} ${r.currency}`;
+                }
+                return '-';
+            }
+        },
+        {
+            title: '转出金额',
+            key: 'secondaryAmount',
+            render: (_: any, r: any) => {
+                // 优先新字段
+                if (r.secondary_amount_value && r.secondary_amount_currency) {
+                    return `${r.secondary_amount_value} ${r.secondary_amount_currency}`;
+                }
+                // 兼容老字段
+                if (r.secondaryAmount) {
+                    return r.secondaryAmount.replace('<positive>', '').replace('</positive>', '').trim();
+                }
+                return '-';
+            }
+        },
+        {
+            title: '转入金额',
+            key: 'primaryAmount',
+            render: (_: any, r: any) => {
+                if (r.primary_amount_value && r.primary_amount_currency) {
+                    return `${r.primary_amount_value} ${r.primary_amount_currency}`;
+                }
+                if (r.primaryAmount) {
+                    return r.primaryAmount.replace('<positive>', '').replace('</positive>', '').trim();
+                }
+                return '-';
+            }
+        },
+        {
+            title: '目标账户/方向',
+            key: 'target',
+            render: (_: any, r: any) => {
+                // INTERBALANCE类型优先解析title
+                if (r.type === 'INTERBALANCE') {
+                    // title如“To your JPY balance”或“To your AUD balance”
+                    return r.title ? r.title.replace(/<[^>]+>/g, '').replace('To ', '').trim() : '-';
+                }
+                // TRANSFER类型显示title（如“PAYPAL AUSTRALIA”）
+                if (r.type === 'TRANSFER') {
+                    return r.title ? r.title.replace(/<[^>]+>/g, '').trim() : '-';
+                }
+                return '-';
+            }
+        },
+        {
+            title: '备注',
+            key: 'remark',
+            render: (_: any, r: any) => {
+                // INTERBALANCE类型备注优先显示description，有title时补充显示币种方向
+                if (r.type === 'INTERBALANCE') {
+                    let remark = r.description || '';
+                    // 补充币种方向
+                    if (r.secondary_amount_currency && r.primary_amount_currency) {
+                        remark += (remark ? ' ' : '') + `${r.secondary_amount_currency}→${r.primary_amount_currency}`;
+                    }
+                    return remark || '-';
+                }
+                // TRANSFER类型备注优先显示title+description
+                if (r.type === 'TRANSFER') {
+                    let remark = '';
+                    if (r.title) remark += r.title.replace(/<[^>]+>/g, '').trim();
+                    if (r.description) remark += (remark ? ' ' : '') + r.description;
+                    return remark || '-';
+                }
+                // 其他类型兼容老逻辑
+                let remark = '';
+                if (r.description) remark += r.description;
+                if (r.title) remark += (remark ? ' ' : '') + r.title.replace(/<[^>]+>/g, '').trim();
+                return remark || '-';
+            }
+        },
+        {
+            title: '状态',
+            dataIndex: 'status',
+            key: 'status',
+            render: (v: string) => v || '-'
+        },
+        {
+            title: '参考号',
+            key: 'reference',
+            render: (_: any, r: any) => {
+                // INTERBALANCE类型resource.id，TRANSFER类型resource.id
+                if (r.resource && r.resource.id) return r.resource.id;
+                if (r.reference_number) return r.reference_number;
+                return '-';
+            }
+        },
     ];
 
     return (
@@ -607,7 +773,15 @@ const WiseManagement: React.FC = () => {
                     <h1 style={{ fontSize: 24, fontWeight: 700 }}>Wise多币种账户管理</h1>
                     <p style={{ color: '#666', marginTop: 4 }}>当前显示数据库中的缓存数据，点击"从API获取最新"可获取实时数据，汇率历史优先从数据库获取</p>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span>基准币种：</span>
+                    <Select
+                        style={{ width: 120 }}
+                        value={baseCurrency}
+                        onChange={setBaseCurrency}
+                        options={currencyOptions}
+                        loading={ratesLoading}
+                    />
                     <Button icon={<ReloadOutlined />} onClick={fetchBalances} loading={balancesLoading} type="primary">刷新数据</Button>
                 </div>
             </div>
@@ -628,7 +802,12 @@ const WiseManagement: React.FC = () => {
                 </Col>
                 <Col span={6}>
                     <Card>
-                        <Statistic title="总资产价值" value={getTotalWorth().toFixed(2)} prefix="$" loading={summaryLoading} />
+                        <Statistic
+                            title={`总资产价值（${baseCurrency}）`}
+                            value={ratesLoading ? '...' : getTotalWorthInBase().toFixed(2)}
+                            prefix={baseCurrency === 'CNY' ? '￥' : baseCurrency === 'USD' ? '$' : baseCurrency === 'EUR' ? '€' : baseCurrency === 'JPY' ? '¥' : baseCurrency === 'AUD' ? 'A$' : ''}
+                            loading={summaryLoading}
+                        />
                     </Card>
                 </Col>
                 <Col span={6}>
@@ -673,7 +852,7 @@ const WiseManagement: React.FC = () => {
                         dataSource={Array.isArray(balances) ? balances : []}
                         columns={columnsBalances}
                         rowKey={(r) => r.account_id + r.currency}
-                        loading={balancesLoading}
+                        loading={balancesLoading || ratesLoading}
                         pagination={{ pageSize: 10 }}
                         scroll={{ x: 1200 }}
                         size="small"
