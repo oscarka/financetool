@@ -62,7 +62,6 @@ const WiseManagement: React.FC = () => {
     // 新增：币种=>基准币种汇率映射
     const [ratesMap, setRatesMap] = useState<Record<string, number>>({});
     const [ratesLoading, setRatesLoading] = useState(false);
-    const [ratesError, setRatesError] = useState<string | null>(null);
 
     // 删除fetchData、fetchCardData相关的setLoading、setError、setTestLoading、setTestError等调用（如setLoading(true)、setError(null)等），只保留Tabs和下方区块原有逻辑，后续分步解耦。
 
@@ -457,7 +456,6 @@ const WiseManagement: React.FC = () => {
     const fetchAllRates = async (target: string) => {
         if (!summary?.balance_by_currency) return;
         setRatesLoading(true);
-        setRatesError(null);
         const currencies = Object.keys(summary.balance_by_currency);
         const newRates: Record<string, number> = {};
         try {
@@ -478,7 +476,7 @@ const WiseManagement: React.FC = () => {
             }));
             setRatesMap(newRates);
         } catch (e: any) {
-            setRatesError(e.response?.data?.detail || '获取汇率失败');
+            // setRatesError(e.response?.data?.detail || '获取汇率失败'); // 已删除
         } finally {
             setRatesLoading(false);
         }
