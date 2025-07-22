@@ -78,23 +78,6 @@ def run_migrations_online() -> None:
             connection=connection, target_metadata=target_metadata
         )
 
-        def log_revision(revision, context, **kw):
-            # 打印当前正在执行的迁移文件
-            rev = script.get_revision(revision)
-            if rev:
-                print(f"[ALEMBIC] 正在执行迁移: {rev.revision} - {rev.doc or rev.path}")
-            else:
-                print(f"[ALEMBIC] 正在执行迁移: {revision}")
-
-        # 监听每个升级步骤
-        from alembic.runtime import migration
-        orig_upgrade = migration.MigrationContext.run_migrations
-        def wrapped_run_migrations(self, *args, **kwargs):
-            for step in self._upgrade_ops_list:
-                log_revision(step.upgrade_ops[0].revision, context)
-            return orig_upgrade(self, *args, **kwargs)
-        migration.MigrationContext.run_migrations = wrapped_run_migrations
-
         with context.begin_transaction():
             context.run_migrations()
 
