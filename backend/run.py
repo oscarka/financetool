@@ -245,11 +245,34 @@ def clean_alembic_version():
     except Exception as e:
         print(f"[ALEMBIC] 清理alembic_version表时出错: {e}")
 
+def force_deduplicate_alembic_version():
+    """用ctid去重，只保留每个version_num的第一条记录，彻底解决多行问题"""
+    from sqlalchemy import create_engine, text
+    import os
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url or not database_url.startswith("postgresql://"):
+        return
+    try:
+        engine = create_engine(database_url, echo=False)
+        with engine.connect() as conn:
+            # 用ctid去重
+            conn.execute(text("""
+                DELETE FROM alembic_version
+                WHERE ctid NOT IN (
+                  SELECT MIN(ctid) FROM alembic_version GROUP BY version_num
+                )
+            """))
+            conn.commit()
+            print(f"[ALEMBIC] alembic_version表已用ctid去重")
+    except Exception as e:
+        print(f"[ALEMBIC] alembic_version表ctid去重时出错: {e}")
+
 if __name__ == "__main__":
     import uvicorn
     
     # 检查环境
     check_railway_environment()
+    force_deduplicate_alembic_version()
     clean_alembic_version()
     auto_alembic_upgrade()
     
