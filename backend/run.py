@@ -224,56 +224,11 @@ def auto_alembic_upgrade():
     except Exception as e:
         print(f"[ALEMBIC] 执行迁移命令出错: {e}")
 
-def clean_alembic_version():
-    """清理alembic_version表多余行，只保留最新一行（version_num最大或最新的）"""
-    from sqlalchemy import create_engine, text
-    import os
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url or not database_url.startswith("postgresql://"):
-        return
-    try:
-        engine = create_engine(database_url, echo=False)
-        with engine.connect() as conn:
-            result = conn.execute(text("SELECT version_num FROM alembic_version ORDER BY version_num DESC"))
-            rows = [row[0] for row in result]
-            if len(rows) > 1:
-                # 保留最新一行
-                keep = rows[0]
-                conn.execute(text("DELETE FROM alembic_version WHERE version_num != :vnum"), {"vnum": keep})
-                conn.commit()
-                print(f"[ALEMBIC] 清理alembic_version表多余行，只保留: {keep}")
-    except Exception as e:
-        print(f"[ALEMBIC] 清理alembic_version表时出错: {e}")
-
-def force_deduplicate_alembic_version():
-    """用ctid去重，只保留每个version_num的第一条记录，彻底解决多行问题"""
-    from sqlalchemy import create_engine, text
-    import os
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url or not database_url.startswith("postgresql://"):
-        return
-    try:
-        engine = create_engine(database_url, echo=False)
-        with engine.connect() as conn:
-            # 用ctid去重
-            conn.execute(text("""
-                DELETE FROM alembic_version
-                WHERE ctid NOT IN (
-                  SELECT MIN(ctid) FROM alembic_version GROUP BY version_num
-                )
-            """))
-            conn.commit()
-            print(f"[ALEMBIC] alembic_version表已用ctid去重")
-    except Exception as e:
-        print(f"[ALEMBIC] alembic_version表ctid去重时出错: {e}")
-
 if __name__ == "__main__":
     import uvicorn
     
     # 检查环境
     check_railway_environment()
-    force_deduplicate_alembic_version()
-    clean_alembic_version()
     auto_alembic_upgrade()
     
     port = int(os.environ.get("PORT", 8000))
