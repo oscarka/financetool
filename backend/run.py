@@ -231,26 +231,6 @@ if __name__ == "__main__":
     check_railway_environment()
     auto_alembic_upgrade()
     
-    # 一次性强制更新alembic_version表为9ab46480ba00（Railway专用，确认后可删除）
-    try:
-        from sqlalchemy import create_engine, text
-        db_url = os.getenv("DATABASE_URL")
-        if db_url and db_url.startswith("postgresql://"):
-            engine = create_engine(db_url)
-            with engine.connect() as conn:
-                result = conn.execute(text("SELECT COUNT(*) FROM alembic_version"))
-                count = result.scalar()
-                if count == 1:
-                    conn.execute(text("UPDATE alembic_version SET version_num = '9ab46480ba00'"))
-                    conn.commit()
-                    print("[ALEMBIC] alembic_version表已强制更新为9ab46480ba00（请确认后删除此代码）")
-                else:
-                    print(f"[ALEMBIC] alembic_version表行数为{count}，未自动更新，请手动检查！")
-        else:
-            print("[ALEMBIC] 未检测到有效的DATABASE_URL，未更新alembic_version表")
-    except Exception as e:
-        print(f"[ALEMBIC] 强制更新alembic_version表失败: {e}")
-    
     port = int(os.environ.get("PORT", 8000))
     debug = os.environ.get("DEBUG", "False").lower() == "true"
     
