@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
 from app.models.database import AssetPosition, WiseBalance, IBKRBalance, OKXBalance, ExchangeRate, WiseExchangeRate
 from decimal import Decimal
+import logging
 
 # 假设有汇率获取函数
 
@@ -82,8 +83,9 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None):
             'currency': o.currency,
             'balance': o.total_balance
         })
-    # 写入快照表
+    logging.warning(f"[extract_asset_snapshot] all_assets count: {len(all_assets)}")
     for asset in all_assets:
+        logging.warning(f"[extract_asset_snapshot] asset: {asset}")
         cny_rate = get_rate(asset['currency'], 'CNY')
         usd_rate = get_rate(asset['currency'], 'USD')
         eur_rate = get_rate(asset['currency'], 'EUR')
@@ -101,6 +103,7 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None):
             snapshot_time=snapshot_time,
             extra={}
         )
+        logging.warning(f"[extract_asset_snapshot] writing snapshot: {{'platform': {snapshot.platform}, 'asset_type': {snapshot.asset_type}, 'asset_code': {snapshot.asset_code}, 'currency': {snapshot.currency}, 'balance': {snapshot.balance}, 'balance_cny': {snapshot.balance_cny}, 'balance_usd': {snapshot.balance_usd}, 'balance_eur': {snapshot.balance_eur}}}")
         db.add(snapshot)
     db.commit()
 
