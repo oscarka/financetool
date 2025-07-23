@@ -1,4 +1,380 @@
-import httpx
+import requests
+import time
+import logging
+from typing import Dict, Optional, List
+from datetime import datetime, timedelta
+import asyncio
+import aiohttp
+from sqlalchemy.orm import Session
+from app.models.exchange_rate_models import (
+    WiseAPIConfig, ExchangeRateTimeline, RateUpdateLog, ExchangeRateSource
+)
+from app.core.database import get_db
+
+logger = logging.getLogger(__name__)
+
+
+class WiseAPIClient:
+    """Wise API客户端"""
+    
+    def __init__(self, api_key: str, profile_id: str):
+        self.api_key = api_key
+        self.profile_id = profile_id
+        self.base_url = "https://api.wise.com/v1"
+        self.session = requests.Session()
+        self.session.headers.update({
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        })
+        self.logger = logging.getLogger(__name__)
+    
+    def get_exchange_rate(self, source_currency: str, target_currency: str) -> Optional[float]:
+        """
+        获取Wise汇率
+        
+        Args:
+            source_currency: 源币种 (如 'USD')
+            target_currency: 目标币种 (如 'CNY')
+            
+        Returns:
+            汇率值，失败返回None
+        """
+        try:
+            url = f"{self.base_url}/rates"
+            params = {
+                'source': source_currency,
+                'target': target_currency,
+                'profile': self.profile_id
+            }
+            
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            
+            data = response.json()
+            if data and len(data) > 0:
+                rate = data[0].get('rate')
+                self.logger.info(f"获取汇率成功: {source_currency}/{target_currency} = {rate}")
+                return float(rate)
+            else:
+                self.logger.warning(f"未获取到汇率数据: {source_currency}/{target_currency}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Wise API请求失败: {e}")
+            return None
+        except (KeyError, ValueError, IndexError) as e:
+            self.logger.error(f"解析汇率数据失败: {e}")
+            return None
+    
+    def get_supported_currencies(self) -> List[str]:
+        """获取Wise支持的币种列表"""
+        try:
+            url = f"{self.base_url}/currencies"
+            response = self.session.get(url)
+            response.raise_for_status()
+            
+            currencies = response.json()
+            return [curr['code'] for curr in currencies]
+            
+        except Exception as e:
+            self.logger.error(f"获取支持币种失败: {e}")
+            return []
+    
+    def get_profile_info(self) -> Optional[Dict]:
+        """获取Profile信息"""
+        try:
+            url = f"{self.base_url}/profiles/{self.profile_id}"
+            response = self.session.get(url)
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except Exception as e:
+            self.logger.error(f"获取Profile信息失败: {e}")
+            return None
+
+
+class WiseRateUpdater:
+    """Wise汇率更新器"""
+    
+    def __init__(self, db: Session):
+        self.db = db
+        self.logger = logging.getLogger(__name__)
+        
+        # 获取Wise API配置
+        self.wise_config = self.db.query(WiseAPIConfig).filter(
+            WiseAPIConfig.is_active == True
+        ).first()
+        
+        if not self.wise_config:
+            raise ValueError("未找到有效的Wise API配置")
+        
+        self.wise_client = WiseAPIClient(
+            self.wise_config.api_key,
+            self.wise_config.profile_id
+        )
+        
+        # 需要更新的汇率对
+        self.rate_pairs = [
+            ('USD', 'CNY'),
+            ('EUR', 'CNY'), 
+            ('JPY', 'CNY'),
+            ('GBP', 'CNY'),
+            ('USD', 'EUR'),
+            ('USD', 'JPY'),
+            ('USD', 'GBP'),
+            ('CNY', 'USD'),
+            ('EUR', 'USD'),
+            ('JPY', 'USD'),
+            ('GBP', 'USD'),
+        ]
+    
+    async def update_all_rates(self) -> Dict:
+        """异步更新所有汇率"""
+        self.logger.info("开始更新Wise汇率...")
+        
+        start_time = time.time()
+        results = []
+        
+        # 创建异步任务
+        tasks = []
+        for source, target in self.rate_pairs:
+            task = self.update_single_rate(source, target)
+            tasks.append(task)
+        
+        # 并发执行，但控制频率避免触发限流
+        semaphore = asyncio.Semaphore(3)  # 最多3个并发请求
+        
+        async def limited_task(task):
+            async with semaphore:
+                result = await task
+                await asyncio.sleep(2)  # 请求间隔2秒
+                return result
+        
+        limited_tasks = [limited_task(task) for task in tasks]
+        results = await asyncio.gather(*limited_tasks, return_exceptions=True)
+        
+        # 统计结果
+        success_count = sum(1 for r in results if r is not None and not isinstance(r, Exception))
+        duration = time.time() - start_time
+        
+        self.logger.info(f"汇率更新完成: 成功 {success_count}/{len(self.rate_pairs)}, 耗时 {duration:.2f}秒")
+        
+        return {
+            'total': len(self.rate_pairs),
+            'success': success_count,
+            'failed': len(self.rate_pairs) - success_count,
+            'duration': duration,
+            'results': results
+        }
+    
+    async def update_single_rate(self, source_currency: str, target_currency: str) -> Optional[float]:
+        """更新单个汇率对"""
+        start_time = time.time()
+        
+        try:
+            rate = self.wise_client.get_exchange_rate(source_currency, target_currency)
+            
+            if rate is not None:
+                # 保存到数据库
+                await self.save_rate_to_db(source_currency, target_currency, rate)
+                
+                # 记录更新日志
+                duration = int((time.time() - start_time) * 1000)
+                self.log_rate_update(source_currency, target_currency, rate, 'success', duration)
+                
+                return rate
+            else:
+                self.logger.warning(f"获取汇率失败: {source_currency}/{target_currency}")
+                self.log_rate_update(source_currency, target_currency, None, 'failed', 0, "未获取到汇率数据")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"更新汇率异常: {source_currency}/{target_currency}, 错误: {e}")
+            duration = int((time.time() - start_time) * 1000)
+            self.log_rate_update(source_currency, target_currency, None, 'failed', duration, str(e))
+            return None
+    
+    async def save_rate_to_db(self, from_currency: str, to_currency: str, rate: float):
+        """保存汇率到数据库"""
+        try:
+            # 检查是否已存在相同时间的汇率记录
+            existing_rate = self.db.query(ExchangeRateTimeline).filter(
+                ExchangeRateTimeline.from_currency == from_currency,
+                ExchangeRateTimeline.to_currency == to_currency,
+                ExchangeRateTimeline.effective_time >= datetime.now() - timedelta(minutes=5)
+            ).first()
+            
+            if existing_rate:
+                # 更新现有记录
+                existing_rate.rate = rate
+                existing_rate.extra = {"updated_at": datetime.now().isoformat()}
+            else:
+                # 创建新记录
+                new_rate = ExchangeRateTimeline(
+                    from_currency=from_currency,
+                    to_currency=to_currency,
+                    rate=rate,
+                    effective_time=datetime.now(),
+                    source='WISE',
+                    extra={"created_at": datetime.now().isoformat()}
+                )
+                self.db.add(new_rate)
+            
+            self.db.commit()
+            self.logger.info(f"汇率已保存: {from_currency}/{to_currency} = {rate}")
+            
+        except Exception as e:
+            self.logger.error(f"保存汇率失败: {e}")
+            self.db.rollback()
+            raise
+    
+    def log_rate_update(self, from_currency: str, to_currency: str, rate_value: Optional[float], 
+                       status: str, duration_ms: int, error_message: str = None):
+        """记录汇率更新日志"""
+        try:
+            log = RateUpdateLog(
+                source_type='WISE',
+                from_currency=from_currency,
+                to_currency=to_currency,
+                status=status,
+                rate_value=rate_value or 0,
+                error_message=error_message,
+                request_duration_ms=duration_ms,
+                records_updated=1 if status == 'success' else 0
+            )
+            self.db.add(log)
+            self.db.commit()
+        except Exception as e:
+            self.logger.error(f"记录更新日志失败: {e}")
+            self.db.rollback()
+    
+    def get_rate_update_status(self) -> Dict:
+        """获取汇率更新状态"""
+        try:
+            # 查询最近更新的汇率
+            recent_rates = self.db.query(ExchangeRateTimeline).filter(
+                ExchangeRateTimeline.effective_time >= datetime.now() - timedelta(hours=3),
+                ExchangeRateTimeline.source == 'WISE'
+            ).all()
+            
+            # 查询最近的更新日志
+            recent_logs = self.db.query(RateUpdateLog).filter(
+                RateUpdateLog.created_at >= datetime.now() - timedelta(hours=3),
+                RateUpdateLog.source_type == 'WISE'
+            ).all()
+            
+            success_count = sum(1 for log in recent_logs if log.status == 'success')
+            failed_count = sum(1 for log in recent_logs if log.status == 'failed')
+            
+            return {
+                'last_update': max([r.effective_time for r in recent_rates]) if recent_rates else None,
+                'total_rates': len(recent_rates),
+                'success_count': success_count,
+                'failed_count': failed_count,
+                'status': 'healthy' if recent_rates and success_count > failed_count else 'stale'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"获取更新状态失败: {e}")
+            return {'status': 'error', 'error': str(e)}
+
+
+class WiseRateMonitor:
+    """Wise汇率监控器"""
+    
+    def __init__(self, db: Session):
+        self.db = db
+        self.logger = logging.getLogger(__name__)
+    
+    def check_rate_health(self) -> bool:
+        """检查汇率更新健康状态"""
+        try:
+            # 检查最近3小时是否有更新
+            recent_update = self.db.query(ExchangeRateTimeline).filter(
+                ExchangeRateTimeline.effective_time >= datetime.now() - timedelta(hours=3),
+                ExchangeRateTimeline.source == 'WISE'
+            ).first()
+            
+            if not recent_update:
+                self.send_alert("汇率更新异常: 最近3小时无更新")
+                return False
+            
+            # 检查关键汇率对是否完整
+            critical_pairs = [('USD', 'CNY'), ('EUR', 'CNY')]
+            for source, target in critical_pairs:
+                latest_rate = self.db.query(ExchangeRateTimeline).filter(
+                    ExchangeRateTimeline.from_currency == source,
+                    ExchangeRateTimeline.to_currency == target,
+                    ExchangeRateTimeline.source == 'WISE'
+                ).order_by(ExchangeRateTimeline.effective_time.desc()).first()
+                
+                if not latest_rate or latest_rate.effective_time < datetime.now() - timedelta(hours=4):
+                    self.send_alert(f"关键汇率缺失: {source}/{target}")
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"汇率健康检查失败: {e}")
+            self.send_alert(f"汇率监控异常: {e}")
+            return False
+    
+    def send_alert(self, message: str):
+        """发送告警"""
+        # 这里可以实现邮件、短信、钉钉等告警方式
+        self.logger.error(f"告警: {message}")
+        # 示例：发送邮件
+        # send_email("admin@example.com", "汇率更新告警", message)
+
+
+# 异步更新任务
+async def update_wise_rates_task():
+    """定时更新Wise汇率的任务"""
+    try:
+        db = next(get_db())
+        updater = WiseRateUpdater(db)
+        result = await updater.update_all_rates()
+        
+        # 检查健康状态
+        monitor = WiseRateMonitor(db)
+        monitor.check_rate_health()
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Wise汇率更新任务失败: {e}")
+        return None
+    finally:
+        db.close()
+
+
+# 同步版本（用于非异步环境）
+def update_wise_rates_sync():
+    """同步更新Wise汇率"""
+    try:
+        db = next(get_db())
+        updater = WiseRateUpdater(db)
+        
+        # 使用同步方式更新
+        results = []
+        for source, target in updater.rate_pairs:
+            rate = updater.wise_client.get_exchange_rate(source, target)
+            if rate is not None:
+                updater.save_rate_to_db(source, target, rate)
+                results.append(rate)
+        
+        return {
+            'total': len(updater.rate_pairs),
+            'success': len(results),
+            'failed': len(updater.rate_pairs) - len(results)
+        }
+        
+    except Exception as e:
+        logger.error(f"Wise汇率更新失败: {e}")
+        return None
+    finally:
+        db.close()import httpx
 import time
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date, timedelta
