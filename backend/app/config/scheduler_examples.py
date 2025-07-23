@@ -214,6 +214,26 @@ MAINTENANCE_JOBS = [
 DEFAULT_JOBS = CORE_JOBS + EXTENDED_JOBS + MAINTENANCE_JOBS
 
 # 调度器配置示例
+ASSET_SNAPSHOT_CONFIG = {
+    "job_id": "asset_snapshot_6hourly",
+    "task_id": "asset_snapshot_extract",
+    "trigger": "interval",
+    "hours": 6,
+    "config": {
+        "description": "每6小时抽取一次资产快照"
+    }
+}
+EXCHANGE_RATE_SNAPSHOT_CONFIG = {
+    "job_id": "exchange_rate_snapshot_6hourly",
+    "task_id": "exchange_rate_snapshot_extract",
+    "trigger": "interval",
+    "hours": 6,
+    "config": {
+        "description": "每6小时抽取一次汇率快照"
+    }
+}
+
+# 调度器配置示例
 SCHEDULER_CONFIG = {
     "timezone": "Asia/Shanghai",
     "job_defaults": {
@@ -221,7 +241,9 @@ SCHEDULER_CONFIG = {
         "max_instances": 1,
         "misfire_grace_time": 300
     },
-    "default_jobs": DEFAULT_JOBS
+    "default_jobs": DEFAULT_JOBS,
+    "asset_snapshot_6hourly": ASSET_SNAPSHOT_CONFIG,
+    "exchange_rate_snapshot_6hourly": EXCHANGE_RATE_SNAPSHOT_CONFIG,
 }
 
 # ==================== 使用说明 ====================
