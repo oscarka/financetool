@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional, List
-from app.core.database import get_db
+from app.utils.database import get_db
 from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
 from sqlalchemy import desc, func
 
