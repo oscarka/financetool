@@ -115,14 +115,29 @@ async def get_all_wise_balances():
 
 @router.get("/stored-balances")
 async def get_stored_balances():
-    """从数据库获取已存储的Wise余额数据"""
+    """从数据库获取已存储的Wise余额数据（只取每个账户+币种最新快照）"""
     try:
         from app.models.database import WiseBalance
         from app.utils.database import SessionLocal
-        
+        from sqlalchemy import func, and_
         db = SessionLocal()
         try:
-            balances = db.query(WiseBalance).all()
+            subq = db.query(
+                WiseBalance.account_id,
+                WiseBalance.currency,
+                func.max(WiseBalance.update_time).label('max_update_time')
+            ).group_by(
+                WiseBalance.account_id,
+                WiseBalance.currency
+            ).subquery()
+            balances = db.query(WiseBalance).join(
+                subq,
+                and_(
+                    WiseBalance.account_id == subq.c.account_id,
+                    WiseBalance.currency == subq.c.currency,
+                    WiseBalance.update_time == subq.c.max_update_time
+                )
+            ).all()
             balance_list = []
             for balance in balances:
                 balance_list.append({
@@ -141,7 +156,6 @@ async def get_stored_balances():
                     "update_time": balance.update_time.isoformat() if balance.update_time else None,
                     "created_at": balance.created_at.isoformat() if balance.created_at else None
                 })
-            
             return {
                 "success": True,
                 "data": balance_list,
