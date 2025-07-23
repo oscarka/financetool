@@ -262,21 +262,8 @@ def clear_audit_context():
         print(f"清除审计上下文失败: {e}") 
 
 
-def log_wise_balance_unique_constraint():
-    from app.utils.database import SessionLocal
-    db = SessionLocal()
-    try:
-        insp = inspect(db.bind)
-        constraints = insp.get_unique_constraints('wise_balances')
-        if constraints:
-            logging.warning(f"[WISE_BALANCES] 检测到唯一约束: {constraints}")
-        else:
-            logging.info("[WISE_BALANCES] 未检测到唯一约束")
-    except Exception as e:
-        logging.error(f"[WISE_BALANCES] 检查唯一约束失败: {e}")
-    finally:
-        db.close()
+# 移除wise_balances唯一约束检测相关临时代码
 
 # 应用启动时自动检测
-log_wise_balance_unique_constraint() 
+# 移除wise_balances唯一约束检测相关临时代码 
 
