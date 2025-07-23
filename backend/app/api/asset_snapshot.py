@@ -5,6 +5,7 @@ from typing import Optional, List
 from app.utils.database import get_db
 from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
 from sqlalchemy import desc, func
+import logging
 
 router = APIRouter(prefix="/api/snapshot", tags=["资产快照"])
 
@@ -18,6 +19,7 @@ def get_asset_snapshots(
     end: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
+    logging.warning(f"[asset_snapshot] called with platform={platform}, asset_type={asset_type}, currency={currency}, base_currency={base_currency}, start={start}, end={end}")
     """获取资产快照，支持多基准货币展示"""
     q = db.query(AssetSnapshot)
     if platform:
@@ -32,6 +34,7 @@ def get_asset_snapshots(
         q = q.filter(AssetSnapshot.snapshot_time <= end)
     q = q.order_by(desc(AssetSnapshot.snapshot_time))
     data = q.all()
+    logging.warning(f"[asset_snapshot] returning {len(data)} rows")
     # 多基准货币展示
     def get_base_value(row):
         if base_currency == 'CNY':
