@@ -441,7 +441,6 @@ const WiseManagement: React.FC = () => {
         } finally {
             setTransactionsLoading(false);
         }
-        setRateLoading(false);
     };
 
     // 页面加载后自动拉取一次历史汇率
