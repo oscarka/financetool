@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Select, DatePicker, Card, Spin } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs, { Dayjs } from 'dayjs';
+import type { Dayjs } from 'dayjs';
 // import AssetTrendChart from './AssetTrendChart'; // 如有趋势图可解开
 
 const { Option } = Select;
@@ -25,7 +25,7 @@ const baseCurrencies = ['CNY', 'USD', 'EUR'];
 
 const AssetSnapshotOverview: React.FC = () => {
   const [baseCurrency, setBaseCurrency] = useState<string>('CNY');
-  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [assetData, setAssetData] = useState<AssetSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +48,7 @@ const AssetSnapshotOverview: React.FC = () => {
     setLoading(true);
     let params = new URLSearchParams();
     params.append('base_currency', baseCurrency);
-    if (dateRange && dateRange.length === 2) {
+    if (dateRange && dateRange[0] && dateRange[1]) {
       params.append('start', dateRange[0].format('YYYY-MM-DD'));
       params.append('end', dateRange[1].format('YYYY-MM-DD'));
     }
@@ -63,19 +63,22 @@ const AssetSnapshotOverview: React.FC = () => {
     // eslint-disable-next-line
   }, [baseCurrency, dateRange]);
 
+  // 修正onChange类型
+  const handleRangeChange = (dates: [Dayjs | null, Dayjs | null] | null) => {
+    setDateRange(dates);
+  };
+
   return (
     <Card title="资产快照多基准货币展示" style={{ margin: 24 }}>
       <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
         <Select value={baseCurrency} onChange={setBaseCurrency} style={{ width: 120 }}>
           {baseCurrencies.map((c) => (
-            <Option key={c} value={c}>
-              {c}
-            </Option>
+            <Option key={c} value={c}>{c}</Option>
           ))}
         </Select>
         <RangePicker
           value={dateRange}
-          onChange={setDateRange}
+          onChange={handleRangeChange}
           allowClear
           style={{ width: 300 }}
         />
