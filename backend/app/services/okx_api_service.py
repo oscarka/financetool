@@ -262,11 +262,14 @@ class OKXAPIService:
                     db.add(new_balance)
                     total_inserted += 1
             # 储蓄账户
+            savings_currencies = set()
             if savings_balances and savings_balances.get('data'):
                 for balance in savings_balances['data']:
+                    currency = balance.get('ccy', '')
+                    savings_currencies.add(currency)
                     balance_data = {
                         "account_id": "savings",
-                        "currency": balance.get('ccy', ''),
+                        "currency": currency,
                         "available_balance": float(balance.get('amt', 0)),
                         "frozen_balance": 0,
                         "total_balance": float(balance.get('amt', 0)),
@@ -275,6 +278,31 @@ class OKXAPIService:
                     }
                     new_balance = OKXBalance(**balance_data)
                     db.add(new_balance)
+                    total_inserted += 1
+            # 检查历史上有但本次没有的币种，插入余额为0的快照
+            from sqlalchemy import func, and_
+            history_currencies = set([
+                b.currency for b in db.query(OKXBalance.currency).filter_by(account_id="savings", account_type="savings").distinct()
+            ])
+            missing_currencies = history_currencies - savings_currencies
+            for currency in missing_currencies:
+                # 只在最新快照不是0时插入
+                latest = db.query(OKXBalance).filter_by(
+                    account_id="savings",
+                    currency=currency,
+                    account_type="savings"
+                ).order_by(OKXBalance.update_time.desc(), OKXBalance.id.desc()).first()
+                if latest and latest.total_balance != 0:
+                    balance_data = {
+                        "account_id": "savings",
+                        "currency": currency,
+                        "available_balance": 0,
+                        "frozen_balance": 0,
+                        "total_balance": 0,
+                        "account_type": "savings",
+                        "update_time": now
+                    }
+                    db.add(OKXBalance(**balance_data))
                     total_inserted += 1
             db.commit()
             return {
