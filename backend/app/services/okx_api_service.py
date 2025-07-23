@@ -230,13 +230,19 @@ class OKXAPIService:
             total_inserted = 0
             now = datetime.now()
             # 交易账户
+            trading_currencies = set()
+            trading_account_ids = set()
             if trading_balances and trading_balances.get('data'):
                 for account in trading_balances['data']:
+                    acct_id = account.get('acctId', 'trading')
+                    trading_account_ids.add(acct_id)
                     if 'details' in account:
                         for detail in account['details']:
+                            currency = detail.get('ccy', '')
+                            trading_currencies.add((acct_id, currency))
                             balance_data = {
-                                "account_id": account.get('acctId', 'trading'),
-                                "currency": detail.get('ccy', ''),
+                                "account_id": acct_id,
+                                "currency": currency,
                                 "available_balance": float(detail.get('availBal', 0)),
                                 "frozen_balance": float(detail.get('frozenBal', 0)),
                                 "total_balance": float(detail.get('eq', 0)),
@@ -246,12 +252,38 @@ class OKXAPIService:
                             new_balance = OKXBalance(**balance_data)
                             db.add(new_balance)
                             total_inserted += 1
+            # 检查历史上有但本次没有的币种，插入余额为0的快照（trading）
+            history_trading = set([
+                (b.account_id, b.currency) for b in db.query(OKXBalance.account_id, OKXBalance.currency).filter_by(account_type="trading").distinct()
+            ])
+            missing_trading = history_trading - trading_currencies
+            for acct_id, currency in missing_trading:
+                latest = db.query(OKXBalance).filter_by(
+                    account_id=acct_id,
+                    currency=currency,
+                    account_type="trading"
+                ).order_by(OKXBalance.update_time.desc(), OKXBalance.id.desc()).first()
+                if latest and latest.total_balance != 0:
+                    balance_data = {
+                        "account_id": acct_id,
+                        "currency": currency,
+                        "available_balance": 0,
+                        "frozen_balance": 0,
+                        "total_balance": 0,
+                        "account_type": "trading",
+                        "update_time": now
+                    }
+                    db.add(OKXBalance(**balance_data))
+                    total_inserted += 1
             # 资金账户
+            funding_currencies = set()
             if asset_balances and asset_balances.get('data'):
                 for balance in asset_balances['data']:
+                    currency = balance.get('ccy', '')
+                    funding_currencies.add(currency)
                     balance_data = {
                         "account_id": "funding",
-                        "currency": balance.get('ccy', ''),
+                        "currency": currency,
                         "available_balance": float(balance.get('availBal', 0)),
                         "frozen_balance": float(balance.get('frozenBal', 0)),
                         "total_balance": float(balance.get('bal', 0)),
@@ -260,6 +292,29 @@ class OKXAPIService:
                     }
                     new_balance = OKXBalance(**balance_data)
                     db.add(new_balance)
+                    total_inserted += 1
+            # 检查历史上有但本次没有的币种，插入余额为0的快照（funding）
+            history_funding = set([
+                b.currency for b in db.query(OKXBalance.currency).filter_by(account_id="funding", account_type="funding").distinct()
+            ])
+            missing_funding = history_funding - funding_currencies
+            for currency in missing_funding:
+                latest = db.query(OKXBalance).filter_by(
+                    account_id="funding",
+                    currency=currency,
+                    account_type="funding"
+                ).order_by(OKXBalance.update_time.desc(), OKXBalance.id.desc()).first()
+                if latest and latest.total_balance != 0:
+                    balance_data = {
+                        "account_id": "funding",
+                        "currency": currency,
+                        "available_balance": 0,
+                        "frozen_balance": 0,
+                        "total_balance": 0,
+                        "account_type": "funding",
+                        "update_time": now
+                    }
+                    db.add(OKXBalance(**balance_data))
                     total_inserted += 1
             # 储蓄账户
             savings_currencies = set()
@@ -279,14 +334,12 @@ class OKXAPIService:
                     new_balance = OKXBalance(**balance_data)
                     db.add(new_balance)
                     total_inserted += 1
-            # 检查历史上有但本次没有的币种，插入余额为0的快照
-            from sqlalchemy import func, and_
-            history_currencies = set([
+            # 检查历史上有但本次没有的币种，插入余额为0的快照（savings）
+            history_savings = set([
                 b.currency for b in db.query(OKXBalance.currency).filter_by(account_id="savings", account_type="savings").distinct()
             ])
-            missing_currencies = history_currencies - savings_currencies
-            for currency in missing_currencies:
-                # 只在最新快照不是0时插入
+            missing_savings = history_savings - savings_currencies
+            for currency in missing_savings:
                 latest = db.query(OKXBalance).filter_by(
                     account_id="savings",
                     currency=currency,
