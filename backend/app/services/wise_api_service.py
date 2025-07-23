@@ -9,6 +9,7 @@ from app.models.database import WiseTransaction
 import sqlalchemy
 import re
 from app.utils.auto_logger import auto_log
+from sqlalchemy.dialects.postgresql import insert
 
 
 class WiseAPIService:
@@ -211,7 +212,7 @@ class WiseAPIService:
                         total_data = balance.get('totalWorth', {})
                         
                         all_balances.append({
-                            "account_id": balance_id,
+                            "account_id": str(balance_id),  # 确保account_id是字符串
                             "currency": balance.get('currency'),
                             "available_balance": self._safe_float(amount_data.get('value', 0) if isinstance(amount_data, dict) else 0),
                             "reserved_balance": self._safe_float(reserved_data.get('value', 0) if isinstance(reserved_data, dict) else 0),
@@ -499,12 +500,16 @@ class WiseAPIService:
         import sqlalchemy
         import re
         from datetime import datetime
+        from sqlalchemy.dialects.postgresql import insert
+        
         db = SessionLocal()
         try:
             profiles = await self.get_profile()
             if not profiles:
                 return {"success": False, "message": "未获取到Wise profile"}
             total_new = 0
+            total_updated = 0
+            
             for profile in profiles:
                 profile_id = profile.get('id')
                 if not profile_id:
@@ -520,6 +525,8 @@ class WiseAPIService:
                     activities = activities_result['activities']
                     if not activities:
                         break
+                    
+                    # 批量处理活动记录
                     for activity in activities:
                         created_on = activity.get('createdOn')
                         # 修复：将字符串转为datetime对象
@@ -530,48 +537,152 @@ class WiseAPIService:
                                 created_on_dt = datetime.fromisoformat(created_on.replace('Z', '+00:00'))
                             except Exception:
                                 created_on_dt = None
+                        
+                        # 解析primaryAmount
                         primary_amount = activity.get('primaryAmount', '')
-                        amount_value = 0.0
-                        currency = 'USD'
+                        primary_amount_value = None
+                        primary_amount_currency = None
                         if primary_amount:
-                            # 匹配金额和货币 - 支持逗号分隔符
-                            amount_match = re.search(r'([+-]?\s*[\d,]+\.?\d*)\s*([A-Z]{3})', primary_amount)
+                            amount_match = re.search(r'([+-]?[\d,.]+)\s*([A-Z]{3})', primary_amount)
                             if amount_match:
-                                amount_str = amount_match.group(1).replace(' ', '').replace(',', '')
-                                currency = amount_match.group(2)
                                 try:
-                                    amount_value = float(amount_str)
-                                except ValueError:
-                                    logger.warning(f"[Wise] 无法转换交易金额: {amount_str}, 使用默认值: 0.0")
-                                    amount_value = 0.0
-                        # 检查是否已存在
-                        exists = db.query(WiseTransaction).filter_by(transaction_id=activity.get('id')).first()
-                        if exists:
+                                    primary_amount_value = float(amount_match.group(1).replace(',', ''))
+                                except Exception:
+                                    primary_amount_value = None
+                                primary_amount_currency = amount_match.group(2)
+                        # 解析secondaryAmount
+                        secondary_amount = activity.get('secondaryAmount', '')
+                        secondary_amount_value = None
+                        secondary_amount_currency = None
+                        if secondary_amount:
+                            amount_match = re.search(r'([+-]?[\d,.]+)\s*([A-Z]{3})', secondary_amount)
+                            if amount_match:
+                                try:
+                                    secondary_amount_value = float(amount_match.group(1).replace(',', ''))
+                                except Exception:
+                                    secondary_amount_value = None
+                                secondary_amount_currency = amount_match.group(2)
+                        
+                        # amount_value和currency用于兼容老字段
+                        amount_value = primary_amount_value if primary_amount_value is not None else 0.0
+                        currency = primary_amount_currency if primary_amount_currency is not None else None
+                        
+                        # 准备交易数据
+                        transaction_data = {
+                            "profile_id": str(profile_id),
+                            "account_id": str(activity.get('resource', {}).get('id', '')),
+                            "transaction_id": activity.get('id'),
+                            "type": activity.get('type'),
+                            "amount": amount_value,
+                            "currency": currency,
+                            "description": activity.get('description', ''),
+                            "title": activity.get('title', ''),
+                            "date": created_on_dt,
+                            "status": activity.get('status'),
+                            "reference_number": activity.get('resource', {}).get('id', ''),
+                            "updated_at": datetime.now(),
+                            # 新增字段
+                            "primary_amount_value": primary_amount_value,
+                            "primary_amount_currency": primary_amount_currency,
+                            "secondary_amount_value": secondary_amount_value,
+                            "secondary_amount_currency": secondary_amount_currency
+                        }
+                        
+                        # 使用UPSERT逻辑，避免主键冲突
+                        try:
+                            # 检查是否已存在
+                            existing = db.query(WiseTransaction).filter_by(
+                                transaction_id=activity.get('id')
+                            ).first()
+                            
+                            if existing:
+                                # 更新现有记录
+                                for key, value in transaction_data.items():
+                                    if key != 'transaction_id':  # 不更新唯一键
+                                        setattr(existing, key, value)
+                                total_updated += 1
+                            else:
+                                # 插入新记录
+                                transaction_data["created_at"] = datetime.now()
+                                new_tx = WiseTransaction(**transaction_data)
+                                db.add(new_tx)
+                                total_new += 1
+                                
+                        except Exception as e:
+                            logger.error(f"[Wise] 处理交易记录失败: {e}, transaction_id: {activity.get('id')}")
                             continue
-                        # 新增
-                        tx = WiseTransaction(
-                            profile_id=str(profile_id),
-                            account_id=activity.get('resource', {}).get('id', ''),
-                            transaction_id=activity.get('id'),
-                            type=activity.get('type'),
-                            amount=amount_value,
-                            currency=currency,
-                            description=activity.get('description', ''),
-                            title=activity.get('title', ''),
-                            date=created_on_dt,
-                            status=activity.get('status'),
-                            reference_number=activity.get('resource', {}).get('id', ''),
-                        )
-                        db.add(tx)
-                        total_new += 1
-                    db.commit()
+                    
+                    # 提交当前批次
+                    try:
+                        db.commit()
+                    except Exception as e:
+                        logger.error(f"[Wise] 提交交易记录失败: {e}")
+                        db.rollback()
+                        continue
+                    
                     fetched += len(activities)
                     if len(activities) < limit:
                         break
                     offset += limit
-            return {"success": True, "message": f"同步完成，新增{total_new}条交易记录"}
+            
+            return {
+                "success": True, 
+                "message": f"同步完成，新增{total_new}条，更新{total_updated}条交易记录",
+                "total_new": total_new,
+                "total_updated": total_updated
+            }
         except Exception as e:
             db.rollback()
+            logger.error(f"[Wise] 同步交易记录失败: {e}")
             return {"success": False, "message": f"同步失败: {e}"}
+        finally:
+            db.close() 
+
+    @auto_log("database", log_result=True)
+    async def sync_balances_to_db(self) -> Dict[str, Any]:
+        """同步Wise余额数据到数据库（增量快照模式）"""
+        from app.models.database import WiseBalance
+        import sqlalchemy
+        from datetime import datetime
+        db = SessionLocal()
+        try:
+            balances = await self.get_all_account_balances()
+            if not balances:
+                return {"success": False, "message": "未获取到Wise余额数据"}
+            total_inserted = 0
+            for balance in balances:
+                account_id = balance.get('account_id')
+                if not account_id:
+                    continue
+                account_id_str = str(account_id)
+                balance_data = {
+                    "account_id": account_id_str,
+                    "currency": balance.get('currency'),
+                    "available_balance": self._safe_float(balance.get('available_balance', 0)),
+                    "reserved_balance": self._safe_float(balance.get('reserved_balance', 0)),
+                    "cash_amount": self._safe_float(balance.get('cash_amount', 0)),
+                    "total_worth": self._safe_float(balance.get('total_worth', 0)),
+                    "type": balance.get('type'),
+                    "investment_state": balance.get('investment_state'),
+                    "creation_time": datetime.fromisoformat(balance.get('creation_time', '').replace('Z', '+00:00')) if balance.get('creation_time') else datetime.now(),
+                    "modification_time": datetime.fromisoformat(balance.get('modification_time', '').replace('Z', '+00:00')) if balance.get('modification_time') else datetime.now(),
+                    "visible": balance.get('visible', True),
+                    "primary": balance.get('primary', False),
+                    "update_time": datetime.now()
+                }
+                new_balance = WiseBalance(**balance_data)
+                db.add(new_balance)
+                total_inserted += 1
+            db.commit()
+            return {
+                "success": True,
+                "message": f"余额快照同步完成，新增{total_inserted}条",
+                "total_inserted": total_inserted,
+                "total_processed": len(balances)
+            }
+        except Exception as e:
+            db.rollback()
+            logger.error(f"同步Wise余额数据失败: {e}")
+            return {"success": False, "message": f"同步失败: {str(e)}"}
         finally:
             db.close() 
