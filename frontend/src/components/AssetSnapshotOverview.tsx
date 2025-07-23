@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Select, DatePicker, Card, Spin } from 'antd';
+import { Table, Select, DatePicker, Card, Spin, Button, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 // import AssetTrendChart from './AssetTrendChart'; // 如有趋势图可解开
@@ -68,9 +68,28 @@ const AssetSnapshotOverview: React.FC = () => {
     setDateRange(dates);
   };
 
+  // 主动快照
+  const handleExtractSnapshot = async () => {
+    setLoading(true);
+    try {
+      const resp = await fetch('/api/snapshot/assets/extract', { method: 'POST' });
+      const result = await resp.json();
+      if (result.success) {
+        message.success(result.message || '快照成功');
+        await loadData();
+      } else {
+        message.error(result.error || '快照失败');
+      }
+    } catch (e) {
+      message.error('快照请求异常');
+    }
+    setLoading(false);
+  };
+
   return (
     <Card title="资产快照多基准货币展示" style={{ margin: 24 }}>
       <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
+        <Button type="primary" onClick={handleExtractSnapshot}>主动快照</Button>
         <Select value={baseCurrency} onChange={setBaseCurrency} style={{ width: 120 }}>
           {baseCurrencies.map((c) => (
             <Option key={c} value={c}>{c}</Option>
