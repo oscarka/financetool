@@ -6,12 +6,27 @@ import sys
 import os
 from pathlib import Path
 import subprocess
+import logging
+from sqlalchemy import create_engine, inspect
+from app.settings import settings
 
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app.utils.database import log_wise_balance_unique_constraint
-log_wise_balance_unique_constraint()
+# 直接在run.py检测wise_balances唯一约束
+try:
+    engine = create_engine(settings.database_url, echo=False)
+    insp = inspect(engine)
+    constraints = insp.get_unique_constraints('wise_balances')
+    if constraints:
+        print(f"[WISE_BALANCES] 检测到唯一约束: {constraints}")
+        logging.warning(f"[WISE_BALANCES] 检测到唯一约束: {constraints}")
+    else:
+        print("[WISE_BALANCES] 未检测到唯一约束")
+        logging.info("[WISE_BALANCES] 未检测到唯一约束")
+except Exception as e:
+    print(f"[WISE_BALANCES] 检查唯一约束失败: {e}")
+    logging.error(f"[WISE_BALANCES] 检查唯一约束失败: {e}")
 
 def check_railway_environment():
     """检查Railway环境配置"""
