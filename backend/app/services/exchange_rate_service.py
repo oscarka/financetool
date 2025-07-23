@@ -456,3 +456,28 @@ class ExchangeRateService:
         # 从交易表
         tx_curs = set([t.currency for t in db.query(WiseTransaction).all() if t.currency])
         return list(balance_curs | tx_curs) 
+
+    @staticmethod
+    def sync_wise_balance_to_db(db, balance_data):
+        """同步Wise余额到数据库（增量快照模式）"""
+        from app.models.database import WiseBalance
+        from datetime import datetime
+        now = datetime.now()
+        new_balance = WiseBalance(
+            account_id=balance_data['account_id'],
+            currency=balance_data['currency'],
+            available_balance=balance_data['available_balance'],
+            reserved_balance=balance_data['reserved_balance'],
+            cash_amount=balance_data['cash_amount'],
+            total_worth=balance_data['total_worth'],
+            type=balance_data['type'],
+            investment_state=balance_data['investment_state'],
+            creation_time=balance_data['creation_time'],
+            modification_time=balance_data['modification_time'],
+            visible=balance_data.get('visible', True),
+            primary=balance_data.get('primary', False),
+            update_time=now
+        )
+        db.add(new_balance)
+        db.commit()
+        return new_balance 

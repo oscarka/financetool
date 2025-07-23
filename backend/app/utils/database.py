@@ -4,6 +4,8 @@ from contextlib import contextmanager
 from typing import Generator
 import os
 from pathlib import Path
+import logging
+from sqlalchemy import inspect
 
 from app.settings import settings
 from app.models.database import Base
@@ -258,4 +260,10 @@ def clear_audit_context():
             conn.commit()
     except Exception as e:
         print(f"清除审计上下文失败: {e}") 
+
+
+# 移除wise_balances唯一约束检测相关临时代码
+
+# 应用启动时自动检测
+# 移除wise_balances唯一约束检测相关临时代码 
 

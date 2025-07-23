@@ -6,9 +6,14 @@ import sys
 import os
 from pathlib import Path
 import subprocess
+import logging
+from sqlalchemy import create_engine, inspect
+from app.settings import settings
 
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# 移除wise_balances唯一约束检测相关临时代码
 
 def check_railway_environment():
     """检查Railway环境配置"""
