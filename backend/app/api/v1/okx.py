@@ -332,11 +332,29 @@ async def sync_okx_account_overview():
 
 @router.get("/stored-balances")
 async def get_stored_balances():
-    """从数据库获取已存储的OKX余额数据"""
+    """从数据库获取已存储的OKX余额数据（只取最新快照，余额大于0）"""
     try:
         db = SessionLocal()
         try:
-            balances = db.query(OKXBalance).all()
+            from sqlalchemy import func, desc
+            from app.models.database import OKXBalance
+            subq = db.query(
+                OKXBalance.account_id,
+                OKXBalance.currency,
+                OKXBalance.account_type,
+                func.max(OKXBalance.update_time).label('max_update_time')
+            ).group_by(
+                OKXBalance.account_id,
+                OKXBalance.currency,
+                OKXBalance.account_type
+            ).subquery()
+            balances = db.query(OKXBalance).join(
+                subq,
+                (OKXBalance.account_id == subq.c.account_id) &
+                (OKXBalance.currency == subq.c.currency) &
+                (OKXBalance.account_type == subq.c.account_type) &
+                (OKXBalance.update_time == subq.c.max_update_time)
+            ).filter(OKXBalance.total_balance > 0).all()
             balance_list = []
             for balance in balances:
                 balance_list.append({
@@ -349,7 +367,6 @@ async def get_stored_balances():
                     "update_time": balance.update_time.isoformat() if balance.update_time else None,
                     "created_at": balance.created_at.isoformat() if balance.created_at else None
                 })
-            
             return {
                 "success": True,
                 "data": balance_list,

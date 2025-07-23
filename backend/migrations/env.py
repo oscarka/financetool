@@ -4,6 +4,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+from alembic.script import ScriptDirectory
 
 # 导入我们的模型和配置
 import sys
@@ -32,6 +33,10 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def get_url():
+    return os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -44,7 +49,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -63,11 +68,10 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    from sqlalchemy import create_engine
+    connectable = create_engine(get_url(), poolclass=pool.NullPool)
+
+    script = ScriptDirectory.from_config(config)
 
     with connectable.connect() as connection:
         context.configure(

@@ -64,4 +64,3 @@ EXPOSE 8000
 USER app
 
 # 启动命令
-ENTRYPOINT ["/bin/sh", "-c", "alembic upgrade head && exec python run.py"]
