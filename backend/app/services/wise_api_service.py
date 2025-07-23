@@ -670,10 +670,16 @@ class WiseAPIService:
                     "primary": balance.get('primary', False),
                     "update_time": datetime.now()
                 }
+                print(f"[DEBUG] 准备插入wise_balances: {balance_data}")
+                logger.info(f"[DEBUG] 准备插入wise_balances: {balance_data}")
                 new_balance = WiseBalance(**balance_data)
                 db.add(new_balance)
                 total_inserted += 1
+            print("[DEBUG] 已add，准备commit")
+            logger.info("[DEBUG] 已add，准备commit")
             db.commit()
+            print("[DEBUG] commit完成")
+            logger.info("[DEBUG] commit完成")
             return {
                 "success": True,
                 "message": f"余额快照同步完成，新增{total_inserted}条",
