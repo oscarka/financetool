@@ -9,6 +9,7 @@ from datetime import datetime
 from app.settings import settings
 from app.utils.database import init_database, get_data_directory, get_database_path
 from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx
+from app.api import asset_snapshot
 from app.services.extensible_scheduler_service import ExtensibleSchedulerService
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
@@ -180,6 +181,13 @@ app.include_router(
     okx.router,
     prefix=f"{settings.api_v1_prefix}",
     tags=["OKX管理"]
+)
+
+# 注册资产快照接口
+app.include_router(
+    asset_snapshot.router,
+    prefix="",  # asset_snapshot.py 已有prefix
+    tags=["资产快照"]
 )
 
 
