@@ -10,6 +10,9 @@ import subprocess
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from app.utils.database import log_wise_balance_unique_constraint
+log_wise_balance_unique_constraint()
+
 def check_railway_environment():
     """检查Railway环境配置"""
     is_railway = os.getenv("RAILWAY_ENVIRONMENT") is not None
