@@ -212,6 +212,11 @@ class WiseTransaction(Base):
     date = Column(DateTime, nullable=False, index=True)
     status = Column(String(20), nullable=False)
     reference_number = Column(String(100))
+    # 新增字段
+    primary_amount_value = Column(DECIMAL(15, 4), nullable=True)
+    primary_amount_currency = Column(String(10), nullable=True)
+    secondary_amount_value = Column(DECIMAL(15, 4), nullable=True)
+    secondary_amount_currency = Column(String(10), nullable=True)
     
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

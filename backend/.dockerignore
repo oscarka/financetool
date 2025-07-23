@@ -58,7 +58,6 @@ temp/
 # 开发工具
 test_*.py
 *_test.py
-migrations/
 
 # 数据文件（保留data目录但排除其他格式）
 # data/

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from app.services.wise_api_service import WiseAPIService
@@ -261,7 +261,12 @@ async def get_stored_transactions(
                     "status": tx.status,
                     "reference_number": tx.reference_number,
                     "created_at": tx.created_at.isoformat() if tx.created_at else None,
-                    "updated_at": tx.updated_at.isoformat() if tx.updated_at else None
+                    "updated_at": tx.updated_at.isoformat() if tx.updated_at else None,
+                    # 新增字段
+                    "primary_amount_value": float(tx.primary_amount_value) if tx.primary_amount_value is not None else None,
+                    "primary_amount_currency": tx.primary_amount_currency,
+                    "secondary_amount_value": float(tx.secondary_amount_value) if tx.secondary_amount_value is not None else None,
+                    "secondary_amount_currency": tx.secondary_amount_currency
                 })
             
             return {
@@ -579,10 +584,12 @@ async def get_profile_activities(
 
 
 @router.post("/sync-transactions")
-async def sync_transactions():
+async def sync_transactions(request: Request):
     """主动同步Wise所有交易记录到数据库"""
     try:
-        result = await wise_service.sync_all_transactions_to_db(days=365)
+        body = await request.json()
+        days = body.get("days", 90)
+        result = await wise_service.sync_all_transactions_to_db(days=days)
         return result
     except Exception as e:
         logger.error(f"同步Wise交易记录失败: {e}")

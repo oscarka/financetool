@@ -126,6 +126,26 @@ def migrate_table_data(engine, table_name, df):
         print(f"❌ 表 {table_name} 迁移失败: {e}")
         return False
 
+def migrate_alembic_version(sqlite_conn, pg_engine):
+    """只迁移alembic_version表的最新一行，保证目标库只有一行"""
+    try:
+        cursor = sqlite_conn.cursor()
+        cursor.execute("SELECT version_num FROM alembic_version ORDER BY ROWID DESC LIMIT 1")
+        row = cursor.fetchone()
+        if not row:
+            print("⚠️ SQLite库未找到alembic_version记录，跳过")
+            return True
+        version_num = row[0]
+        with pg_engine.connect() as conn:
+            conn.execute(text("DELETE FROM alembic_version"))
+            conn.execute(text("INSERT INTO alembic_version (version_num) VALUES (:vnum)"), {"vnum": version_num})
+            conn.commit()
+        print(f"✅ alembic_version表迁移完成，version_num={version_num}")
+        return True
+    except Exception as e:
+        print(f"❌ alembic_version表迁移失败: {e}")
+        return False
+
 def backup_sqlite_data():
     """备份SQLite数据"""
     backup_dir = "backups"
@@ -182,6 +202,8 @@ def main():
     total_count = len(tables)
     
     for table_name in tables:
+        if table_name == "alembic_version":
+            continue  # 单独迁移
         print(f"\n📊 迁移表: {table_name}")
         
         # 获取表数据
@@ -191,6 +213,13 @@ def main():
             if migrate_table_data(pg_engine, table_name, df):
                 success_count += 1
     
+    # 单独迁移alembic_version表
+    print("\n📋 步骤7: 迁移alembic_version表")
+    if migrate_alembic_version(sqlite_conn, pg_engine):
+        success_count += 1
+    else:
+        print("❌ alembic_version表迁移失败，请手动检查")
+
     # 7. 清理和总结
     sqlite_conn.close()
     

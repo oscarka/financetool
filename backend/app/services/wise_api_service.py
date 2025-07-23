@@ -538,20 +538,34 @@ class WiseAPIService:
                             except Exception:
                                 created_on_dt = None
                         
+                        # 解析primaryAmount
                         primary_amount = activity.get('primaryAmount', '')
-                        amount_value = 0.0
-                        currency = 'USD'
+                        primary_amount_value = None
+                        primary_amount_currency = None
                         if primary_amount:
-                            # 匹配金额和货币 - 支持逗号分隔符
-                            amount_match = re.search(r'([+-]?\s*[\d,]+\.?\d*)\s*([A-Z]{3})', primary_amount)
+                            amount_match = re.search(r'([+-]?[\d,.]+)\s*([A-Z]{3})', primary_amount)
                             if amount_match:
-                                amount_str = amount_match.group(1).replace(' ', '').replace(',', '')
-                                currency = amount_match.group(2)
                                 try:
-                                    amount_value = float(amount_str)
-                                except ValueError:
-                                    logger.warning(f"[Wise] 无法转换交易金额: {amount_str}, 使用默认值: 0.0")
-                                    amount_value = 0.0
+                                    primary_amount_value = float(amount_match.group(1).replace(',', ''))
+                                except Exception:
+                                    primary_amount_value = None
+                                primary_amount_currency = amount_match.group(2)
+                        # 解析secondaryAmount
+                        secondary_amount = activity.get('secondaryAmount', '')
+                        secondary_amount_value = None
+                        secondary_amount_currency = None
+                        if secondary_amount:
+                            amount_match = re.search(r'([+-]?[\d,.]+)\s*([A-Z]{3})', secondary_amount)
+                            if amount_match:
+                                try:
+                                    secondary_amount_value = float(amount_match.group(1).replace(',', ''))
+                                except Exception:
+                                    secondary_amount_value = None
+                                secondary_amount_currency = amount_match.group(2)
+                        
+                        # amount_value和currency用于兼容老字段
+                        amount_value = primary_amount_value if primary_amount_value is not None else 0.0
+                        currency = primary_amount_currency if primary_amount_currency is not None else None
                         
                         # 准备交易数据
                         transaction_data = {
@@ -566,7 +580,12 @@ class WiseAPIService:
                             "date": created_on_dt,
                             "status": activity.get('status'),
                             "reference_number": activity.get('resource', {}).get('id', ''),
-                            "updated_at": datetime.now()
+                            "updated_at": datetime.now(),
+                            # 新增字段
+                            "primary_amount_value": primary_amount_value,
+                            "primary_amount_currency": primary_amount_currency,
+                            "secondary_amount_value": secondary_amount_value,
+                            "secondary_amount_currency": secondary_amount_currency
                         }
                         
                         # 使用UPSERT逻辑，避免主键冲突

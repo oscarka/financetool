@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -32,9 +33,13 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('project_id', 'account_id', 'update_time', name='uq_web3_balance')
     )
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_balances_account_id"))
     op.create_index(op.f('ix_web3_balances_account_id'), 'web3_balances', ['account_id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_balances_id"))
     op.create_index(op.f('ix_web3_balances_id'), 'web3_balances', ['id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_balances_project_id"))
     op.create_index(op.f('ix_web3_balances_project_id'), 'web3_balances', ['project_id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_balances_update_time"))
     op.create_index(op.f('ix_web3_balances_update_time'), 'web3_balances', ['update_time'], unique=False)
     op.create_table('web3_tokens',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -51,10 +56,15 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('project_id', 'account_id', 'token_symbol', 'update_time', name='uq_web3_token')
     )
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_tokens_account_id"))
     op.create_index(op.f('ix_web3_tokens_account_id'), 'web3_tokens', ['account_id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_tokens_id"))
     op.create_index(op.f('ix_web3_tokens_id'), 'web3_tokens', ['id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_tokens_project_id"))
     op.create_index(op.f('ix_web3_tokens_project_id'), 'web3_tokens', ['project_id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_tokens_token_symbol"))
     op.create_index(op.f('ix_web3_tokens_token_symbol'), 'web3_tokens', ['token_symbol'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_tokens_update_time"))
     op.create_index(op.f('ix_web3_tokens_update_time'), 'web3_tokens', ['update_time'], unique=False)
     op.create_table('web3_transactions',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -76,11 +86,17 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('transaction_hash', name='uq_web3_transaction')
     )
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_transactions_account_id"))
     op.create_index(op.f('ix_web3_transactions_account_id'), 'web3_transactions', ['account_id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_transactions_id"))
     op.create_index(op.f('ix_web3_transactions_id'), 'web3_transactions', ['id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_transactions_project_id"))
     op.create_index(op.f('ix_web3_transactions_project_id'), 'web3_transactions', ['project_id'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_transactions_timestamp"))
     op.create_index(op.f('ix_web3_transactions_timestamp'), 'web3_transactions', ['timestamp'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_transactions_token_symbol"))
     op.create_index(op.f('ix_web3_transactions_token_symbol'), 'web3_transactions', ['token_symbol'], unique=False)
+    op.execute(text("DROP INDEX IF EXISTS ix_web3_transactions_transaction_hash"))
     op.create_index(op.f('ix_web3_transactions_transaction_hash'), 'web3_transactions', ['transaction_hash'], unique=True)
     # ### end Alembic commands ###
 

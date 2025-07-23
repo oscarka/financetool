@@ -5,6 +5,7 @@
 import sys
 import os
 from pathlib import Path
+import subprocess
 
 # 添加当前目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -25,7 +26,6 @@ def check_railway_environment():
     # 在Railway环境中修复volume权限
     if is_railway:
         try:
-            import subprocess
             import pwd
             
             # 获取当前用户ID
@@ -211,11 +211,25 @@ def migrate_sqlite_to_postgresql(sqlite_file, pg_engine):
         print(f"❌ 数据迁移失败: {e}")
         print("⚠️  继续启动，但数据可能不完整")
 
+def auto_alembic_upgrade():
+    try:
+        print("[ALEMBIC] 自动执行数据库迁移: alembic upgrade head ...")
+        result = subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True)
+        print(result.stdout)
+        if result.returncode != 0:
+            print("[ALEMBIC] 迁移失败:")
+            print(result.stderr)
+        else:
+            print("[ALEMBIC] 迁移完成")
+    except Exception as e:
+        print(f"[ALEMBIC] 执行迁移命令出错: {e}")
+
 if __name__ == "__main__":
     import uvicorn
     
     # 检查环境
     check_railway_environment()
+    auto_alembic_upgrade()
     
     port = int(os.environ.get("PORT", 8000))
     debug = os.environ.get("DEBUG", "False").lower() == "true"
