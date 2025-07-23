@@ -1,8 +1,8 @@
 """add incremental okx and wise balance
 
-Revision ID: ff9999999999
+Revision ID: ffaaaaaa0000
 Revises: ff5423642f10
-Create Date: 2025-07-22 18:00:00.000000
+Create Date: 2024-07-22 18:30:00.000000
 
 """
 from typing import Sequence, Union
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision: str = 'ff9999999999'
+revision: str = 'ffaaaaaa0000'
 down_revision: Union[str, Sequence[str], None] = 'ff5423642f10'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
