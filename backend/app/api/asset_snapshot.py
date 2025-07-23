@@ -6,6 +6,7 @@ from app.utils.database import get_db
 from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
 from sqlalchemy import desc, func
 import logging
+from app.services.asset_snapshot_service import extract_asset_snapshot
 
 router = APIRouter(prefix="/api/snapshot", tags=["资产快照"])
 
@@ -119,3 +120,13 @@ def get_exchange_rate_snapshots(
         'source': r.source,
         'extra': r.extra
     } for r in q.all()]
+
+@router.post("/assets/extract")
+def extract_asset_snapshot_api(db: Session = Depends(get_db)):
+    """主动触发资产快照"""
+    try:
+        count = extract_asset_snapshot(db)
+        return {"success": True, "message": f"已写入{count}条资产快照"}
+    except Exception as e:
+        import traceback
+        return {"success": False, "error": str(e), "trace": traceback.format_exc()}
