@@ -1,7 +1,7 @@
 """add asset and exchange rate snapshot tables
 
-Revision ID: 002
-Revises: 001
+Revision ID: ffcccccc0003
+Revises: ffcccccc0002
 Create Date: 2024-07-21 12:00:00.000000
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = '002'
-down_revision = '001'
+revision = 'ffcccccc0003'
+down_revision = 'ffcccccc0002'
 branch_labels = None
 depends_on = None
 
