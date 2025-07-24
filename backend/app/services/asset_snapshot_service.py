@@ -31,16 +31,18 @@ def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_poin
     return None
 
 
-def extract_asset_snapshot(db: Session, snapshot_time: datetime = None):
+def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_currency: str = 'CNY'):
     if snapshot_time is None:
         snapshot_time = datetime.now()
-    # 汇率缓存，减少重复查表
+    
+    # 汇率缓存
     rate_cache = {}
     def get_rate(from_cur, to_cur):
         key = (from_cur, to_cur)
         if key not in rate_cache:
             rate_cache[key] = get_latest_rate(db, from_cur, to_cur, snapshot_time)
         return rate_cache[key]
+    
     # 聚合资产
     all_assets = []
     for p in db.query(AssetPosition).all():
@@ -83,6 +85,7 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None):
             'currency': o.currency,
             'balance': o.total_balance
         })
+    
     logging.warning(f"[extract_asset_snapshot] all_assets count: {len(all_assets)}")
     snapshot_count = 0
     for asset in all_assets:
@@ -90,6 +93,11 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None):
         cny_rate = get_rate(asset['currency'], 'CNY')
         usd_rate = get_rate(asset['currency'], 'USD')
         eur_rate = get_rate(asset['currency'], 'EUR')
+        
+        # 计算base_value
+        base_rate = get_rate(asset['currency'], base_currency)
+        base_value = Decimal(asset['balance']) * base_rate if base_rate else None
+        
         snapshot = AssetSnapshot(
             user_id=asset['user_id'],
             platform=asset['platform'],
@@ -101,10 +109,11 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None):
             balance_cny=Decimal(asset['balance']) * cny_rate if cny_rate else None,
             balance_usd=Decimal(asset['balance']) * usd_rate if usd_rate else None,
             balance_eur=Decimal(asset['balance']) * eur_rate if eur_rate else None,
+            base_value=base_value,
             snapshot_time=snapshot_time,
             extra={}
         )
-        logging.warning(f"[extract_asset_snapshot] writing snapshot: {{'platform': {snapshot.platform}, 'asset_type': {snapshot.asset_type}, 'asset_code': {snapshot.asset_code}, 'currency': {snapshot.currency}, 'balance': {snapshot.balance}, 'balance_cny': {snapshot.balance_cny}, 'balance_usd': {snapshot.balance_usd}, 'balance_eur': {snapshot.balance_eur}}}")
+        logging.warning(f"[extract_asset_snapshot] writing snapshot: {{'platform': {snapshot.platform}, 'asset_type': {snapshot.asset_type}, 'asset_code': {snapshot.asset_code}, 'currency': {snapshot.currency}, 'balance': {snapshot.balance}, 'base_value': {snapshot.base_value}}}")
         db.add(snapshot)
         snapshot_count += 1
     db.commit()

@@ -122,10 +122,13 @@ def get_exchange_rate_snapshots(
     } for r in q.all()]
 
 @router.post("/extract")
-def extract_asset_snapshot_api(db: Session = Depends(get_db)):
+def extract_asset_snapshot_api(
+    base_currency: str = Query('CNY', description="基准货币"),
+    db: Session = Depends(get_db)
+):
     """主动触发资产快照"""
     try:
-        count = extract_asset_snapshot(db)
+        count = extract_asset_snapshot(db, base_currency=base_currency)
         return {"success": True, "message": f"已写入{count}条资产快照"}
     except Exception as e:
         import traceback
