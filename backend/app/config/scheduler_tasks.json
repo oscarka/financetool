@@ -126,5 +126,21 @@
         "plugin": "financial_operations.tasks.web3_balance_sync",
         "args": {},
         "enabled": true
+    },
+    {
+        "id": "asset_snapshot_extract",
+        "name": "资产快照抽取",
+        "cron": "0 21 * * *",
+        "plugin": "financial_operations.tasks.asset_snapshot_extract",
+        "args": {},
+        "enabled": true
+    },
+    {
+        "id": "exchange_rate_snapshot_extract",
+        "name": "汇率快照抽取",
+        "cron": "0 21 * * *",
+        "plugin": "financial_operations.tasks.exchange_rate_snapshot_extract",
+        "args": {},
+        "enabled": true
     }
 ]

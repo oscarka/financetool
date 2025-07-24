@@ -107,6 +107,20 @@ class FinancialOperationsPlugin(BaseTaskPlugin):
                 "class": "app.plugins.financial_operations.tasks.web3_balance_sync.Web3BalanceSyncTask"
             },
             
+            # 快照相关任务
+            {
+                "task_id": "asset_snapshot_extract",
+                "name": "资产快照抽取",
+                "description": "定期抽取资产快照，支持多基准货币冗余",
+                "class": "app.plugins.financial_operations.tasks.asset_snapshot_extract.AssetSnapshotExtractTask"
+            },
+            {
+                "task_id": "exchange_rate_snapshot_extract",
+                "name": "汇率快照抽取",
+                "description": "定期抽取汇率快照，支持多基准货币冗余",
+                "class": "app.plugins.financial_operations.tasks.exchange_rate_snapshot_extract.ExchangeRateSnapshotExtractTask"
+            },
+            
             # 数据处理任务
             {
                 "task_id": "data_cleanup",
