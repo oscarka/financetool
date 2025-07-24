@@ -258,7 +258,7 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
         all_assets.append({
             'user_id': None,
             'platform': 'Wise',
-            'asset_type': 'Wise',
+            'asset_type': '外汇',
             'asset_code': w.account_id,
             'asset_name': '',
             'currency': w.currency,
@@ -268,7 +268,7 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
         all_assets.append({
             'user_id': None,
             'platform': 'IBKR',
-            'asset_type': 'IBKR',
+            'asset_type': '证券',
             'asset_code': i.account_id,
             'asset_name': '',
             'currency': i.currency,
@@ -278,7 +278,7 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
         all_assets.append({
             'user_id': None,
             'platform': 'OKX',
-            'asset_type': 'OKX',
+            'asset_type': '数字货币',
             'asset_code': o.account_id,
             'asset_name': '',
             'currency': o.currency,
