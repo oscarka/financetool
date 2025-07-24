@@ -416,6 +416,8 @@ const WiseManagement: React.FC = () => {
             setBalances(response!.data?.data || response!.data || []);
             setBalanceLoadTime(Date.now() - start);
             message.success({ content: `同步并获取到 ${response!.data?.count || 0} 条余额记录`, key: 'wise-balance-sync' });
+            // 同步后强制刷新页面数据
+            fetchBalances();
         } else {
             setBalancesError(lastError?.response?.data?.detail || '同步或获取余额失败');
             message.error({ content: `同步或获取余额失败: ${lastError?.response?.data?.detail || lastError?.message}`, key: 'wise-balance-sync' });
@@ -464,6 +466,8 @@ const WiseManagement: React.FC = () => {
             setTransactions(response!.data?.data || response!.data || []);
             setTransactionsLoadTime(Date.now() - start);
             message.success({ content: `同步并获取到 ${response!.data?.count || 0} 条交易记录`, key: 'wise-tx-sync' });
+            // 同步后强制刷新页面数据
+            fetchTransactions();
         } else {
             setTransactionsError(lastError?.response?.data?.detail || '同步或获取交易记录失败');
             message.error({ content: `同步或获取交易记录失败: ${lastError?.response?.data?.detail || lastError?.message}`, key: 'wise-tx-sync' });
