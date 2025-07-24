@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Pie } from '@ant-design/charts';
-import { snapshotAPI } from '../services/api';
 import { Spin, Radio, Space, Empty } from 'antd';
 
 interface AssetPieChartProps {
@@ -17,32 +16,16 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
   }, [baseCurrency]);
 
   useEffect(() => {
-    const fetchPie = async () => {
-      setLoading(true);
-      try {
-        const params: any = {};
-        if (currencyMode !== 'BOTH') params.base_currency = currencyMode;
-        const resp = await snapshotAPI.getAssetSnapshots(params);
-        if (resp.success && resp.data && resp.data.length > 0) {
-          setPieData(resp.data);
-        } else {
-          // mock数据兜底
-          setPieData([
-            { asset_type: 'BTC', total_cny: 5000, total_usd: 700 },
-            { asset_type: 'ETH', total_cny: 3000, total_usd: 420 },
-            { asset_type: 'USDT', total_cny: 2000, total_usd: 280 },
-          ]);
-        }
-      } catch (e) {
-        setPieData([
-          { asset_type: 'BTC', total_cny: 5000, total_usd: 700 },
-          { asset_type: 'ETH', total_cny: 3000, total_usd: 420 },
-          { asset_type: 'USDT', total_cny: 2000, total_usd: 280 },
-        ]);
-      }
+    // 只用mock数据，不请求API
+    setLoading(true);
+    setTimeout(() => {
+      setPieData([
+        { asset_type: 'BTC', total_cny: 5000, total_usd: 700 },
+        { asset_type: 'ETH', total_cny: 3000, total_usd: 420 },
+        { asset_type: 'USDT', total_cny: 2000, total_usd: 280 },
+      ]);
       setLoading(false);
-    };
-    fetchPie();
+    }, 300);
   }, [currencyMode]);
 
   // 处理双基准数据
