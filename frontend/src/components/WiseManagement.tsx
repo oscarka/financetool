@@ -390,32 +390,37 @@ const WiseManagement: React.FC = () => {
         setBalances([]); // 清空旧数据，防止误导
         message.loading({ content: '正在同步并刷新余额数据，请稍候...', key: 'wise-balance-sync', duration: 0 });
         const start = Date.now();
-        let retry = 0;
-        try {
-            // 先同步到数据库
-            const syncRes = await api.post('/wise/sync-balances');
-            if (!syncRes.data.success) {
-                message.error({ content: syncRes.data.message || '同步数据库失败', key: 'wise-balance-sync' });
-                setBalancesLoading(false);
-                return;
+        let lastError = null;
+        let response = undefined;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            if (attempt > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 仅重试时延迟
             }
-            // 再查数据库最新数据，重试最多3次
-            let res;
-            while (retry < 3) {
-                await new Promise(res => setTimeout(res, 1000)); // 每次延迟1秒
-                res = await api.get('/wise/stored-balances');
-                if (res.data?.data && res.data.data.length > 0) break;
-                retry++;
+            try {
+                // 先同步到数据库
+                const syncRes = await api.post('/wise/sync-balances');
+                if (!syncRes.data.success) {
+                    message.error({ content: syncRes.data.message || '同步数据库失败', key: 'wise-balance-sync' });
+                    setBalancesLoading(false);
+                    return;
+                }
+                // 查数据库最新数据
+                response = await api.get('/wise/stored-balances');
+                // 只要请求成功就break，不管数据是否为空
+                break;
+            } catch (e: any) {
+                lastError = e;
             }
-            setBalances(res.data?.data || res.data || []);
-            setBalanceLoadTime(Date.now() - start);
-            message.success({ content: `同步并获取到 ${res.data.count || 0} 条余额记录`, key: 'wise-balance-sync' });
-        } catch (e: any) {
-            setBalancesError(e.response?.data?.detail || '获取余额失败');
-            message.error({ content: `同步或获取余额失败: ${e.response?.data?.detail || e.message}`, key: 'wise-balance-sync' });
-        } finally {
-            setBalancesLoading(false);
         }
+        if (response) {
+            setBalances(response.data?.data || response.data || []);
+            setBalanceLoadTime(Date.now() - start);
+            message.success({ content: `同步并获取到 ${response.data?.count || 0} 条余额记录`, key: 'wise-balance-sync' });
+        } else {
+            setBalancesError(lastError?.response?.data?.detail || '同步或获取余额失败');
+            message.error({ content: `同步或获取余额失败: ${lastError?.response?.data?.detail || lastError?.message}`, key: 'wise-balance-sync' });
+        }
+        setBalancesLoading(false);
     };
 
     // 从API获取最新交易数据并写入数据库
@@ -425,40 +430,45 @@ const WiseManagement: React.FC = () => {
         setTransactions([]); // 清空旧数据，防止误导
         message.loading({ content: '正在同步并刷新交易记录，请稍候...', key: 'wise-tx-sync', duration: 0 });
         const start = Date.now();
-        let retry = 0;
-        try {
-            // 先同步到数据库，带上天数参数
-            const syncRes = await api.post('/wise/sync-transactions', { days: transactionDays });
-            if (!syncRes.data.success) {
-                message.error({ content: syncRes.data.message || '同步交易记录到数据库失败', key: 'wise-tx-sync' });
-                setTransactionsLoading(false);
-                return;
-            }
-            // 再查数据库最新数据，重试最多3次
-            let res;
-            const params: any = { limit: 100 };
-            if (transactionDays) {
-                const endDate = new Date();
-                const startDate = new Date();
-                startDate.setDate(startDate.getDate() - transactionDays);
-                params.from_date = startDate.toISOString().split('T')[0];
-                params.to_date = endDate.toISOString().split('T')[0];
-            }
-            while (retry < 3) {
-                await new Promise(res => setTimeout(res, 1000)); // 每次延迟1秒
-                res = await api.get('/wise/stored-transactions', { params });
-                if (res.data?.data && res.data.data.length > 0) break;
-                retry++;
-            }
-            setTransactions(res.data?.data || res.data || []);
-            setTransactionsLoadTime(Date.now() - start);
-            message.success({ content: `同步并获取到 ${res.data.count || 0} 条交易记录`, key: 'wise-tx-sync' });
-        } catch (e: any) {
-            setTransactionsError(e.response?.data?.detail || '获取交易记录失败');
-            message.error({ content: `同步或获取交易记录失败: ${e.response?.data?.detail || e.message}`, key: 'wise-tx-sync' });
-        } finally {
-            setTransactionsLoading(false);
+        let lastError = null;
+        let response = undefined;
+        const params: any = { limit: 100 };
+        if (transactionDays) {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - transactionDays);
+            params.from_date = startDate.toISOString().split('T')[0];
+            params.to_date = endDate.toISOString().split('T')[0];
         }
+        for (let attempt = 0; attempt < 3; attempt++) {
+            if (attempt > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 仅重试时延迟
+            }
+            try {
+                // 先同步到数据库
+                const syncRes = await api.post('/wise/sync-transactions', { days: transactionDays });
+                if (!syncRes.data.success) {
+                    message.error({ content: syncRes.data.message || '同步交易记录到数据库失败', key: 'wise-tx-sync' });
+                    setTransactionsLoading(false);
+                    return;
+                }
+                // 查数据库最新数据
+                response = await api.get('/wise/stored-transactions', { params });
+                // 只要请求成功就break，不管数据是否为空
+                break;
+            } catch (e: any) {
+                lastError = e;
+            }
+        }
+        if (response) {
+            setTransactions(response.data?.data || response.data || []);
+            setTransactionsLoadTime(Date.now() - start);
+            message.success({ content: `同步并获取到 ${response.data?.count || 0} 条交易记录`, key: 'wise-tx-sync' });
+        } else {
+            setTransactionsError(lastError?.response?.data?.detail || '同步或获取交易记录失败');
+            message.error({ content: `同步或获取交易记录失败: ${lastError?.response?.data?.detail || lastError?.message}`, key: 'wise-tx-sync' });
+        }
+        setTransactionsLoading(false);
     };
 
     // 页面加载后自动拉取一次历史汇率
