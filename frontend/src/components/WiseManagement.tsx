@@ -413,9 +413,9 @@ const WiseManagement: React.FC = () => {
             }
         }
         if (response) {
-            setBalances(response.data?.data || response.data || []);
+            setBalances(response!.data?.data || response!.data || []);
             setBalanceLoadTime(Date.now() - start);
-            message.success({ content: `同步并获取到 ${response.data?.count || 0} 条余额记录`, key: 'wise-balance-sync' });
+            message.success({ content: `同步并获取到 ${response!.data?.count || 0} 条余额记录`, key: 'wise-balance-sync' });
         } else {
             setBalancesError(lastError?.response?.data?.detail || '同步或获取余额失败');
             message.error({ content: `同步或获取余额失败: ${lastError?.response?.data?.detail || lastError?.message}`, key: 'wise-balance-sync' });
@@ -461,9 +461,9 @@ const WiseManagement: React.FC = () => {
             }
         }
         if (response) {
-            setTransactions(response.data?.data || response.data || []);
+            setTransactions(response!.data?.data || response!.data || []);
             setTransactionsLoadTime(Date.now() - start);
-            message.success({ content: `同步并获取到 ${response.data?.count || 0} 条交易记录`, key: 'wise-tx-sync' });
+            message.success({ content: `同步并获取到 ${response!.data?.count || 0} 条交易记录`, key: 'wise-tx-sync' });
         } else {
             setTransactionsError(lastError?.response?.data?.detail || '同步或获取交易记录失败');
             message.error({ content: `同步或获取交易记录失败: ${lastError?.response?.data?.detail || lastError?.message}`, key: 'wise-tx-sync' });
