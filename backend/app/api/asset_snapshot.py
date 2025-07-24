@@ -22,6 +22,11 @@ def get_asset_snapshots(
 ):
     logging.warning(f"[asset_snapshot] called with platform={platform}, asset_type={asset_type}, currency={currency}, base_currency={base_currency}, start={start}, end={end}")
     """获取资产快照，支持多基准货币展示"""
+    
+    # 设置默认基准货币
+    if base_currency is None:
+        base_currency = 'CNY'
+    
     q = db.query(AssetSnapshot)
     if platform:
         q = q.filter(AssetSnapshot.platform == platform)
