@@ -1,21 +1,28 @@
 from app.services.asset_snapshot_service import extract_asset_snapshot
 from app.core.base_plugin import BaseTask
+from app.core.context import TaskContext, TaskResult
 from app.core.database import get_db
 from datetime import datetime
 
 class AssetSnapshotExtractTask(BaseTask):
-    task_id = "asset_snapshot_extract"
-    name = "资产快照抽取"
-    description = "定期抽取资产快照，支持多基准货币冗余"
+    """资产快照抽取任务"""
+    def __init__(self, task_id: str, name: str, description: str = ""):
+        super().__init__(task_id, name, description)
 
-    def run(self, config=None):
-        db = next(get_db())
+    async def execute(self, context: TaskContext) -> TaskResult:
         try:
-            extract_asset_snapshot(db, snapshot_time=datetime.now())
-            self.logger.info("资产快照抽取成功")
-            return {"success": True}
+            context.log("开始执行资产快照抽取任务")
+            db = next(get_db())
+            try:
+                extract_asset_snapshot(db, snapshot_time=datetime.now())
+                context.log("资产快照抽取成功")
+                return TaskResult(success=True)
+            finally:
+                db.close()
         except Exception as e:
-            self.logger.error(f"资产快照抽取失败: {e}")
-            return {"success": False, "error": str(e)}
-        finally:
-            db.close()
+            context.log(f"资产快照抽取失败: {e}", "ERROR")
+            return TaskResult(success=False, error=str(e))
+
+    async def validate_config(self, config):
+        # 资产快照任务无需特殊配置
+        return True
