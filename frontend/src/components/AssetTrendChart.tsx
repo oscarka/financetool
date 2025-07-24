@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Line } from '@ant-design/charts';
 import { snapshotAPI } from '../services/api';
-import { Spin, Radio, Space } from 'antd';
+import { Spin, Radio, Space, Empty } from 'antd';
 
 interface AssetTrendChartProps {
   baseCurrency: string | 'BOTH'; // 'CNY' | 'USD' | 'BOTH'
@@ -21,21 +21,24 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
     const fetchTrend = async () => {
       setLoading(true);
       try {
-        const params: any = { days };
+        const params: any = { days: days || 30 };
         if (currencyMode !== 'BOTH') params.base_currency = currencyMode;
         const resp = await snapshotAPI.getAssetTrend(params);
-        if (resp.success && resp.data && resp.data.length > 0) {
-          setTrendData(resp.data);
+        let data = [];
+        if (resp.success && Array.isArray(resp.data) && resp.data.length > 0) {
+          // 只取最近90天
+          data = resp.data.slice(-90);
         } else {
           // mock数据兜底
-          setTrendData([
+          data = [
             { date: '2024-06-01', total_cny: 10000, total_usd: 1500 },
             { date: '2024-06-02', total_cny: 10200, total_usd: 1530 },
             { date: '2024-06-03', total_cny: 10100, total_usd: 1515 },
             { date: '2024-06-04', total_cny: 10500, total_usd: 1580 },
             { date: '2024-06-05', total_cny: 10700, total_usd: 1600 },
-          ]);
+          ];
         }
+        setTrendData(data);
       } catch (e) {
         setTrendData([
           { date: '2024-06-01', total_cny: 10000, total_usd: 1500 },
@@ -53,19 +56,19 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
   // 处理双基准数据
   let chartData: any[] = [];
   if (currencyMode === 'BOTH') {
-    // 假设API返回格式为 [{date, total_cny, total_usd}]
     chartData = trendData.flatMap((item: any) => [
       { date: item.date, value: item.total_cny, currency: 'CNY' },
       { date: item.date, value: item.total_usd, currency: 'USD' },
     ]);
   } else {
-    // [{date, total}]
     chartData = trendData.map((item: any) => ({
       date: item.date,
       value: item.total,
       currency: currencyMode,
     }));
   }
+  // 限制最大点数
+  if (chartData.length > 90) chartData = chartData.slice(-90);
 
   const config = {
     data: chartData,
@@ -95,7 +98,7 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
           <Radio.Button value="BOTH">双基准</Radio.Button>
         </Radio.Group>
       </Space>
-      <Line {...config} />
+      {chartData.length === 0 ? <Empty description="暂无趋势数据" /> : <Line {...config} />}
     </Spin>
   );
 };
