@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Row, Col, Statistic, Typography, Space, Progress, Tabs } from 'antd'
 import {
-    ArrowUpOutlined,
-    ArrowDownOutlined,
     PlusCircleOutlined,
     BarChartOutlined,
     PieChartOutlined,
     LineChartOutlined,
-    EyeOutlined,
     RightOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
@@ -29,12 +26,10 @@ interface DashboardStats {
 
 const MobileDashboard: React.FC = () => {
     const navigate = useNavigate()
-    const [loading, setLoading] = useState(false)
     const [stats, setStats] = useState<DashboardStats | null>(null)
     
     // 获取持仓汇总数据
     const fetchStats = async () => {
-        setLoading(true)
         try {
             const response = await fundAPI.getPositionSummary()
             if (response.success && response.data) {
@@ -42,8 +37,6 @@ const MobileDashboard: React.FC = () => {
             }
         } catch (error) {
             console.error('获取统计数据失败:', error)
-        } finally {
-            setLoading(false)
         }
     }
 
@@ -57,20 +50,7 @@ const MobileDashboard: React.FC = () => {
         return isNaN(numValue) ? 0 : numValue
     }
 
-    // 格式化金额
-    const formatAmount = (amount: number | string) => {
-        const numAmount = safeNumber(amount)
-        return numAmount.toLocaleString('zh-CN', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        })
-    }
-
-    // 格式化百分比
-    const formatPercent = (rate: number | string) => {
-        const numRate = safeNumber(rate)
-        return `${numRate >= 0 ? '+' : ''}${(numRate * 100).toFixed(2)}%`
-    }
+    // 移除未使用的formatAmount和formatPercent
 
     const quickActions = [
         {
