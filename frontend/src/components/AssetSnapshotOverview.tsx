@@ -72,7 +72,7 @@ const AssetSnapshotOverview: React.FC = () => {
   const handleExtractSnapshot = async () => {
     setLoading(true);
     try {
-      const resp = await fetch('/api/snapshot/assets/extract', { method: 'POST' });
+      const resp = await fetch('/api/snapshot/extract', { method: 'POST' });
       const result = await resp.json();
       if (result.success) {
         message.success(result.message || '快照成功');

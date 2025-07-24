@@ -121,7 +121,7 @@ def get_exchange_rate_snapshots(
         'extra': r.extra
     } for r in q.all()]
 
-@router.post("/assets/extract")
+@router.post("/extract")
 def extract_asset_snapshot_api(db: Session = Depends(get_db)):
     """主动触发资产快照"""
     try:
