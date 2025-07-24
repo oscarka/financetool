@@ -12,6 +12,8 @@ import {
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { fundAPI } from '../services/api'
+import AssetTrendChart from '../components/AssetTrendChart';
+import AssetPieChart from '../components/AssetPieChart';
 
 const { Title, Text } = Typography
 
@@ -269,6 +271,16 @@ const MobileDashboard: React.FC = () => {
                     </Row>
                 </Card>
             )}
+
+            {/* 资产分布饼图和趋势折线图 */}
+            <Card title="资产分布与趋势" bordered={false} style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 16 }}>
+                    <AssetPieChart baseCurrency="CNY" />
+                </div>
+                <div>
+                    <AssetTrendChart baseCurrency="CNY" days={30} />
+                </div>
+            </Card>
 
             {/* 快速操作 */}
             <Card 

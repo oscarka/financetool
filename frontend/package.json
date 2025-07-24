@@ -11,7 +11,7 @@
     "preview": "vite preview --port 8080 --host"
   },
   "dependencies": {
-    "@ant-design/charts": "^2.6.0",
+    "@ant-design/charts": "^2.6.1",
     "@ant-design/icons": "^6.0.0",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",

@@ -3,6 +3,8 @@ import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI } from '../services/api';
+import AssetTrendChart from './AssetTrendChart';
+import AssetPieChart from './AssetPieChart';
 // import AssetTrendChart from './AssetTrendChart'; // 如有趋势图可解开
 
 const { RangePicker } = DatePicker;
@@ -268,9 +270,18 @@ const AssetSnapshotOverview: React.FC = () => {
           size="small"
         />
       </Spin>
-      {/* <div style={{ marginTop: 32 }}>
-        <AssetTrendChart baseCurrency={baseCurrency} days={30} />
-      </div> */}
+      <Row gutter={24} style={{ marginTop: 32 }}>
+        <Col xs={24} md={12}>
+          <Card title="资产分布饼图" bordered={false}>
+            <AssetPieChart baseCurrency={baseCurrency} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Card title="资产趋势折线图" bordered={false}>
+            <AssetTrendChart baseCurrency={baseCurrency} days={30} />
+          </Card>
+        </Col>
+      </Row>
     </Card>
   );
 };
