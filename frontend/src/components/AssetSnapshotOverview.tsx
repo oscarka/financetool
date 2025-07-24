@@ -14,6 +14,7 @@ type AssetSnapshot = {
   platform: string;
   asset_type: string;
   asset_code: string;
+  asset_name?: string;
   currency: string;
   balance: number;
   balance_cny?: number;
