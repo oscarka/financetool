@@ -41,7 +41,7 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
   } else {
     chartData = trendData.map((item: any) => ({
       date: item.date,
-      value: item.total,
+      value: currencyMode === 'CNY' ? item.total_cny : item.total_usd,
       currency: currencyMode,
     }));
   }
