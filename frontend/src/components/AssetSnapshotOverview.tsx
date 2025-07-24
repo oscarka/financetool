@@ -85,7 +85,7 @@ const AssetSnapshotOverview: React.FC = () => {
         message.success(response.message || '快照成功');
         await loadData();
       } else {
-        message.error(response.error || '快照失败');
+        message.error(response.message || '快照失败');
       }
     } catch (error: any) {
       message.error('快照请求异常');
