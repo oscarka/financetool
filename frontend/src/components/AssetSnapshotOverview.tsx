@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Select, DatePicker, Button, Spin, message } from 'antd';
+import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI } from '../services/api';
@@ -7,6 +7,7 @@ import { snapshotAPI } from '../services/api';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
+const { Search } = Input;
 
 type AssetSnapshot = {
   id: number;
@@ -33,20 +34,38 @@ const AssetSnapshotOverview: React.FC = () => {
   ]);
   const [assetData, setAssetData] = useState<AssetSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // 新增筛选器状态
+  const [platform, setPlatform] = useState<string>('');
+  const [assetType, setAssetType] = useState<string>('');
+  const [currency, setCurrency] = useState<string>('');
+  const [searchText, setSearchText] = useState<string>('');
+  
+  // 从数据中提取可用的筛选选项
+  const platforms = Array.from(new Set(assetData.map(item => item.platform))).sort();
+  const assetTypes = Array.from(new Set(assetData.map(item => item.asset_type))).sort();
+  const currencies = Array.from(new Set(assetData.map(item => item.currency))).sort();
 
   const columns: ColumnsType<AssetSnapshot> = [
-    { title: '平台', dataIndex: 'platform', key: 'platform' },
-    { title: '资产类型', dataIndex: 'asset_type', key: 'asset_type' },
-    { title: '资产代码', dataIndex: 'asset_code', key: 'asset_code' },
-    { title: '币种', dataIndex: 'currency', key: 'currency' },
+    { title: '平台', dataIndex: 'platform', key: 'platform', width: 100 },
+    { title: '资产类型', dataIndex: 'asset_type', key: 'asset_type', width: 120 },
+    { title: '资产代码', dataIndex: 'asset_code', key: 'asset_code', width: 150 },
+    { title: '币种', dataIndex: 'currency', key: 'currency', width: 80 },
     {
       title: `${baseCurrency}金额`,
       dataIndex: 'base_value',
       key: 'base_value',
+      width: 120,
       render: (val: number) =>
         val == null ? '-' : val.toLocaleString('zh-CN', { style: 'currency', currency: baseCurrency }),
     },
-    { title: '快照时间', dataIndex: 'snapshot_time', key: 'snapshot_time' },
+    { 
+      title: '快照时间', 
+      dataIndex: 'snapshot_time', 
+      key: 'snapshot_time',
+      width: 180,
+      render: (val: string) => dayjs(val).format('YYYY-MM-DD HH:mm:ss')
+    },
   ];
 
   const loadData = async () => {
@@ -57,6 +76,10 @@ const AssetSnapshotOverview: React.FC = () => {
       params.start = dateRange[0].format('YYYY-MM-DD');
       params.end = dateRange[1].format('YYYY-MM-DD');
     }
+    if (platform) params.platform = platform;
+    if (assetType) params.asset_type = assetType;
+    if (currency) params.currency = currency;
+    
     try {
       const response = await snapshotAPI.getAssetSnapshots(params);
       if (response.success) {
@@ -73,7 +96,7 @@ const AssetSnapshotOverview: React.FC = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line
-  }, [baseCurrency, dateRange]);
+  }, [baseCurrency, dateRange, platform, assetType, currency]);
 
   // 修正onChange类型
   const handleRangeChange = (dates: [Dayjs | null, Dayjs | null] | null) => {
@@ -97,28 +120,151 @@ const AssetSnapshotOverview: React.FC = () => {
     setLoading(false);
   };
 
+  // 清空筛选器
+  const clearFilters = () => {
+    setPlatform('');
+    setAssetType('');
+    setCurrency('');
+    setSearchText('');
+    setDateRange([dayjs().subtract(7, 'day'), dayjs().add(7, 'day')]);
+  };
+
+  // 根据搜索文本过滤数据
+  const filteredData = assetData.filter(item => {
+    if (!searchText) return true;
+    const searchLower = searchText.toLowerCase();
+    return (
+      item.platform.toLowerCase().includes(searchLower) ||
+      item.asset_type.toLowerCase().includes(searchLower) ||
+      item.asset_code.toLowerCase().includes(searchLower) ||
+      item.currency.toLowerCase().includes(searchLower) ||
+      item.asset_name?.toLowerCase().includes(searchLower)
+    );
+  });
+
   return (
     <Card title="资产快照多基准货币展示" style={{ margin: 24 }}>
-      <div style={{ marginBottom: 16, display: 'flex', gap: 16 }}>
-        <Button type="primary" onClick={handleExtractSnapshot}>主动快照</Button>
-        <Select value={baseCurrency} onChange={setBaseCurrency} style={{ width: 120 }}>
-          {baseCurrencies.map((c) => (
-            <Option key={c} value={c}>{c}</Option>
-          ))}
-        </Select>
-        <RangePicker
-          value={dateRange}
-          onChange={handleRangeChange}
-          allowClear
-          style={{ width: 300 }}
-        />
-      </div>
+      {/* 筛选器区域 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Button type="primary" onClick={handleExtractSnapshot} block>
+            主动快照
+          </Button>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select 
+            value={baseCurrency} 
+            onChange={setBaseCurrency} 
+            style={{ width: '100%' }}
+            placeholder="基准货币"
+          >
+            {baseCurrencies.map((c) => (
+              <Option key={c} value={c}>{c}</Option>
+            ))}
+          </Select>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select 
+            value={platform} 
+            onChange={setPlatform} 
+            style={{ width: '100%' }}
+            placeholder="选择平台"
+            allowClear
+          >
+            {platforms.map((p) => (
+              <Option key={p} value={p}>{p}</Option>
+            ))}
+          </Select>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select 
+            value={assetType} 
+            onChange={setAssetType} 
+            style={{ width: '100%' }}
+            placeholder="资产类型"
+            allowClear
+          >
+            {assetTypes.map((t) => (
+              <Option key={t} value={t}>{t}</Option>
+            ))}
+          </Select>
+        </Col>
+      </Row>
+      
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Select 
+            value={currency} 
+            onChange={setCurrency} 
+            style={{ width: '100%' }}
+            placeholder="选择币种"
+            allowClear
+          >
+            {currencies.map((c) => (
+              <Option key={c} value={c}>{c}</Option>
+            ))}
+          </Select>
+        </Col>
+        <Col xs={24} sm={12} md={12}>
+          <RangePicker
+            value={dateRange}
+            onChange={handleRangeChange}
+            allowClear
+            style={{ width: '100%' }}
+            placeholder={['开始日期', '结束日期']}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Button onClick={clearFilters} block>
+            清空筛选
+          </Button>
+        </Col>
+      </Row>
+
+      {/* 搜索框 */}
+      <Row style={{ marginBottom: 16 }}>
+        <Col span={24}>
+          <Search
+            placeholder="搜索平台、资产类型、代码、币种等..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+            style={{ width: '100%' }}
+          />
+        </Col>
+      </Row>
+
+      {/* 数据统计 */}
+      <Row style={{ marginBottom: 16 }}>
+        <Col span={24}>
+          <div style={{ 
+            padding: '8px 16px', 
+            backgroundColor: '#f5f5f5', 
+            borderRadius: '6px',
+            fontSize: '14px'
+          }}>
+            共找到 <strong>{filteredData.length}</strong> 条记录
+            {platform && ` | 平台: ${platform}`}
+            {assetType && ` | 类型: ${assetType}`}
+            {currency && ` | 币种: ${currency}`}
+            {searchText && ` | 搜索: "${searchText}"`}
+          </div>
+        </Col>
+      </Row>
+
       <Spin spinning={loading}>
         <Table
           columns={columns}
-          dataSource={assetData}
+          dataSource={filteredData}
           rowKey="id"
-          pagination={{ pageSize: 20 }}
+          pagination={{ 
+            pageSize: 20,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
+          }}
+          scroll={{ x: 800 }}
+          size="small"
         />
       </Spin>
       {/* <div style={{ marginTop: 32 }}>
