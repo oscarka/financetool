@@ -487,4 +487,23 @@ export const ibkrAPI = {
         }),
 }
 
+// 资产快照相关API
+export const snapshotAPI = {
+    // 获取资产快照
+    getAssetSnapshots: (params?: any): Promise<APIResponse> =>
+        api.get('/snapshot/assets', { params }),
+
+    // 主动触发资产快照
+    extractAssetSnapshot: (): Promise<APIResponse> =>
+        api.post('/snapshot/extract'),
+
+    // 获取资产快照趋势
+    getAssetTrend: (params?: any): Promise<APIResponse> =>
+        api.get('/snapshot/assets/trend', { params }),
+
+    // 获取汇率快照
+    getExchangeRateSnapshots: (params?: any): Promise<APIResponse> =>
+        api.get('/snapshot/exchange-rates', { params }),
+}
+
 export default api 

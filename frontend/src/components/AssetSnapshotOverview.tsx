@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Table, Select, DatePicker, Card, Spin, Button, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
+import { snapshotAPI } from '../services/api';
 // import AssetTrendChart from './AssetTrendChart'; // 如有趋势图可解开
 
 const { Option } = Select;
@@ -46,15 +47,22 @@ const AssetSnapshotOverview: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
-    let params = new URLSearchParams();
-    params.append('base_currency', baseCurrency);
+    let params: any = {};
+    params.base_currency = baseCurrency;
     if (dateRange && dateRange[0] && dateRange[1]) {
-      params.append('start', dateRange[0].format('YYYY-MM-DD'));
-      params.append('end', dateRange[1].format('YYYY-MM-DD'));
+      params.start = dateRange[0].format('YYYY-MM-DD');
+      params.end = dateRange[1].format('YYYY-MM-DD');
     }
-    const resp = await fetch('https://backend-production-2750.up.railway.app/api/snapshot/assets?' + params.toString());
-    const data = await resp.json();
-    setAssetData(data);
+    try {
+      const response = await snapshotAPI.getAssetSnapshots(params);
+      if (response.success) {
+        setAssetData(response.data || []);
+      } else {
+        message.error(response.message || '获取快照数据失败');
+      }
+    } catch (error: any) {
+      message.error('获取快照数据失败');
+    }
     setLoading(false);
   };
 
@@ -72,15 +80,14 @@ const AssetSnapshotOverview: React.FC = () => {
   const handleExtractSnapshot = async () => {
     setLoading(true);
     try {
-      const resp = await fetch('https://backend-production-2750.up.railway.app/api/snapshot/extract', { method: 'POST' });
-      const result = await resp.json();
-      if (result.success) {
-        message.success(result.message || '快照成功');
+      const response = await snapshotAPI.extractAssetSnapshot();
+      if (response.success) {
+        message.success(response.message || '快照成功');
         await loadData();
       } else {
-        message.error(result.error || '快照失败');
+        message.error(response.error || '快照失败');
       }
-    } catch (e) {
+    } catch (error: any) {
       message.error('快照请求异常');
     }
     setLoading(false);
