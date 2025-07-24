@@ -71,8 +71,7 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
     radius: 0.9,
     label: {
       type: 'spider',
-      labelHeight: 28,
-      content: '{name}\n{percentage}',
+      formatter: (datum: any) => `${datum.type}: ${(datum.percent * 100).toFixed(2)}%`,
     },
     interactions: [{ type: 'element-active' }],
     legend: { position: 'top' },
