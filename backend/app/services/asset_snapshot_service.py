@@ -313,98 +313,131 @@ def extract_exchange_rate_snapshot(db: Session, snapshot_time: datetime = None):
     if snapshot_time is None:
         snapshot_time = datetime.now()
     
-    # 1. 从WiseExchangeRate表获取传统货币汇率
-    for w in db.query(WiseExchangeRate).all():
-        snapshot = ExchangeRateSnapshot(
-            from_currency=w.source_currency,
-            to_currency=w.target_currency,
-            rate=w.rate,
-            snapshot_time=w.time,  # 使用原始时间
-            source='wise',
-            extra={}
-        )
-        db.add(snapshot)
+    logging.info(f"开始生成汇率快照，时间: {snapshot_time}")
+    snapshot_count = 0
     
-    # 2. 获取数字货币汇率并记录
-    digital_currencies = [
-        'USDT', 'USDC', 'BTC', 'ETH', 'IP', 'TRUMP', 'MOVE', 'S', 'KAITO', 'AIXBT', 'MXC',
-        'DOGE', 'ADA', 'DOT', 'LINK', 'UNI', 'LTC', 'BCH', 'XRP', 'SOL', 'MATIC', 'AVAX',
-        'ATOM', 'FTM', 'NEAR', 'ALGO', 'VET', 'THETA', 'FIL', 'ICP', 'APT', 'SUI', 'SEI',
-        'TIA', 'JUP', 'PYTH', 'WIF', 'BONK', 'PEPE', 'SHIB', 'FLOKI', 'BOME', 'BOOK',
-        'POPCAT', 'TURBO', 'MYRO', 'WEN', 'SLERF'
-    ]
-    
-    for currency in digital_currencies:
-        # 获取数字货币对USDT汇率
-        usdt_rate = get_latest_rate(db, currency, 'USDT', snapshot_time)
-        if usdt_rate:
-            # 记录数字货币/USDT汇率
+    try:
+        # 1. 从WiseExchangeRate表获取传统货币汇率
+        wise_rates = db.query(WiseExchangeRate).all()
+        logging.info(f"从WiseExchangeRate表获取到 {len(wise_rates)} 条记录")
+        
+        for w in wise_rates:
             snapshot = ExchangeRateSnapshot(
-                from_currency=currency,
-                to_currency='USDT',
-                rate=usdt_rate,
-                snapshot_time=snapshot_time,
-                source='cache',
-                extra={
-                    'cache_source': 'okx_cache',
-                    'cache_timestamp': datetime.now().isoformat(),
-                    'market_pair': f'{currency}-USDT'
-                }
+                from_currency=w.source_currency,
+                to_currency=w.target_currency,
+                rate=w.rate,
+                snapshot_time=w.time,  # 使用原始时间
+                source='wise',
+                extra={}
             )
             db.add(snapshot)
-            
-            # 计算并记录数字货币/USD汇率
-            usd_rate = usdt_rate * Decimal('1.0')  # USDT/USD默认1:1
-            snapshot_usd = ExchangeRateSnapshot(
-                from_currency=currency,
-                to_currency='USD',
-                rate=usd_rate,
-                snapshot_time=snapshot_time,
-                source='calculated',
-                extra={
-                    f'{currency.lower()}_usdt_rate': str(usdt_rate),
-                    'usdt_usd_rate': '1.0',
-                    'calculation_method': 'multilayer'
-                }
-            )
-            db.add(snapshot_usd)
-            
-            # 计算并记录数字货币/CNY汇率
-            usd_cny_rate = get_latest_rate(db, 'USD', 'CNY', snapshot_time)
-            if usd_cny_rate:
-                cny_rate = usdt_rate * Decimal('1.0') * usd_cny_rate
-                snapshot_cny = ExchangeRateSnapshot(
-                    from_currency=currency,
-                    to_currency='CNY',
-                    rate=cny_rate,
-                    snapshot_time=snapshot_time,
-                    source='calculated',
-                    extra={
-                        f'{currency.lower()}_usdt_rate': str(usdt_rate),
-                        'usdt_usd_rate': '1.0',
-                        'usd_cny_rate': str(usd_cny_rate),
-                        'calculation_method': 'multilayer'
-                    }
-                )
-                db.add(snapshot_cny)
-            
-            # 计算并记录数字货币/EUR汇率
-            usd_eur_rate = get_latest_rate(db, 'USD', 'EUR', snapshot_time)
-            if usd_eur_rate:
-                eur_rate = usdt_rate * Decimal('1.0') * usd_eur_rate
-                snapshot_eur = ExchangeRateSnapshot(
-                    from_currency=currency,
-                    to_currency='EUR',
-                    rate=eur_rate,
-                    snapshot_time=snapshot_time,
-                    source='calculated',
-                    extra={
-                        f'{currency.lower()}_usdt_rate': str(usdt_rate),
-                        'usdt_usd_rate': '1.0',
-                        'usd_eur_rate': str(usd_eur_rate),
-                        'calculation_method': 'multilayer'
-                    }
-                )
-                db.add(snapshot_eur)
-    
-    db.commit()
+            snapshot_count += 1
+            logging.info(f"添加Wise汇率快照: {w.source_currency}/{w.target_currency} = {w.rate}")
+        
+        # 2. 获取数字货币汇率并记录
+        digital_currencies = [
+            'USDT', 'USDC', 'BTC', 'ETH', 'IP', 'TRUMP', 'MOVE', 'S', 'KAITO', 'AIXBT', 'MXC',
+            'DOGE', 'ADA', 'DOT', 'LINK', 'UNI', 'LTC', 'BCH', 'XRP', 'SOL', 'MATIC', 'AVAX',
+            'ATOM', 'FTM', 'NEAR', 'ALGO', 'VET', 'THETA', 'FIL', 'ICP', 'APT', 'SUI', 'SEI',
+            'TIA', 'JUP', 'PYTH', 'WIF', 'BONK', 'PEPE', 'SHIB', 'FLOKI', 'BOME', 'BOOK',
+            'POPCAT', 'TURBO', 'MYRO', 'WEN', 'SLERF'
+        ]
+        
+        logging.info(f"开始处理 {len(digital_currencies)} 种数字货币")
+        
+        for currency in digital_currencies:
+            try:
+                # 获取数字货币对USDT汇率
+                usdt_rate = get_latest_rate(db, currency, 'USDT', snapshot_time)
+                if usdt_rate:
+                    logging.info(f"获取到 {currency}/USDT 汇率: {usdt_rate}")
+                    
+                    # 记录数字货币/USDT汇率
+                    snapshot = ExchangeRateSnapshot(
+                        from_currency=currency,
+                        to_currency='USDT',
+                        rate=usdt_rate,
+                        snapshot_time=snapshot_time,
+                        source='cache',
+                        extra={
+                            'cache_source': 'okx_cache',
+                            'cache_timestamp': datetime.now().isoformat(),
+                            'market_pair': f'{currency}-USDT'
+                        }
+                    )
+                    db.add(snapshot)
+                    snapshot_count += 1
+                    
+                    # 计算并记录数字货币/USD汇率
+                    usd_rate = usdt_rate * Decimal('1.0')  # USDT/USD默认1:1
+                    snapshot_usd = ExchangeRateSnapshot(
+                        from_currency=currency,
+                        to_currency='USD',
+                        rate=usd_rate,
+                        snapshot_time=snapshot_time,
+                        source='calculated',
+                        extra={
+                            f'{currency.lower()}_usdt_rate': str(usdt_rate),
+                            'usdt_usd_rate': '1.0',
+                            'calculation_method': 'multilayer'
+                        }
+                    )
+                    db.add(snapshot_usd)
+                    snapshot_count += 1
+                    
+                    # 计算并记录数字货币/CNY汇率
+                    usd_cny_rate = get_latest_rate(db, 'USD', 'CNY', snapshot_time)
+                    if usd_cny_rate:
+                        cny_rate = usdt_rate * Decimal('1.0') * usd_cny_rate
+                        snapshot_cny = ExchangeRateSnapshot(
+                            from_currency=currency,
+                            to_currency='CNY',
+                            rate=cny_rate,
+                            snapshot_time=snapshot_time,
+                            source='calculated',
+                            extra={
+                                f'{currency.lower()}_usdt_rate': str(usdt_rate),
+                                'usdt_usd_rate': '1.0',
+                                'usd_cny_rate': str(usd_cny_rate),
+                                'calculation_method': 'multilayer'
+                            }
+                        )
+                        db.add(snapshot_cny)
+                        snapshot_count += 1
+                        logging.info(f"计算 {currency}/CNY 汇率: {cny_rate}")
+                    
+                    # 计算并记录数字货币/EUR汇率
+                    usd_eur_rate = get_latest_rate(db, 'USD', 'EUR', snapshot_time)
+                    if usd_eur_rate:
+                        eur_rate = usdt_rate * Decimal('1.0') * usd_eur_rate
+                        snapshot_eur = ExchangeRateSnapshot(
+                            from_currency=currency,
+                            to_currency='EUR',
+                            rate=eur_rate,
+                            snapshot_time=snapshot_time,
+                            source='calculated',
+                            extra={
+                                f'{currency.lower()}_usdt_rate': str(usdt_rate),
+                                'usdt_usd_rate': '1.0',
+                                'usd_eur_rate': str(usd_eur_rate),
+                                'calculation_method': 'multilayer'
+                            }
+                        )
+                        db.add(snapshot_eur)
+                        snapshot_count += 1
+                        logging.info(f"计算 {currency}/EUR 汇率: {eur_rate}")
+                else:
+                    logging.warning(f"未获取到 {currency}/USDT 汇率")
+                    
+            except Exception as e:
+                logging.error(f"处理数字货币 {currency} 时出错: {e}")
+                continue
+        
+        db.commit()
+        logging.info(f"汇率快照生成完成，共生成 {snapshot_count} 条记录")
+        return snapshot_count
+        
+    except Exception as e:
+        logging.error(f"生成汇率快照时出错: {e}")
+        db.rollback()
+        raise
