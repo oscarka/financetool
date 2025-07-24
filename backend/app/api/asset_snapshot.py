@@ -39,30 +39,11 @@ def get_asset_snapshots(
     # 多基准货币展示
     def get_base_value(row):
         if base_currency == 'CNY':
-            # 如果balance_cny为null，尝试使用USD汇率计算
-            if row.balance_cny is not None:
-                return row.balance_cny
-            elif row.balance_usd is not None:
-                # 使用USD汇率计算CNY值（假设1 USD = 7.2 CNY）
-                return row.balance_usd * 7.2
-            else:
-                return row.balance  # 返回原始余额
+            return row.balance_cny
         elif base_currency == 'USD':
-            if row.balance_usd is not None:
-                return row.balance_usd
-            elif row.balance_cny is not None:
-                # 使用CNY汇率计算USD值（假设1 USD = 7.2 CNY）
-                return row.balance_cny / 7.2
-            else:
-                return row.balance  # 返回原始余额
+            return row.balance_usd
         elif base_currency == 'EUR':
-            if row.balance_eur is not None:
-                return row.balance_eur
-            elif row.balance_usd is not None:
-                # 使用USD汇率计算EUR值（假设1 EUR = 1.1 USD）
-                return row.balance_usd / 1.1
-            else:
-                return row.balance  # 返回原始余额
+            return row.balance_eur
         else:
             return row.balance
     result = [{
