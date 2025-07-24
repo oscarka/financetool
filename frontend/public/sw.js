@@ -1,8 +1,6 @@
 const CACHE_NAME = 'investment-app-v2.1-ibkr'
 const urlsToCache = [
   '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
   '/manifest.json'
 ]
 
@@ -19,7 +17,15 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('✅ SW缓存已创建:', CACHE_NAME)
-        return cache.addAll(urlsToCache)
+        // 只缓存存在的资源，避免addAll失败
+        return Promise.allSettled(
+          urlsToCache.map(url => 
+            cache.add(url).catch(error => {
+              console.log(`⚠️ 缓存失败: ${url}`, error)
+              return null
+            })
+          )
+        )
       })
       .catch((error) => {
         console.log('❌ Cache addAll failed:', error)
@@ -45,13 +51,15 @@ self.addEventListener('fetch', (event) => {
             return response
           }
           
-          // 克隆响应用于缓存
-          const responseToCache = response.clone()
-          
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache)
-            })
+          // 只缓存GET请求
+          if (event.request.method === 'GET') {
+            const responseToCache = response.clone()
+            
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache)
+              })
+          }
           
           return response
         })
@@ -77,12 +85,15 @@ self.addEventListener('fetch', (event) => {
                 return response
               }
               
-              const responseToCache = response.clone()
-              
-              caches.open(CACHE_NAME)
-                .then((cache) => {
-                  cache.put(event.request, responseToCache)
-                })
+              // 只缓存GET请求
+              if (event.request.method === 'GET') {
+                const responseToCache = response.clone()
+                
+                caches.open(CACHE_NAME)
+                  .then((cache) => {
+                    cache.put(event.request, responseToCache)
+                  })
+              }
               
               return response
             })

@@ -126,5 +126,13 @@
         "plugin": "financial_operations.tasks.web3_balance_sync",
         "args": {},
         "enabled": true
+    },
+    {
+        "id": "full_snapshot_extract",
+        "name": "全量快照抽取",
+        "cron": "0 21 * * *",
+        "plugin": "financial_operations.tasks.full_snapshot_extract",
+        "args": {},
+        "enabled": true
     }
 ]

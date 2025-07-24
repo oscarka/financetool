@@ -107,6 +107,14 @@ class FinancialOperationsPlugin(BaseTaskPlugin):
                 "class": "app.plugins.financial_operations.tasks.web3_balance_sync.Web3BalanceSyncTask"
             },
             
+            # 快照相关任务
+            {
+                "task_id": "full_snapshot_extract",
+                "name": "全量快照抽取",
+                "description": "依次抽取汇率快照和资产快照，保证数据一致性",
+                "class": "app.plugins.financial_operations.tasks.full_snapshot_extract.FullSnapshotExtractTask"
+            },
+            
             # 数据处理任务
             {
                 "task_id": "data_cleanup",
