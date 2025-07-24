@@ -51,6 +51,20 @@ def get_asset_snapshots(
             return row.balance_eur
         else:
             return row.balance
+    
+    # 过滤掉base_value小于0.01的记录
+    filtered_data = []
+    for r in data:
+        base_value = get_base_value(r)
+        if base_value is not None:
+            # 四舍五入到2位小数
+            rounded_value = round(float(base_value), 2)
+            # 如果四舍五入后小于0.01，跳过这条记录
+            if rounded_value < 0.01:
+                continue
+        
+        filtered_data.append(r)
+    
     result = [{
         'id': r.id,
         'user_id': r.user_id,
@@ -66,7 +80,7 @@ def get_asset_snapshots(
         'base_value': float(get_base_value(r)) if get_base_value(r) else None,
         'snapshot_time': r.snapshot_time.isoformat(),
         'extra': r.extra
-    } for r in data]
+    } for r in filtered_data]
     
     return {
         "success": True,
