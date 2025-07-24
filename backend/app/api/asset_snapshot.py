@@ -8,7 +8,7 @@ from sqlalchemy import desc, func
 import logging
 from app.services.asset_snapshot_service import extract_asset_snapshot, extract_exchange_rate_snapshot
 
-router = APIRouter(prefix="/api/snapshot", tags=["资产快照"])
+router = APIRouter(prefix="/snapshot", tags=["资产快照"])
 
 @router.get("/assets")
 def get_asset_snapshots(

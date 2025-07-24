@@ -186,7 +186,7 @@ app.include_router(
 # 注册资产快照接口
 app.include_router(
     asset_snapshot.router,
-    prefix="",  # asset_snapshot.py 已有prefix
+    prefix=f"{settings.api_v1_prefix}",
     tags=["资产快照"]
 )
 
