@@ -151,7 +151,19 @@ def fetch_digital_currency_rate(from_currency: str, to_currency: str):
 
 def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_point: datetime = None):
     """获取最新汇率，支持多层转换"""
-    # 1. 优先查询WiseExchangeRate表
+    # 1. 优先查询ExchangeRateSnapshot表
+    q = db.query(ExchangeRateSnapshot).filter(
+        ExchangeRateSnapshot.from_currency == from_currency,
+        ExchangeRateSnapshot.to_currency == to_currency
+    )
+    if time_point:
+        q = q.filter(ExchangeRateSnapshot.snapshot_time <= time_point)
+    rate = q.order_by(ExchangeRateSnapshot.snapshot_time.desc()).first()
+    if rate:
+        logging.info(f"从ExchangeRateSnapshot获取汇率: {from_currency}/{to_currency} = {rate.rate}")
+        return Decimal(rate.rate)
+    
+    # 2. 如果ExchangeRateSnapshot没有数据，回退到WiseExchangeRate表
     q = db.query(WiseExchangeRate).filter(
         WiseExchangeRate.source_currency == from_currency,
         WiseExchangeRate.target_currency == to_currency
