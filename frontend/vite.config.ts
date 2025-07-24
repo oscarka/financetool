@@ -10,15 +10,6 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    server: {
-      proxy: {
-        '/api': {
-          target: 'https://backend-production-2750.up.railway.app',
-          changeOrigin: true,
-          secure: true,
-        }
-      }
-    },
     preview: {
       host: true,
       port: 8080,
