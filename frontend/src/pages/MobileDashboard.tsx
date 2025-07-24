@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Statistic, Typography, Space, Progress } from 'antd'
+import { Card, Row, Col, Statistic, Typography, Space, Progress, Tabs } from 'antd'
 import {
     ArrowUpOutlined,
     ArrowDownOutlined,
@@ -103,6 +103,12 @@ const MobileDashboard: React.FC = () => {
         }
     ]
 
+    // 统计信息
+    const totalAsset = stats ? safeNumber(stats.total_value) : 0;
+    const assetTypesCount = stats ? stats.asset_count : 0;
+    const change24h = stats ? safeNumber(stats.total_profit_rate) * 100 : 0;
+    const accountCount = 1; // TODO: 如有多账户可补充
+
     return (
         <div style={{ paddingBottom: '20px' }}>
             {/* 欢迎区域 */}
@@ -124,163 +130,64 @@ const MobileDashboard: React.FC = () => {
                 </Space>
             </Card>
 
-            {/* 核心指标 */}
-            <Card 
-                title="核心指标" 
-                bordered={false} 
-                style={{ marginBottom: 16 }}
-                extra={<EyeOutlined onClick={() => navigate('/positions')} />}
-                loading={loading}
-            >
-                {stats && (
-                    <Row gutter={[12, 12]}>
-                        <Col xs={12}>
-                            <Card size="small" style={{ textAlign: 'center' }}>
-                                <Statistic
-                                    title="总市值"
-                                    value={safeNumber(stats.total_value)}
-                                    precision={0}
-                                    valueStyle={{
-                                        color: '#1890ff',
-                                        fontSize: '20px',
-                                        fontWeight: 'bold'
-                                    }}
-                                    prefix="¥"
-                                />
-                                <Space style={{ marginTop: 8 }}>
-                                    {safeNumber(stats.total_profit) >= 0 ? (
-                                        <ArrowUpOutlined style={{ color: '#3f8600' }} />
-                                    ) : (
-                                        <ArrowDownOutlined style={{ color: '#cf1322' }} />
-                                    )}
-                                    <Text style={{ 
-                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
-                                        fontSize: '12px'
-                                    }}>
-                                        {formatPercent(stats.total_profit_rate)}
-                                    </Text>
-                                </Space>
-                                <Progress 
-                                    percent={Math.min(Math.abs(safeNumber(stats.total_profit_rate) * 100), 100)} 
-                                    showInfo={false} 
-                                    size="small"
-                                    style={{ marginTop: 8 }}
-                                    strokeColor={safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322'}
-                                />
-                            </Card>
-                        </Col>
-                        <Col xs={12}>
-                            <Card size="small" style={{ textAlign: 'center' }}>
-                                <Statistic
-                                    title="总收益"
-                                    value={Math.abs(safeNumber(stats.total_profit))}
-                                    precision={0}
-                                    valueStyle={{
-                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
-                                        fontSize: '20px',
-                                        fontWeight: 'bold'
-                                    }}
-                                    prefix={safeNumber(stats.total_profit) >= 0 ? '+¥' : '-¥'}
-                                />
-                                <Space style={{ marginTop: 8 }}>
-                                    {safeNumber(stats.total_profit) >= 0 ? (
-                                        <ArrowUpOutlined style={{ color: '#3f8600' }} />
-                                    ) : (
-                                        <ArrowDownOutlined style={{ color: '#cf1322' }} />
-                                    )}
-                                    <Text style={{ 
-                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
-                                        fontSize: '12px'
-                                    }}>
-                                        {formatPercent(stats.total_profit_rate)}
-                                    </Text>
-                                </Space>
-                                <Progress 
-                                    percent={Math.min(Math.abs(safeNumber(stats.total_profit_rate) * 100), 100)} 
-                                    showInfo={false} 
-                                    size="small"
-                                    style={{ marginTop: 8 }}
-                                    strokeColor={safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322'}
-                                />
-                            </Card>
-                        </Col>
-                    </Row>
-                )}
-            </Card>
-
-            {/* 投资概览 */}
-            {stats && (
-                <Card 
-                    title="投资概览" 
-                    bordered={false} 
-                    style={{ marginBottom: 16 }}
-                >
-                    <Row gutter={[12, 12]}>
-                        <Col xs={12}>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                padding: '12px',
-                                background: '#f0f5ff',
-                                borderRadius: '8px'
-                            }}>
-                                <Text type="secondary" style={{ fontSize: '12px' }}>
-                                    累计投入
-                                </Text>
-                                <div style={{ 
-                                    fontSize: '18px', 
-                                    fontWeight: 'bold',
-                                    color: '#1890ff',
-                                    margin: '4px 0'
-                                }}>
-                                    ¥{formatAmount(stats.total_invested)}
-                                </div>
-                                <Text style={{ 
-                                    color: '#1890ff',
-                                    fontSize: '12px'
-                                }}>
-                                    本金
-                                </Text>
-                            </div>
-                        </Col>
-                        <Col xs={12}>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                padding: '12px',
-                                background: '#fafafa',
-                                borderRadius: '8px'
-                            }}>
-                                <Text type="secondary" style={{ fontSize: '12px' }}>
-                                    持仓数量
-                                </Text>
-                                <div style={{ 
-                                    fontSize: '18px', 
-                                    fontWeight: 'bold',
-                                    color: '#722ed1',
-                                    margin: '4px 0'
-                                }}>
-                                    {stats.asset_count || 0}
-                                </div>
-                                <Text style={{ 
-                                    color: '#722ed1',
-                                    fontSize: '12px'
-                                }}>
-                                    个基金
-                                </Text>
-                            </div>
-                        </Col>
-                    </Row>
-                </Card>
-            )}
-
-            {/* 资产分布饼图和趋势折线图 */}
-            <Card title="资产分布与趋势" bordered={false} style={{ marginBottom: 16 }}>
-                <div style={{ marginBottom: 16 }}>
+            {/* Summary 卡片区 */}
+            <Row gutter={8} style={{ marginBottom: 16 }}>
+                <Col span={12}>
+                    <Card bordered={false} style={{ background: '#f0f5ff' }}>
+                        <Statistic
+                            title="总资产"
+                            value={totalAsset}
+                            precision={2}
+                            valueStyle={{ color: '#1890ff', fontWeight: 'bold', fontSize: 18 }}
+                            prefix="¥"
+                        />
+                    </Card>
+                </Col>
+                <Col span={12}>
+                    <Card bordered={false} style={{ background: '#f6ffed' }}>
+                        <Statistic
+                            title="24h涨跌"
+                            value={change24h}
+                            precision={2}
+                            valueStyle={{ color: '#52c41a', fontWeight: 'bold', fontSize: 18 }}
+                            suffix="%"
+                        />
+                    </Card>
+                </Col>
+            </Row>
+            <Row gutter={8} style={{ marginBottom: 16 }}>
+                <Col span={12}>
+                    <Card bordered={false} style={{ background: '#fffbe6' }}>
+                        <Statistic
+                            title="资产种类"
+                            value={assetTypesCount}
+                            valueStyle={{ color: '#faad14', fontWeight: 'bold', fontSize: 18 }}
+                        />
+                    </Card>
+                </Col>
+                <Col span={12}>
+                    <Card bordered={false} style={{ background: '#fff0f6' }}>
+                        <Statistic
+                            title="账户数"
+                            value={accountCount}
+                            valueStyle={{ color: '#eb2f96', fontWeight: 'bold', fontSize: 18 }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+            {/* Tab分区展示资产分布、趋势、主要资产 */}
+            <Tabs defaultActiveKey="pie" style={{ marginBottom: 16 }}>
+                <Tabs.TabPane tab="资产分布" key="pie">
                     <AssetPieChart baseCurrency="CNY" />
-                </div>
-                <div>
+                </Tabs.TabPane>
+                <Tabs.TabPane tab="资产趋势" key="trend">
                     <AssetTrendChart baseCurrency="CNY" days={30} />
-                </div>
-            </Card>
+                </Tabs.TabPane>
+                <Tabs.TabPane tab="主要资产" key="table">
+                    {/* 可集成主要资产表格或卡片 */}
+                    {/* 这里可后续补充资产明细 */}
+                </Tabs.TabPane>
+            </Tabs>
 
             {/* 快速操作 */}
             <Card 

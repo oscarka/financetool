@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input } from 'antd';
+import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input, Statistic } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI } from '../services/api';
 import AssetTrendChart from './AssetTrendChart';
 import AssetPieChart from './AssetPieChart';
+import { DollarCircleOutlined, RiseOutlined, AppstoreOutlined, UserOutlined } from '@ant-design/icons';
 // import AssetTrendChart from './AssetTrendChart'; // 如有趋势图可解开
 
 const { RangePicker } = DatePicker;
@@ -48,6 +49,14 @@ const AssetSnapshotOverview: React.FC = () => {
   const platforms = Array.from(new Set(assetData.map(item => item.platform))).sort();
   const assetTypes = Array.from(new Set(assetData.map(item => item.asset_type))).sort();
   const currencies = Array.from(new Set(assetData.map(item => item.currency))).sort();
+
+  // 统计信息
+  const totalAsset = assetData.reduce((sum, item) => sum + (item.base_value || 0), 0);
+  const assetTypesCount = new Set(assetData.map(item => item.asset_type)).size;
+  const platformCount = new Set(assetData.map(item => item.platform)).size;
+  // 这里24h涨跌和账户数可根据实际数据补充
+  const change24h = 0; // TODO: 可根据趋势数据计算
+  const accountCount = platformCount;
 
   const columns: ColumnsType<AssetSnapshot> = [
     { title: '平台', dataIndex: 'platform', key: 'platform', width: 100 },
@@ -147,6 +156,68 @@ const AssetSnapshotOverview: React.FC = () => {
 
   return (
     <Card title="资产快照多基准货币展示" style={{ margin: 24 }}>
+      {/* Summary 卡片区 */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: '#f0f5ff' }}>
+            <Statistic
+              title="总资产"
+              value={totalAsset}
+              precision={2}
+              prefix={<DollarCircleOutlined style={{ color: '#1890ff' }} />}
+              valueStyle={{ color: '#1890ff', fontWeight: 'bold', fontSize: 22 }}
+              suffix={baseCurrency}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: '#f6ffed' }}>
+            <Statistic
+              title="24h涨跌"
+              value={change24h}
+              precision={2}
+              prefix={<RiseOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a', fontWeight: 'bold', fontSize: 22 }}
+              suffix="%"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: '#fffbe6' }}>
+            <Statistic
+              title="资产种类"
+              value={assetTypesCount}
+              prefix={<AppstoreOutlined style={{ color: '#faad14' }} />}
+              valueStyle={{ color: '#faad14', fontWeight: 'bold', fontSize: 22 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: '#fff0f6' }}>
+            <Statistic
+              title="账户数"
+              value={accountCount}
+              prefix={<UserOutlined style={{ color: '#eb2f96' }} />}
+              valueStyle={{ color: '#eb2f96', fontWeight: 'bold', fontSize: 22 }}
+            />
+          </Card>
+        </Col>
+      </Row>
+      {/* 快捷时间筛选按钮 */}
+      <Row gutter={8} style={{ marginBottom: 8 }}>
+        <Col>
+          <Button size="small" onClick={() => setDateRange([dayjs().startOf('week'), dayjs().endOf('week')])}>本周</Button>
+        </Col>
+        <Col>
+          <Button size="small" onClick={() => setDateRange([dayjs().startOf('month'), dayjs().endOf('month')])}>本月</Button>
+        </Col>
+        <Col>
+          <Button size="small" onClick={() => setDateRange([dayjs().subtract(3, 'month'), dayjs()])}>近三月</Button>
+        </Col>
+        <Col>
+          <Button size="small" onClick={() => setDateRange([dayjs().startOf('year'), dayjs()])}>今年</Button>
+        </Col>
+      </Row>
       {/* 筛选器区域 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} md={6}>
