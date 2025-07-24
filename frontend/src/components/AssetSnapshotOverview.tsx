@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Table, Select, DatePicker, Card, Spin, Button, message } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Table, Select, DatePicker, Button, Spin, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import type { Dayjs } from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI } from '../services/api';
 // import AssetTrendChart from './AssetTrendChart'; // 如有趋势图可解开
 
-const { Option } = Select;
 const { RangePicker } = DatePicker;
+const { Option } = Select;
 
 type AssetSnapshot = {
   id: number;
@@ -26,7 +26,11 @@ const baseCurrencies = ['CNY', 'USD', 'EUR'];
 
 const AssetSnapshotOverview: React.FC = () => {
   const [baseCurrency, setBaseCurrency] = useState<string>('CNY');
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  // 设置默认日期范围为当前日期前后7天
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>([
+    dayjs().subtract(7, 'day'),
+    dayjs().add(7, 'day')
+  ]);
   const [assetData, setAssetData] = useState<AssetSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
 
