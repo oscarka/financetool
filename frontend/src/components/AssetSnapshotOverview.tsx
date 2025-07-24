@@ -52,7 +52,7 @@ const AssetSnapshotOverview: React.FC = () => {
       params.append('start', dateRange[0].format('YYYY-MM-DD'));
       params.append('end', dateRange[1].format('YYYY-MM-DD'));
     }
-    const resp = await fetch('/api/snapshot/assets?' + params.toString());
+    const resp = await fetch('https://backend-production-2750.up.railway.app/api/snapshot/assets?' + params.toString());
     const data = await resp.json();
     setAssetData(data);
     setLoading(false);
@@ -72,7 +72,7 @@ const AssetSnapshotOverview: React.FC = () => {
   const handleExtractSnapshot = async () => {
     setLoading(true);
     try {
-      const resp = await fetch('/api/snapshot/extract', { method: 'POST' });
+      const resp = await fetch('https://backend-production-2750.up.railway.app/api/snapshot/extract', { method: 'POST' });
       const result = await resp.json();
       if (result.success) {
         message.success(result.message || '快照成功');
