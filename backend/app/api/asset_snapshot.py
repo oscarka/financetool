@@ -46,7 +46,7 @@ def get_asset_snapshots(
             return row.balance_eur
         else:
             return row.balance
-    return [{
+    result = [{
         'id': r.id,
         'user_id': r.user_id,
         'platform': r.platform,
@@ -62,6 +62,12 @@ def get_asset_snapshots(
         'snapshot_time': r.snapshot_time.isoformat(),
         'extra': r.extra
     } for r in data]
+    
+    return {
+        "success": True,
+        "message": f"获取到 {len(result)} 条快照数据",
+        "data": result
+    }
 
 @router.get("/assets/trend")
 def get_asset_trend(
@@ -87,10 +93,16 @@ def get_asset_trend(
         q = q.filter(AssetSnapshot.currency == currency)
     q = q.filter(AssetSnapshot.snapshot_time >= start, AssetSnapshot.snapshot_time <= end)
     q = q.group_by('day').order_by('day')
-    return [{
+    result = [{
         'date': row.day.date().isoformat(),
         'total': float(row.total) if row.total else 0
     } for row in q.all()]
+    
+    return {
+        "success": True,
+        "message": f"获取到 {len(result)} 条趋势数据",
+        "data": result
+    }
 
 @router.get("/exchange-rates")
 def get_exchange_rate_snapshots(
@@ -111,7 +123,7 @@ def get_exchange_rate_snapshots(
     if end:
         q = q.filter(ExchangeRateSnapshot.snapshot_time <= end)
     q = q.order_by(desc(ExchangeRateSnapshot.snapshot_time))
-    return [{
+    result = [{
         'id': r.id,
         'from_currency': r.from_currency,
         'to_currency': r.to_currency,
@@ -120,6 +132,12 @@ def get_exchange_rate_snapshots(
         'source': r.source,
         'extra': r.extra
     } for r in q.all()]
+    
+    return {
+        "success": True,
+        "message": f"获取到 {len(result)} 条汇率快照数据",
+        "data": result
+    }
 
 @router.post("/extract")
 def extract_asset_snapshot_api(
