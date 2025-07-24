@@ -45,13 +45,15 @@ self.addEventListener('fetch', (event) => {
             return response
           }
           
-          // 克隆响应用于缓存
-          const responseToCache = response.clone()
-          
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache)
-            })
+          // 只缓存GET请求
+          if (event.request.method === 'GET') {
+            const responseToCache = response.clone()
+            
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache)
+              })
+          }
           
           return response
         })
@@ -77,12 +79,15 @@ self.addEventListener('fetch', (event) => {
                 return response
               }
               
-              const responseToCache = response.clone()
-              
-              caches.open(CACHE_NAME)
-                .then((cache) => {
-                  cache.put(event.request, responseToCache)
-                })
+              // 只缓存GET请求
+              if (event.request.method === 'GET') {
+                const responseToCache = response.clone()
+                
+                caches.open(CACHE_NAME)
+                  .then((cache) => {
+                    cache.put(event.request, responseToCache)
+                  })
+              }
               
               return response
             })
