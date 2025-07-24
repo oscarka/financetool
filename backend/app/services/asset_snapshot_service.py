@@ -84,6 +84,7 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None):
             'balance': o.total_balance
         })
     logging.warning(f"[extract_asset_snapshot] all_assets count: {len(all_assets)}")
+    snapshot_count = 0
     for asset in all_assets:
         logging.warning(f"[extract_asset_snapshot] asset: {asset}")
         cny_rate = get_rate(asset['currency'], 'CNY')
@@ -105,7 +106,9 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None):
         )
         logging.warning(f"[extract_asset_snapshot] writing snapshot: {{'platform': {snapshot.platform}, 'asset_type': {snapshot.asset_type}, 'asset_code': {snapshot.asset_code}, 'currency': {snapshot.currency}, 'balance': {snapshot.balance}, 'balance_cny': {snapshot.balance_cny}, 'balance_usd': {snapshot.balance_usd}, 'balance_eur': {snapshot.balance_eur}}}")
         db.add(snapshot)
+        snapshot_count += 1
     db.commit()
+    return snapshot_count
 
 
 def extract_exchange_rate_snapshot(db: Session, snapshot_time: datetime = None):
