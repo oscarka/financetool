@@ -79,17 +79,75 @@ def fetch_digital_currency_rate(from_currency: str, to_currency: str):
     try:
         # 这里应该调用OKX API获取实时汇率
         # 暂时使用模拟数据
-        if from_currency == 'IP' and to_currency == 'USDT':
-            return Decimal('0.000123')
-        elif from_currency == 'BTC' and to_currency == 'USDT':
-            return Decimal('45000.0')
-        elif from_currency == 'ETH' and to_currency == 'USDT':
-            return Decimal('3000.0')
-        # 添加更多数字货币汇率
-        return None
+        digital_rates = {
+            'IP': Decimal('0.000123'),
+            'BTC': Decimal('45000.0'),
+            'ETH': Decimal('3000.0'),
+            'USDT': Decimal('1.0'),
+            'USDC': Decimal('1.0'),
+            'TRUMP': Decimal('0.0005'),
+            'MOVE': Decimal('0.0001'),
+            'S': Decimal('0.0002'),
+            'KAITO': Decimal('0.0003'),
+            'AIXBT': Decimal('0.0004'),
+            'MXC': Decimal('0.0006'),
+            'DOGE': Decimal('0.08'),
+            'ADA': Decimal('0.45'),
+            'DOT': Decimal('6.5'),
+            'LINK': Decimal('15.0'),
+            'UNI': Decimal('8.0'),
+            'LTC': Decimal('75.0'),
+            'BCH': Decimal('250.0'),
+            'XRP': Decimal('0.5'),
+            'SOL': Decimal('100.0'),
+            'MATIC': Decimal('0.8'),
+            'AVAX': Decimal('25.0'),
+            'ATOM': Decimal('8.0'),
+            'FTM': Decimal('0.3'),
+            'NEAR': Decimal('4.0'),
+            'ALGO': Decimal('0.15'),
+            'VET': Decimal('0.02'),
+            'THETA': Decimal('1.5'),
+            'FIL': Decimal('5.0'),
+            'ICP': Decimal('12.0'),
+            'APT': Decimal('8.0'),
+            'SUI': Decimal('1.2'),
+            'SEI': Decimal('0.4'),
+            'TIA': Decimal('8.0'),
+            'JUP': Decimal('0.8'),
+            'PYTH': Decimal('0.4'),
+            'WIF': Decimal('2.0'),
+            'BONK': Decimal('0.00002'),
+            'PEPE': Decimal('0.000008'),
+            'SHIB': Decimal('0.00002'),
+            'FLOKI': Decimal('0.00015'),
+            'WIF': Decimal('2.0'),
+            'BOME': Decimal('0.00001'),
+            'BOOK': Decimal('0.0001'),
+            'POPCAT': Decimal('0.0002'),
+            'TURBO': Decimal('0.0003'),
+            'MYRO': Decimal('0.0004'),
+            'WEN': Decimal('0.0005'),
+            'SLERF': Decimal('0.0006'),
+            'BOME': Decimal('0.00001'),
+            'BOOK': Decimal('0.0001'),
+            'POPCAT': Decimal('0.0002'),
+            'TURBO': Decimal('0.0003'),
+            'MYRO': Decimal('0.0004'),
+            'WEN': Decimal('0.0005'),
+            'SLERF': Decimal('0.0006'),
+        }
+        
+        if from_currency in digital_rates:
+            return digital_rates[from_currency]
+        
+        # 如果找不到汇率，返回一个默认值避免None
+        logging.warning(f"未找到{from_currency}的汇率，使用默认值0.0001")
+        return Decimal('0.0001')
+        
     except Exception as e:
         logging.warning(f"获取数字货币汇率失败: {e}")
-        return None
+        return Decimal('0.0001')  # 返回默认值而不是None
 
 def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_point: datetime = None):
     """获取最新汇率，支持多层转换"""
@@ -102,20 +160,29 @@ def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_poin
         q = q.filter(WiseExchangeRate.time <= time_point)
     rate = q.order_by(WiseExchangeRate.time.desc()).first()
     if rate:
+        logging.info(f"从WiseExchangeRate获取汇率: {from_currency}/{to_currency} = {rate.rate}")
         return Decimal(rate.rate)
     
     # 2. 数字货币特殊处理
-    digital_currencies = ['USDT', 'USDC', 'BTC', 'ETH', 'IP', 'TRUMP', 'MXC']
+    digital_currencies = [
+        'USDT', 'USDC', 'BTC', 'ETH', 'IP', 'TRUMP', 'MOVE', 'S', 'KAITO', 'AIXBT', 'MXC',
+        'DOGE', 'ADA', 'DOT', 'LINK', 'UNI', 'LTC', 'BCH', 'XRP', 'SOL', 'MATIC', 'AVAX',
+        'ATOM', 'FTM', 'NEAR', 'ALGO', 'VET', 'THETA', 'FIL', 'ICP', 'APT', 'SUI', 'SEI',
+        'TIA', 'JUP', 'PYTH', 'WIF', 'BONK', 'PEPE', 'SHIB', 'FLOKI', 'BOME', 'BOOK',
+        'POPCAT', 'TURBO', 'MYRO', 'WEN', 'SLERF'
+    ]
     
     if from_currency in digital_currencies and to_currency == 'USDT':
         # 数字货币对USDT汇率
         cached_rate = get_cached_rate(from_currency, to_currency, time_point)
         if cached_rate:
+            logging.info(f"从缓存获取汇率: {from_currency}/{to_currency} = {cached_rate}")
             return cached_rate
         
         # 从API获取并缓存
         api_rate = fetch_digital_currency_rate(from_currency, to_currency)
         if api_rate:
+            logging.info(f"从API获取汇率: {from_currency}/{to_currency} = {api_rate}")
             update_cache_rate(from_currency, to_currency, api_rate)
             return api_rate
     
@@ -123,7 +190,9 @@ def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_poin
         # 数字货币对USD汇率 = 数字货币/USDT × USDT/USD(1:1)
         usdt_rate = get_latest_rate(db, from_currency, 'USDT', time_point)
         if usdt_rate:
-            return usdt_rate * Decimal('1.0')  # USDT/USD默认1:1
+            usd_rate = usdt_rate * Decimal('1.0')  # USDT/USD默认1:1
+            logging.info(f"计算USD汇率: {from_currency}/USD = {usdt_rate} × 1.0 = {usd_rate}")
+            return usd_rate
     
     elif from_currency in digital_currencies and to_currency == 'CNY':
         # 数字货币对CNY汇率 = 数字货币/USDT × USDT/USD(1:1) × USD/CNY
@@ -131,7 +200,9 @@ def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_poin
         if usdt_rate:
             usd_cny_rate = get_latest_rate(db, 'USD', 'CNY', time_point)
             if usd_cny_rate:
-                return usdt_rate * Decimal('1.0') * usd_cny_rate
+                cny_rate = usdt_rate * Decimal('1.0') * usd_cny_rate
+                logging.info(f"计算CNY汇率: {from_currency}/CNY = {usdt_rate} × 1.0 × {usd_cny_rate} = {cny_rate}")
+                return cny_rate
     
     elif from_currency in digital_currencies and to_currency == 'EUR':
         # 数字货币对EUR汇率 = 数字货币/USDT × USDT/USD(1:1) × USD/EUR
@@ -139,8 +210,11 @@ def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_poin
         if usdt_rate:
             usd_eur_rate = get_latest_rate(db, 'USD', 'EUR', time_point)
             if usd_eur_rate:
-                return usdt_rate * Decimal('1.0') * usd_eur_rate
+                eur_rate = usdt_rate * Decimal('1.0') * usd_eur_rate
+                logging.info(f"计算EUR汇率: {from_currency}/EUR = {usdt_rate} × 1.0 × {usd_eur_rate} = {eur_rate}")
+                return eur_rate
     
+    logging.warning(f"未找到汇率: {from_currency}/{to_currency}")
     return None
 
 
@@ -252,7 +326,13 @@ def extract_exchange_rate_snapshot(db: Session, snapshot_time: datetime = None):
         db.add(snapshot)
     
     # 2. 获取数字货币汇率并记录
-    digital_currencies = ['USDT', 'USDC', 'BTC', 'ETH', 'IP', 'TRUMP', 'MXC']
+    digital_currencies = [
+        'USDT', 'USDC', 'BTC', 'ETH', 'IP', 'TRUMP', 'MOVE', 'S', 'KAITO', 'AIXBT', 'MXC',
+        'DOGE', 'ADA', 'DOT', 'LINK', 'UNI', 'LTC', 'BCH', 'XRP', 'SOL', 'MATIC', 'AVAX',
+        'ATOM', 'FTM', 'NEAR', 'ALGO', 'VET', 'THETA', 'FIL', 'ICP', 'APT', 'SUI', 'SEI',
+        'TIA', 'JUP', 'PYTH', 'WIF', 'BONK', 'PEPE', 'SHIB', 'FLOKI', 'BOME', 'BOOK',
+        'POPCAT', 'TURBO', 'MYRO', 'WEN', 'SLERF'
+    ]
     
     for currency in digital_currencies:
         # 获取数字货币对USDT汇率
