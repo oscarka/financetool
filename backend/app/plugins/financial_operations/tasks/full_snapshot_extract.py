@@ -1,7 +1,7 @@
 from app.services.asset_snapshot_service import extract_exchange_rate_snapshot, extract_asset_snapshot
 from app.core.base_plugin import BaseTask
 from app.core.context import TaskContext, TaskResult
-from app.core.database import get_db
+from app.utils.database import get_db
 from datetime import datetime
 
 class FullSnapshotExtractTask(BaseTask):
