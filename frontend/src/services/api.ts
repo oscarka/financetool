@@ -491,19 +491,19 @@ export const ibkrAPI = {
 export const snapshotAPI = {
     // 获取资产快照
     getAssetSnapshots: (params?: any): Promise<APIResponse> =>
-        api.get('/snapshot/assets', { params }),
+        api.get('/snapshot/assets', { params, baseURL: '/api' }),
 
     // 主动触发资产快照
     extractAssetSnapshot: (): Promise<APIResponse> =>
-        api.post('/snapshot/extract'),
+        api.post('/snapshot/extract', {}, { baseURL: '/api' }),
 
     // 获取资产快照趋势
     getAssetTrend: (params?: any): Promise<APIResponse> =>
-        api.get('/snapshot/assets/trend', { params }),
+        api.get('/snapshot/assets/trend', { params, baseURL: '/api' }),
 
     // 获取汇率快照
     getExchangeRateSnapshots: (params?: any): Promise<APIResponse> =>
-        api.get('/snapshot/exchange-rates', { params }),
+        api.get('/snapshot/exchange-rates', { params, baseURL: '/api' }),
 }
 
 export default api 
