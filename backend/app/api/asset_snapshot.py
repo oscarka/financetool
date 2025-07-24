@@ -52,16 +52,19 @@ def get_asset_snapshots(
         else:
             return row.balance
     
-    # 过滤掉base_value小于0.01的记录
+    # 过滤掉base_value为null或小于0.01的记录
     filtered_data = []
     for r in data:
         base_value = get_base_value(r)
-        if base_value is not None:
-            # 四舍五入到2位小数
-            rounded_value = round(float(base_value), 2)
-            # 如果四舍五入后小于0.01，跳过这条记录
-            if rounded_value < 0.01:
-                continue
+        if base_value is None:
+            # 如果base_value为null，跳过这条记录
+            continue
+        
+        # 四舍五入到2位小数
+        rounded_value = round(float(base_value), 2)
+        # 如果四舍五入后小于0.01，跳过这条记录
+        if rounded_value < 0.01:
+            continue
         
         filtered_data.append(r)
     
