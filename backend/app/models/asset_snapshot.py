@@ -16,6 +16,7 @@ class AssetSnapshot(Base):
     balance_cny = Column(DECIMAL(20, 8))
     balance_usd = Column(DECIMAL(20, 8))
     balance_eur = Column(DECIMAL(20, 8))
+    base_value = Column(DECIMAL(20, 8))
     snapshot_time = Column(DateTime, index=True)
     extra = Column(JSON)
     created_at = Column(DateTime, default=func.now())
