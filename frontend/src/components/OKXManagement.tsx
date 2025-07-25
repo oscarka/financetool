@@ -36,11 +36,7 @@ export const OKXManagement: React.FC = () => {
 
 
 
-    // 持仓数据区块独立状态
-    const [positionsData, setPositionsData] = useState<any[]>([]);
-    const [positionsLoading, setPositionsLoading] = useState(false);
-    const [positionsError, setPositionsError] = useState<string | null>(null);
-    const [positionsLoadTime, setPositionsLoadTime] = useState<number | null>(null);
+
 
     // 交易记录区块独立状态
     const [transactionsData, setTransactionsData] = useState<any[]>([]);
@@ -85,15 +81,13 @@ export const OKXManagement: React.FC = () => {
     const [instrumentsLoading, setInstrumentsLoading] = useState(false);
     const [instrumentsError, setInstrumentsError] = useState<string | null>(null);
 
-    // 账单流水区块独立状态
-    const [billsData, setBillsData] = useState<any>(null);
-    const [billsLoading, setBillsLoading] = useState(false);
-    const [billsError, setBillsError] = useState<string | null>(null);
-
     const [activeTab, setActiveTab] = useState('1');
 
     // 小额币种隐藏开关
     const [hideSmall, setHideSmall] = useState(true);
+
+    // 数字精度开关
+    const [showPreciseNumbers, setShowPreciseNumbers] = useState(true);
 
     // 概览/汇总独立加载
     useEffect(() => {
@@ -120,28 +114,7 @@ export const OKXManagement: React.FC = () => {
 
 
 
-    // 从数据库获取持仓数据
-    const fetchPositionsData = async () => {
-        setPositionsLoading(true);
-        setPositionsError(null);
-        const start = Date.now();
-        try {
-            const response = await okxAPI.getStoredPositions();
-            if (response.success) {
-                setPositionsData(response.data || []);
-                setPositionsLoadTime(Date.now() - start);
-                message.success('持仓数据获取成功');
-            } else {
-                setPositionsError(response.message || '持仓数据获取失败');
-                message.error(response.message || '持仓数据获取失败');
-            }
-        } catch (error: any) {
-            setPositionsError(error.response?.data?.detail || '持仓数据获取失败');
-            message.error('持仓数据获取失败');
-        } finally {
-            setPositionsLoading(false);
-        }
-    };
+
 
     // 从数据库获取交易记录
     const fetchTransactionsData = async () => {
@@ -333,118 +306,6 @@ export const OKXManagement: React.FC = () => {
         }
     };
 
-    // 获取账单流水（实时数据）
-    const fetchBills = async () => {
-        setBillsLoading(true);
-        setBillsError(null);
-        try {
-            const response = await okxAPI.getBills({ limit: 50 });
-            if (response.success) {
-                setBillsData(response.data);
-                message.success('账单流水获取成功');
-            } else {
-                setBillsError(response.message || '账单流水获取失败');
-                message.error(response.message || '账单流水获取失败');
-            }
-        } catch (error: any) {
-            setBillsError(error.response?.data?.detail || '账单流水获取失败');
-            message.error('账单流水获取失败');
-        } finally {
-            setBillsLoading(false);
-        }
-    };
-
-    // 同步余额数据
-    const syncBalances = async () => {
-        setTradingBalancesLoading(true);
-        setFundingBalancesLoading(true);
-        setSavingsBalancesLoading(true);
-        try {
-            const response = await okxAPI.syncBalances();
-            if (response.success) {
-                message.success(response.message || '余额同步成功');
-                // 重新获取所有余额数据
-                fetchTradingBalances();
-                fetchFundingBalances();
-                fetchSavingsBalances();
-            } else {
-                message.error(response.message || '余额同步失败');
-            }
-        } catch (error: any) {
-            message.error('余额同步失败');
-        } finally {
-            setTradingBalancesLoading(false);
-            setFundingBalancesLoading(false);
-            setSavingsBalancesLoading(false);
-        }
-    };
-
-    // 同步交易记录
-    const syncTransactions = async () => {
-        setTransactionsLoading(true);
-        try {
-            const response = await okxAPI.syncTransactions(30);
-            if (response.success) {
-                message.success(response.message || '交易记录同步成功');
-                // 重新获取交易数据
-                fetchTransactionsData();
-            } else {
-                message.error(response.message || '交易记录同步失败');
-            }
-        } catch (error: any) {
-            message.error('交易记录同步失败');
-        } finally {
-            setTransactionsLoading(false);
-        }
-    };
-
-    // 同步持仓数据
-    const syncPositions = async () => {
-        setPositionsLoading(true);
-        try {
-            const response = await okxAPI.syncPositions();
-            if (response.success) {
-                message.success(response.message || '持仓数据同步成功');
-                // 重新获取持仓数据
-                fetchPositionsData();
-            } else {
-                message.error(response.message || '持仓数据同步失败');
-            }
-        } catch (error: any) {
-            message.error('持仓数据同步失败');
-        } finally {
-            setPositionsLoading(false);
-        }
-    };
-
-
-
-    // 从API获取最新持仓数据并写入数据库
-    const fetchLatestPositionsData = async () => {
-        setPositionsLoading(true);
-        setPositionsError(null);
-        const start = Date.now();
-        try {
-            // 先同步到数据库
-            const syncRes = await okxAPI.syncPositions();
-            if (!syncRes.success) {
-                message.error(syncRes.message || '同步持仓数据到数据库失败');
-                setPositionsLoading(false);
-                return;
-            }
-            // 再查数据库最新数据
-            const res = await okxAPI.getStoredPositions();
-            setPositionsData(res.data || []);
-            setPositionsLoadTime(Date.now() - start);
-            message.success(`同步并获取到 ${res.data?.length || 0} 条持仓记录`);
-        } catch (e: any) {
-            setPositionsError(e.response?.data?.detail || '获取持仓数据失败');
-            message.error(`同步或获取持仓数据失败: ${e.response?.data?.detail || e.message}`);
-        } finally {
-            setPositionsLoading(false);
-        }
-    };
-
     // 从API获取最新交易数据并写入数据库
     const fetchLatestTransactionsData = async () => {
         setTransactionsLoading(true);
@@ -526,7 +387,6 @@ export const OKXManagement: React.FC = () => {
 
     // 页面加载时自动从数据库获取数据
     useEffect(() => {
-        fetchPositionsData();
         fetchTransactionsData();
         fetchTradingBalances();
         fetchFundingBalances();
@@ -569,6 +429,21 @@ export const OKXManagement: React.FC = () => {
             const bVal = calculateUSDTValue(b.currency, Number(b.total_balance));
             return bVal - aVal;
         });
+    };
+
+    // 数字格式化函数
+    const formatNumber = (val: any) => {
+        if (val === undefined || val === null) return '-';
+
+        if (showPreciseNumbers) {
+            // 开启时：保留8位小数，只显示有效数字
+            const num = Number(val).toFixed(8).replace(/\.?0+$/, '');
+            return num;
+        } else {
+            // 关闭时：显示所有位数
+            const num = Number(val).toFixed(20).replace(/\.?0+$/, '');
+            return num;
+        }
     };
 
     const renderConfigCard = () => (
@@ -719,13 +594,13 @@ export const OKXManagement: React.FC = () => {
                 </div>
                 <div style={{ marginTop: 16 }}>
                     <Space>
-                        <Button type="primary" onClick={syncBalances} loading={tradingBalancesLoading || fundingBalancesLoading || savingsBalancesLoading}>
+                        <Button type="primary" onClick={fetchTradingBalances} loading={tradingBalancesLoading}>
                             <ReloadOutlined /> 同步余额
                         </Button>
-                        <Button onClick={syncTransactions} loading={transactionsLoading}>
+                        <Button onClick={fetchLatestBalances} loading={tradingBalancesLoading}>
                             <ReloadOutlined /> 同步交易
                         </Button>
-                        <Button onClick={syncPositions} loading={positionsLoading}>
+                        <Button onClick={fetchLatestBalances} loading={tradingBalancesLoading}>
                             <ReloadOutlined /> 同步持仓
                         </Button>
                     </Space>
@@ -749,29 +624,6 @@ export const OKXManagement: React.FC = () => {
                 <Descriptions.Item label="24h成交量">{ticker.vol24h}</Descriptions.Item>
                 <Descriptions.Item label="24h涨跌幅">{(parseFloat(ticker.last) - parseFloat(ticker.open24h)).toFixed(4)}</Descriptions.Item>
             </Descriptions>
-        );
-    };
-
-    const renderBillsTable = () => {
-        const bills = billsData?.data?.data || [];
-        console.log('[OKX] bills:', bills);
-        if (!bills.length) return <div>No data</div>;
-        const columns = [
-            { title: '币种', dataIndex: 'ccy', key: 'ccy' },
-            { title: '类型', dataIndex: 'type', key: 'type' },
-            { title: '数量', dataIndex: 'sz', key: 'sz' },
-            { title: '余额', dataIndex: 'bal', key: 'bal' },
-            { title: '时间', dataIndex: 'ts', key: 'ts', render: (val: string) => val ? new Date(Number(val)).toLocaleString() : '-' },
-            { title: '备注', dataIndex: 'notes', key: 'notes' },
-        ];
-        return (
-            <Table
-                columns={columns}
-                dataSource={bills}
-                rowKey={(row) => (row as any).billId || (row as any).ts || Math.random()}
-                pagination={false}
-                size="small"
-            />
         );
     };
 
@@ -1103,7 +955,8 @@ export const OKXManagement: React.FC = () => {
                         {web3Transactions.length > 0 && renderWeb3TransactionsTable()}
                     </TabPane> */}
 
-                    <TabPane tab="持仓数据" key="8">
+                    {/* 移除持仓数据Tab */}
+                    {/* <TabPane tab="持仓数据" key="8">
                         <Space style={{ marginBottom: 16 }}>
                             <Button type="primary" onClick={fetchPositionsData} loading={positionsLoading}>
                                 从数据库获取
@@ -1131,7 +984,7 @@ export const OKXManagement: React.FC = () => {
                                 size="small"
                             />
                         )}
-                    </TabPane>
+                    </TabPane> */}
 
                     <TabPane tab="交易记录" key="9">
                         <Space style={{ marginBottom: 16 }}>
@@ -1142,20 +995,46 @@ export const OKXManagement: React.FC = () => {
                                 从API同步并获取
                             </Button>
                         </Space>
+                        <div style={{ marginBottom: 16 }}>
+                            <Switch
+                                checked={showPreciseNumbers}
+                                onChange={setShowPreciseNumbers}
+                                checkedChildren="8位小数"
+                                unCheckedChildren="全部位数"
+                            />
+                            <span style={{ marginLeft: 8 }}>数字精度</span>
+                        </div>
                         {transactionsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {transactionsError}</div>}
                         {transactionsLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {transactionsLoadTime}ms</div>}
                         {transactionsData.length > 0 && (
                             <Table
                                 columns={[
-                                    { title: '交易对', dataIndex: 'instId', key: 'instId' },
-                                    { title: '交易方向', dataIndex: 'side', key: 'side' },
-                                    { title: '交易数量', dataIndex: 'sz', key: 'sz' },
-                                    { title: '交易价格', dataIndex: 'px', key: 'px' },
-                                    { title: '手续费', dataIndex: 'fee', key: 'fee' },
-                                    { title: '交易时间', dataIndex: 'ts', key: 'ts', render: (val: string) => val ? new Date(Number(val)).toLocaleString() : '-' },
+                                    { title: '账单类型', dataIndex: 'type_desc', key: 'type_desc' },
+                                    { title: '子类型', dataIndex: 'sub_type_desc', key: 'sub_type_desc' },
+                                    { title: '交易对', dataIndex: 'inst_id', key: 'inst_id' },
+                                    {
+                                        title: '交易数量', dataIndex: 'quantity', key: 'quantity', render: formatNumber
+                                    },
+                                    {
+                                        title: '交易价格', dataIndex: 'price', key: 'price', render: formatNumber
+                                    },
+                                    {
+                                        title: '手续费', dataIndex: 'fee', key: 'fee', render: formatNumber
+                                    },
+                                    {
+                                        title: '余额', dataIndex: 'bal', key: 'bal', render: formatNumber
+                                    },
+                                    {
+                                        title: '余额变化', dataIndex: 'bal_chg', key: 'bal_chg', render: formatNumber
+                                    },
+                                    { title: '货币', dataIndex: 'currency', key: 'currency' },
+                                    {
+                                        title: '持仓余额', dataIndex: 'pos_bal', key: 'pos_bal', render: formatNumber
+                                    },
+                                    { title: '交易时间', dataIndex: 'timestamp', key: 'timestamp', render: (val: string) => val ? new Date(val).toLocaleString() : '-' },
                                 ]}
                                 dataSource={transactionsData}
-                                rowKey={(row) => row.tradeId || row.ts + Math.random()}
+                                rowKey="transaction_id"
                                 pagination={false}
                                 size="small"
                             />
@@ -1194,7 +1073,8 @@ export const OKXManagement: React.FC = () => {
                         )}
                     </TabPane>
 
-                    <TabPane tab="账单流水" key="12">
+                    {/* 移除账单流水Tab */}
+                    {/* <TabPane tab="账单流水" key="12">
                         <Space style={{ marginBottom: 16 }}>
                             <Button type="primary" onClick={fetchBills} loading={billsLoading}>
                                 获取账单流水
@@ -1202,7 +1082,7 @@ export const OKXManagement: React.FC = () => {
                         </Space>
                         {billsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {billsError}</div>}
                         {billsData && renderBillsTable()}
-                    </TabPane>
+                    </TabPane> */}
                 </Tabs>
             </Card>
         </div>
