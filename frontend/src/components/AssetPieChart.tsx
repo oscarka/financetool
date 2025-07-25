@@ -23,9 +23,10 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
       { type: '货币基金', value: 180000 },
       { type: '混合基金', value: 120000 },
       { type: '指数基金', value: 80000 },
-      { type: 'QDII基金', value: 60000 },
+      { type: 'qdii基金', value: 60000 },
       { type: '其他资产', value: 40000 }
     ];
+    console.log('PieData:', mockData);
     setPieData(mockData);
     setLoading(false);
   }, [currencyMode]);
@@ -34,7 +35,7 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
   const chartData = pieData;
 
   const config = {
-    data: chartData,
+    data: pieData,
     angleField: 'value',
     colorField: 'type',
     radius: 0.6,
