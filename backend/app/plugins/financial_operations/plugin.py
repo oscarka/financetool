@@ -79,6 +79,12 @@ class FinancialOperationsPlugin(BaseTaskPlugin):
                 "class": "app.plugins.financial_operations.tasks.okx_market_data_sync.OKXMarketDataSyncTask"
             },
             {
+                "task_id": "okx_transaction_sync",
+                "name": "OKX交易流水同步",
+                "description": "同步OKX交易流水记录",
+                "class": "app.plugins.financial_operations.tasks.okx_transaction_sync.OKXTransactionSyncTask"
+            },
+            {
                 "task_id": "crypto_exchange_rate_cache",
                 "name": "数字货币汇率缓存",
                 "description": "缓存用户持有的数字货币对USDT汇率",
