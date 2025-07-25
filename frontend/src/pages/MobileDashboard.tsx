@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import { fundAPI } from '../services/api'
 import AssetTrendChart from '../components/AssetTrendChart';
 import AssetPieChart from '../components/AssetPieChart';
+import './MobileDashboard.css';
 
 const { Title, Text } = Typography
 
@@ -104,21 +105,17 @@ const MobileDashboard: React.FC = () => {
     ]
 
     return (
-        <div style={{ paddingBottom: '20px' }}>
+        <div className="mobile-dashboard-root">
             {/* 欢迎区域 */}
             <Card 
                 bordered={false}
-                style={{ 
-                    marginBottom: 16,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white'
-                }}
+                className="mobile-welcome-card"
             >
                 <Space direction="vertical" size={8}>
-                    <Title level={4} style={{ color: 'white', margin: 0 }}>
+                    <Title level={4} style={{ color: 'white', margin: 0, letterSpacing: 1 }}>
                         欢迎回来！
                     </Title>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)' }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
                         {stats ? '查看您的投资概况' : '正在加载投资数据...'}
                     </Text>
                 </Space>
@@ -126,24 +123,25 @@ const MobileDashboard: React.FC = () => {
 
             {/* 核心指标 */}
             <Card 
-                title="核心指标" 
+                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>核心指标</span>} 
                 bordered={false} 
-                style={{ marginBottom: 16 }}
-                extra={<EyeOutlined onClick={() => navigate('/positions')} />}
+                className="mobile-core-card"
+                extra={<EyeOutlined onClick={() => navigate('/positions')} style={{color:'#1d39c4'}} />}
                 loading={loading}
             >
                 {stats && (
                     <Row gutter={[12, 12]}>
                         <Col xs={12}>
-                            <Card size="small" style={{ textAlign: 'center' }}>
+                            <Card size="small" className="mobile-metric-card">
                                 <Statistic
-                                    title="总市值"
+                                    title={<span style={{color:'#1890ff'}}>总市值</span>}
                                     value={safeNumber(stats.total_value)}
                                     precision={0}
                                     valueStyle={{
                                         color: '#1890ff',
                                         fontSize: '20px',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        letterSpacing: 1
                                     }}
                                     prefix="¥"
                                 />
@@ -170,15 +168,16 @@ const MobileDashboard: React.FC = () => {
                             </Card>
                         </Col>
                         <Col xs={12}>
-                            <Card size="small" style={{ textAlign: 'center' }}>
+                            <Card size="small" className="mobile-metric-card">
                                 <Statistic
-                                    title="总收益"
+                                    title={<span style={{color:safeNumber(stats.total_profit)>=0?'#3f8600':'#cf1322'}}>总收益</span>}
                                     value={Math.abs(safeNumber(stats.total_profit))}
                                     precision={0}
                                     valueStyle={{
                                         color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
                                         fontSize: '20px',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        letterSpacing: 1
                                     }}
                                     prefix={safeNumber(stats.total_profit) >= 0 ? '+¥' : '-¥'}
                                 />
@@ -211,59 +210,33 @@ const MobileDashboard: React.FC = () => {
             {/* 投资概览 */}
             {stats && (
                 <Card 
-                    title="投资概览" 
+                    title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>投资概览</span>} 
                     bordered={false} 
-                    style={{ marginBottom: 16 }}
+                    className="mobile-overview-card"
                 >
                     <Row gutter={[12, 12]}>
                         <Col xs={12}>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                padding: '12px',
-                                background: '#f0f5ff',
-                                borderRadius: '8px'
-                            }}>
+                            <div className="mobile-overview-block mobile-overview-block-blue">
                                 <Text type="secondary" style={{ fontSize: '12px' }}>
                                     累计投入
                                 </Text>
-                                <div style={{ 
-                                    fontSize: '18px', 
-                                    fontWeight: 'bold',
-                                    color: '#1890ff',
-                                    margin: '4px 0'
-                                }}>
+                                <div className="mobile-overview-amount">
                                     ¥{formatAmount(stats.total_invested)}
                                 </div>
-                                <Text style={{ 
-                                    color: '#1890ff',
-                                    fontSize: '12px'
-                                }}>
+                                <Text style={{ color: '#1890ff', fontSize: '12px' }}>
                                     本金
                                 </Text>
                             </div>
                         </Col>
                         <Col xs={12}>
-                            <div style={{ 
-                                textAlign: 'center', 
-                                padding: '12px',
-                                background: '#fafafa',
-                                borderRadius: '8px'
-                            }}>
+                            <div className="mobile-overview-block mobile-overview-block-purple">
                                 <Text type="secondary" style={{ fontSize: '12px' }}>
                                     持仓数量
                                 </Text>
-                                <div style={{ 
-                                    fontSize: '18px', 
-                                    fontWeight: 'bold',
-                                    color: '#722ed1',
-                                    margin: '4px 0'
-                                }}>
+                                <div className="mobile-overview-amount">
                                     {stats.asset_count || 0}
                                 </div>
-                                <Text style={{ 
-                                    color: '#722ed1',
-                                    fontSize: '12px'
-                                }}>
+                                <Text style={{ color: '#722ed1', fontSize: '12px' }}>
                                     个基金
                                 </Text>
                             </div>
@@ -273,7 +246,11 @@ const MobileDashboard: React.FC = () => {
             )}
 
             {/* 资产分布饼图和趋势折线图 */}
-            <Card title="资产分布与趋势" bordered={false} style={{ marginBottom: 16 }}>
+            <Card 
+                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>资产分布与趋势</span>} 
+                bordered={false}
+                className="mobile-chart-card"
+            >
                 <div style={{ marginBottom: 16 }}>
                     <AssetPieChart baseCurrency="CNY" />
                 </div>
@@ -284,9 +261,9 @@ const MobileDashboard: React.FC = () => {
 
             {/* 快速操作 */}
             <Card 
-                title="快速操作" 
+                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>快速操作</span>} 
                 bordered={false}
-                style={{ marginBottom: 16 }}
+                className="mobile-action-card"
             >
                 <Space direction="vertical" size={12} style={{ width: '100%' }}>
                     {quickActions.map((action) => {
@@ -296,28 +273,12 @@ const MobileDashboard: React.FC = () => {
                                 key={action.title}
                                 size="small"
                                 hoverable
+                                className="mobile-action-item"
                                 onClick={() => navigate(action.path)}
-                                style={{ 
-                                    cursor: 'pointer',
-                                    border: `1px solid ${action.color}20`,
-                                    background: `${action.color}05`
-                                }}
                             >
-                                <div style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'space-between' 
-                                }}>
+                                <div className="mobile-action-item-inner">
                                     <Space>
-                                        <div style={{
-                                            width: '40px',
-                                            height: '40px',
-                                            borderRadius: '8px',
-                                            background: action.color,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
+                                        <div className="mobile-action-icon" style={{ background: action.color }}>
                                             <IconComponent style={{ color: 'white', fontSize: '18px' }} />
                                         </div>
                                         <div>
@@ -340,20 +301,21 @@ const MobileDashboard: React.FC = () => {
             {/* 基金分布 */}
             {stats && (
                 <Card 
-                    title="基金分布" 
+                    title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>基金分布</span>} 
                     bordered={false}
                     size="small"
+                    className="mobile-fund-card"
                 >
                     <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <div className="mobile-fund-row">
                             <Text type="secondary">总基金数</Text>
                             <Text style={{ fontWeight: 'bold' }}>{stats.asset_count} 个</Text>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <div className="mobile-fund-row">
                             <Text type="secondary">盈利基金</Text>
                             <Text style={{ color: '#3f8600', fontWeight: 'bold' }}>{stats.profitable_count} 个</Text>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <div className="mobile-fund-row">
                             <Text type="secondary">亏损基金</Text>
                             <Text style={{ color: '#cf1322', fontWeight: 'bold' }}>{stats.loss_count} 个</Text>
                         </div>
@@ -365,12 +327,7 @@ const MobileDashboard: React.FC = () => {
                                     strokeColor="#3f8600"
                                     trailColor="#cf1322"
                                 />
-                                <div style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    marginTop: 4,
-                                    fontSize: '12px'
-                                }}>
+                                <div className="mobile-fund-progress-labels">
                                     <Text style={{ color: '#3f8600' }}>
                                         盈利 {((stats.profitable_count / stats.asset_count) * 100).toFixed(1)}%
                                     </Text>

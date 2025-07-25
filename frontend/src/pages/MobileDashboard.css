@@ -1,0 +1,91 @@
+.mobile-dashboard-root {
+  padding: 0 8px 20px 8px;
+  background: #f6f8fa;
+}
+
+.mobile-welcome-card {
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 16px !important;
+  box-shadow: 0 2px 12px #b3b3e633;
+}
+
+.mobile-core-card, .mobile-overview-card, .mobile-chart-card, .mobile-action-card, .mobile-fund-card {
+  margin-bottom: 16px;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 8px #f0f1f2 !important;
+  background: #fff;
+}
+
+.mobile-metric-card {
+  text-align: center;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 6px #e6f7ff33;
+  background: #fafdff;
+  transition: box-shadow 0.2s;
+}
+
+.mobile-metric-card:hover {
+  box-shadow: 0 4px 16px #bae7ff66;
+}
+
+.mobile-overview-block {
+  text-align: center;
+  padding: 12px 0;
+  border-radius: 10px;
+  margin-bottom: 0;
+  background: #f6f8fa;
+}
+.mobile-overview-block-blue {
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%);
+}
+.mobile-overview-block-purple {
+  background: linear-gradient(135deg, #f9f0ff 0%, #f0f5ff 100%);
+}
+.mobile-overview-amount {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 4px 0;
+  color: #1890ff;
+}
+
+.mobile-action-item {
+  border-radius: 10px !important;
+  box-shadow: 0 1px 6px #e6f7ff33;
+  background: #fafdff;
+  margin-bottom: 0;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.1s;
+  border: none !important;
+}
+.mobile-action-item:hover {
+  box-shadow: 0 4px 16px #bae7ff66;
+  transform: translateY(-2px) scale(1.01);
+}
+.mobile-action-item-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mobile-action-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px #d6e4ff44;
+}
+
+.mobile-fund-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+}
+.mobile-fund-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 12px;
+}
