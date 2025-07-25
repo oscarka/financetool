@@ -5,6 +5,8 @@ import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI } from '../services/api';
 import AssetTrendChart from './AssetTrendChart';
 import AssetPieChart from './AssetPieChart';
+import './AssetSnapshotOverview.css';
+import CountUp from 'react-countup';
 // import AssetTrendChart from './AssetTrendChart'; // 如有趋势图可解开
 
 const { RangePicker } = DatePicker;
@@ -256,43 +258,101 @@ const AssetSnapshotOverview: React.FC = () => {
       <Row style={{ marginBottom: 16 }}>
         <Col span={24}>
           <div style={{ 
-            padding: '8px 16px', 
-            backgroundColor: '#f5f5f5', 
-            borderRadius: '6px',
-            fontSize: '14px'
+            padding: '12px 24px', 
+            background: 'linear-gradient(90deg, #e0e7ff 0%, #f0f5ff 100%)',
+            borderRadius: '8px',
+            fontSize: '16px',
+            marginBottom: 8,
+            boxShadow: '0 1px 8px #f0f1f2',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            fontWeight: 500,
+            color: '#1d39c4',
+            letterSpacing: 1
           }}>
-            共找到 <strong>{filteredData.length}</strong> 条记录
-            {platform && ` | 平台: ${platform}`}
-            {assetType && ` | 类型: ${assetType}`}
-            {currency && ` | 币种: ${currency}`}
-            {searchText && ` | 搜索: "${searchText}"`}
+            <span style={{ fontWeight: 700, color: '#1890ff', fontSize: 22, marginRight: 8 }}>📊</span>
+            <span>共找到 <CountUp end={filteredData.length} duration={0.8} /> 条记录</span>
+            {platform && <span>| 平台: <b>{platform}</b></span>}
+            {assetType && <span>| 类型: <b>{assetType}</b></span>}
+            {currency && <span>| 币种: <b>{currency}</b></span>}
+            {searchText && <span>| 搜索: <b>"{searchText}"</b></span>}
           </div>
         </Col>
       </Row>
 
-      <Spin spinning={loading}>
-        <Table
-          columns={columns}
-          dataSource={filteredData}
-          rowKey="id"
-          pagination={{ 
-            pageSize: 20,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
-          }}
-          scroll={{ x: 800 }}
-          size="small"
-        />
-      </Spin>
+      {/* 表格卡片化+极致体验 */}
+      <Card
+        bordered={false}
+        style={{ marginBottom: 24, borderRadius: 10, boxShadow: '0 2px 8px #f0f1f2' }}
+        bodyStyle={{ padding: 0 }}
+      >
+        <Spin spinning={loading} tip="数据加载中..." size="large">
+          <Table
+            columns={columns.map(col => ({
+              ...col,
+              title: (
+                <span>
+                  {col.key === 'platform' && '🏦'}
+                  {col.key === 'asset_type' && '📦'}
+                  {col.key === 'asset_code' && '🔢'}
+                  {col.key === 'currency' && '💱'}
+                  {col.key === 'base_value' && '💰'}
+                  {col.key === 'snapshot_time' && '⏰'}
+                  {col.title}
+                </span>
+              ),
+              ellipsis: true,
+            }))}
+            dataSource={filteredData}
+            rowKey="id"
+            pagination={{ 
+              pageSize: 20,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
+            }}
+            scroll={{ x: 900 }}
+            size="middle"
+            bordered
+            sticky
+            rowClassName={(_, idx) => idx % 2 === 0 ? 'zebra-row' : ''}
+            locale={{
+              emptyText: <div style={{ padding: 32, color: '#999', fontSize: 16 }}>暂无数据，试试调整筛选条件或主动快照</div>
+            }}
+            style={{ minHeight: 320 }}
+          />
+        </Spin>
+      </Card>
+      {/* 图表区块极致体验 */}
       <Row gutter={24} style={{ marginTop: 32 }}>
         <Col xs={24} md={12}>
-          <Card title="资产分布饼图" bordered={false}>
+          <Card 
+            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产分布饼图 🥧</span>} 
+            bordered={false}
+            style={{ 
+              background: 'linear-gradient(135deg, #f0f5ff 0%, #e0e7ff 100%)',
+              borderRadius: 12,
+              boxShadow: '0 2px 8px #f0f1f2',
+              marginBottom: 24
+            }}
+            bodyStyle={{ minHeight: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
             <AssetPieChart baseCurrency={baseCurrency} />
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card title="资产趋势折线图" bordered={false}>
+          <Card 
+            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产趋势折线图 📈</span>} 
+            bordered={false}
+            style={{ 
+              background: 'linear-gradient(135deg, #e0e7ff 0%, #f0f5ff 100%)',
+              borderRadius: 12,
+              boxShadow: '0 2px 8px #f0f1f2',
+              marginBottom: 24
+            }}
+            bodyStyle={{ minHeight: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
             <AssetTrendChart baseCurrency={baseCurrency} days={30} />
           </Card>
         </Col>

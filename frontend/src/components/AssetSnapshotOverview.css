@@ -1,0 +1,25 @@
+/* 斑马纹 */
+.zebra-row {
+  background: #f7faff !important;
+}
+
+/* hover高亮 */
+.ant-table-tbody > tr.ant-table-row:hover > td {
+  background: #e6f7ff !important;
+  transition: background 0.2s;
+}
+
+/* 表头主题色 */
+.ant-table-thead > tr > th {
+  background: #f0f5ff !important;
+  color: #1d39c4;
+  font-weight: 600;
+  font-size: 15px;
+  border-bottom: 2px solid #e6f7ff;
+}
+
+/* 卡片圆角和阴影 */
+.ant-card {
+  border-radius: 10px !important;
+  box-shadow: 0 2px 8px #f0f1f2 !important;
+}
