@@ -20,7 +20,7 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
     const fetchPie = async () => {
       setLoading(true);
       try {
-        const params: any = {};
+        const params: any = { latest_only: true };
         if (currencyMode !== 'BOTH') params.base_currency = currencyMode;
         const resp = await snapshotAPI.getAssetSnapshots(params);
         if (resp.success && resp.data) {

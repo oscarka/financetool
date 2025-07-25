@@ -18,29 +18,67 @@ def get_asset_snapshots(
     base_currency: Optional[str] = Query(None),
     start: Optional[str] = Query(None),
     end: Optional[str] = Query(None),
+    latest_only: bool = Query(False, description="是否只返回每种资产类型/平台/币种的最新快照"),
     db: Session = Depends(get_db)
 ):
-    logging.warning(f"[asset_snapshot] called with platform={platform}, asset_type={asset_type}, currency={currency}, base_currency={base_currency}, start={start}, end={end}")
-    """获取资产快照，支持多基准货币展示"""
+    logging.warning(f"[asset_snapshot] called with platform={platform}, asset_type={asset_type}, currency={currency}, base_currency={base_currency}, start={start}, end={end}, latest_only={latest_only}")
+    """获取资产快照，支持多基准货币展示和只取最新快照"""
     
     # 设置默认基准货币
     if base_currency is None:
         base_currency = 'CNY'
     
-    q = db.query(AssetSnapshot)
-    if platform:
-        q = q.filter(AssetSnapshot.platform == platform)
-    if asset_type:
-        q = q.filter(AssetSnapshot.asset_type == asset_type)
-    if currency:
-        q = q.filter(AssetSnapshot.currency == currency)
-    if start:
-        q = q.filter(AssetSnapshot.snapshot_time >= start)
-    if end:
-        q = q.filter(AssetSnapshot.snapshot_time <= end)
-    q = q.order_by(desc(AssetSnapshot.snapshot_time))
+    if latest_only:
+        # 只取每种资产类型/平台/币种的最新快照
+        from sqlalchemy import distinct
+        subq = db.query(
+            AssetSnapshot.platform,
+            AssetSnapshot.asset_type,
+            AssetSnapshot.asset_code,
+            AssetSnapshot.currency,
+            func.max(AssetSnapshot.snapshot_time).label('latest_time')
+        )
+        if platform:
+            subq = subq.filter(AssetSnapshot.platform == platform)
+        if asset_type:
+            subq = subq.filter(AssetSnapshot.asset_type == asset_type)
+        if currency:
+            subq = subq.filter(AssetSnapshot.currency == currency)
+        if start:
+            subq = subq.filter(AssetSnapshot.snapshot_time >= start)
+        if end:
+            subq = subq.filter(AssetSnapshot.snapshot_time <= end)
+        subq = subq.group_by(
+            AssetSnapshot.platform,
+            AssetSnapshot.asset_type,
+            AssetSnapshot.asset_code,
+            AssetSnapshot.currency
+        ).subquery()
+        
+        q = db.query(AssetSnapshot).join(
+            subq,
+            (AssetSnapshot.platform == subq.c.platform) &
+            (AssetSnapshot.asset_type == subq.c.asset_type) &
+            (AssetSnapshot.asset_code == subq.c.asset_code) &
+            (AssetSnapshot.currency == subq.c.currency) &
+            (AssetSnapshot.snapshot_time == subq.c.latest_time)
+        )
+        q = q.order_by(desc(AssetSnapshot.snapshot_time))
+    else:
+        q = db.query(AssetSnapshot)
+        if platform:
+            q = q.filter(AssetSnapshot.platform == platform)
+        if asset_type:
+            q = q.filter(AssetSnapshot.asset_type == asset_type)
+        if currency:
+            q = q.filter(AssetSnapshot.currency == currency)
+        if start:
+            q = q.filter(AssetSnapshot.snapshot_time >= start)
+        if end:
+            q = q.filter(AssetSnapshot.snapshot_time <= end)
+        q = q.order_by(desc(AssetSnapshot.snapshot_time))
     data = q.all()
-    logging.warning(f"[asset_snapshot] returning {len(data)} rows")
+    logging.warning(f"[asset_snapshot] returning {len(data)} rows (latest_only={latest_only})")
     # 多基准货币展示
     def get_base_value(row):
         if base_currency == 'CNY':
@@ -57,15 +95,10 @@ def get_asset_snapshots(
     for r in data:
         base_value = get_base_value(r)
         if base_value is None:
-            # 如果base_value为null，跳过这条记录
             continue
-        
-        # 四舍五入到2位小数
         rounded_value = round(float(base_value), 2)
-        # 如果四舍五入后小于0.01，跳过这条记录
         if rounded_value < 0.01:
             continue
-        
         filtered_data.append(r)
     
     result = [{
