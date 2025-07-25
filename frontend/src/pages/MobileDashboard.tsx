@@ -89,6 +89,12 @@ const MobileDashboard: React.FC = () => {
     const change24h = stats ? safeNumber(stats.total_profit_rate) * 100 : 0;
     const accountCount = 1; // TODO: 如有多账户可补充
 
+    const mockAssets = [
+      { asset: 'BTC', amount: 2.5, cny: 432000, usd: 60000, change: 5 },
+      { asset: 'ETH', amount: 10, cny: 144000, usd: 20000, change: 2 },
+      { asset: 'USDT', amount: 5000, cny: 36000, usd: 5000, change: -1 },
+    ];
+
     return (
         <div style={{ paddingBottom: '20px' }}>
             {/* 欢迎区域 */}
@@ -164,8 +170,22 @@ const MobileDashboard: React.FC = () => {
                     <AssetTrendChart baseCurrency="CNY" days={30} />
                 </Tabs.TabPane>
                 <Tabs.TabPane tab="主要资产" key="table">
-                    {/* 可集成主要资产表格或卡片 */}
-                    {/* 这里可后续补充资产明细 */}
+                    <Card bordered={false} style={{ margin: 0, padding: 0 }}>
+                        {mockAssets.map(item => (
+                            <div key={item.asset} style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                padding: '12px 0', borderBottom: '1px solid #f0f0f0'
+                            }}>
+                                <span style={{ fontWeight: 600 }}>{item.asset}</span>
+                                <span>{item.amount}</span>
+                                <span style={{ color: '#1890ff' }}>￥{item.cny.toLocaleString()}</span>
+                                <span style={{ color: '#52c41a' }}>${item.usd.toLocaleString()}</span>
+                                <span style={{ color: item.change >= 0 ? '#3f8600' : '#cf1322' }}>
+                                    {item.change >= 0 ? '+' : ''}{item.change}%
+                                </span>
+                            </div>
+                        ))}
+                    </Card>
                 </Tabs.TabPane>
             </Tabs>
 
