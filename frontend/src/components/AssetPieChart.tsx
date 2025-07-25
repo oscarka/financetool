@@ -33,18 +33,14 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
   // 处理双基准数据
   let chartData: any[] = [];
   if (currencyMode === 'BOTH') {
-    // 假设API返回格式为 [{asset_type, total_cny, total_usd}]
+    // 为双基准模式生成数据
     chartData = pieData.flatMap((item: any) => [
-      { type: item.asset_type, value: item.total_cny, currency: 'CNY' },
-      { type: item.asset_type, value: item.total_usd, currency: 'USD' },
+      { type: item.type, value: item.value, currency: 'CNY' },
+      { type: item.type, value: item.value * 0.14, currency: 'USD' },
     ]);
   } else {
-    // [{asset_type, total}]
-    chartData = pieData.map((item: any) => ({
-      type: item.asset_type,
-      value: currencyMode === 'CNY' ? item.total_cny : item.total_usd,
-      currency: currencyMode,
-    }));
+    // 单基准模式，直接使用mock数据
+    chartData = pieData;
   }
 
   const config = {
@@ -52,7 +48,7 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
     data: chartData,
     angleField: 'value',
     colorField: 'type',
-    seriesField: 'currency',
+    seriesField: currencyMode === 'BOTH' ? 'currency' : undefined,
     radius: 0.9,
     label: {
       type: 'spider',

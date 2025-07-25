@@ -438,7 +438,7 @@ const AssetSnapshotOverview: React.FC = () => {
               boxShadow: '0 2px 8px #f0f1f2',
               marginBottom: 24
             }}
-            bodyStyle={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            bodyStyle={{ padding: 16 }}
           >
             <AssetPieChart baseCurrency={baseCurrency} />
           </Card>
@@ -453,7 +453,7 @@ const AssetSnapshotOverview: React.FC = () => {
               boxShadow: '0 2px 8px #f0f1f2',
               marginBottom: 24
             }}
-            bodyStyle={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            bodyStyle={{ padding: 16 }}
           >
             <AssetTrendChart baseCurrency={baseCurrency} days={30} />
           </Card>
