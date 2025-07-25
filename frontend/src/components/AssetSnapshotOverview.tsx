@@ -426,6 +426,40 @@ const AssetSnapshotOverview: React.FC = () => {
         </Row>
       )}
 
+      {/* 资产分布与趋势（饼图+折线图） */}
+      <Row gutter={24} style={{ marginBottom: 32 }}>
+        <Col xs={24} md={12}>
+          <Card 
+            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产分布饼图 🥧</span>} 
+            bordered={false}
+            style={{ 
+              background: 'linear-gradient(135deg, #f0f5ff 0%, #e0e7ff 100%)',
+              borderRadius: 12,
+              boxShadow: '0 2px 8px #f0f1f2',
+              marginBottom: 24
+            }}
+            bodyStyle={{ minHeight: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <AssetPieChart baseCurrency={baseCurrency} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Card 
+            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产趋势折线图 📈</span>} 
+            bordered={false}
+            style={{ 
+              background: 'linear-gradient(135deg, #e0e7ff 0%, #f0f5ff 100%)',
+              borderRadius: 12,
+              boxShadow: '0 2px 8px #f0f1f2',
+              marginBottom: 24
+            }}
+            bodyStyle={{ minHeight: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <AssetTrendChart baseCurrency={baseCurrency} days={30} />
+          </Card>
+        </Col>
+      </Row>
+
       {/* 快捷操作 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col span={24}>
@@ -599,39 +633,6 @@ const AssetSnapshotOverview: React.FC = () => {
           />
         </Spin>
       </Card>
-      {/* 图表区块极致体验 */}
-      <Row gutter={24} style={{ marginTop: 32 }}>
-        <Col xs={24} md={12}>
-          <Card 
-            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产分布饼图 🥧</span>} 
-            bordered={false}
-            style={{ 
-              background: 'linear-gradient(135deg, #f0f5ff 0%, #e0e7ff 100%)',
-              borderRadius: 12,
-              boxShadow: '0 2px 8px #f0f1f2',
-              marginBottom: 24
-            }}
-            bodyStyle={{ minHeight: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <AssetPieChart baseCurrency={baseCurrency} />
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card 
-            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产趋势折线图 📈</span>} 
-            bordered={false}
-            style={{ 
-              background: 'linear-gradient(135deg, #e0e7ff 0%, #f0f5ff 100%)',
-              borderRadius: 12,
-              boxShadow: '0 2px 8px #f0f1f2',
-              marginBottom: 24
-            }}
-            bodyStyle={{ minHeight: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <AssetTrendChart baseCurrency={baseCurrency} days={30} />
-          </Card>
-        </Col>
-      </Row>
     </Card>
   );
 };

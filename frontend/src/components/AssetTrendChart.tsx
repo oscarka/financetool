@@ -19,65 +19,22 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
   }, [baseCurrency]);
 
   useEffect(() => {
-    const fetchTrend = async () => {
-      setLoading(true);
-      try {
-        const params: any = { days };
-        if (currencyMode !== 'BOTH') params.base_currency = currencyMode;
-        const resp = await snapshotAPI.getAssetTrend(params);
-        if (resp.success && resp.data) {
-          setTrendData(resp.data);
-        } else {
-          // Mock数据 - 生成30天的趋势数据
-          const mockData = [];
-          const baseValue = 1000000; // 100万基础值
-          for (let i = 0; i < 30; i++) {
-            const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
-            const randomChange = (Math.random() - 0.5) * 0.1; // ±5%随机变化
-            const value = baseValue * (1 + randomChange + i * 0.02); // 整体上升趋势
-            
-            if (currencyMode === 'BOTH') {
-              mockData.push({
-                date,
-                total_cny: value,
-                total_usd: value * 0.14 // 假设汇率
-              });
-            } else {
-              mockData.push({
-                date,
-                total: value
-              });
-            }
-          }
-          setTrendData(mockData);
-        }
-      } catch (e) {
-        // Mock数据 - 生成30天的趋势数据
-        const mockData = [];
-        const baseValue = 1000000; // 100万基础值
-        for (let i = 0; i < 30; i++) {
-          const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
-          const randomChange = (Math.random() - 0.5) * 0.1; // ±5%随机变化
-          const value = baseValue * (1 + randomChange + i * 0.02); // 整体上升趋势
-          
-          if (currencyMode === 'BOTH') {
-            mockData.push({
-              date,
-              total_cny: value,
-              total_usd: value * 0.14 // 假设汇率
-            });
-          } else {
-            mockData.push({
-              date,
-              total: value
-            });
-          }
-        }
-        setTrendData(mockData);
+    // 彻底mock数据，无论API如何都注入
+    setLoading(true);
+    const mockData: any[] = [];
+    const baseValue = 1000000;
+    for (let i = 0; i < 30; i++) {
+      const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
+      const randomChange = (Math.random() - 0.5) * 0.1;
+      const value = baseValue * (1 + randomChange + i * 0.02);
+      if (currencyMode === 'BOTH') {
+        mockData.push({ date, total_cny: value, total_usd: value * 0.14 });
+      } else {
+        mockData.push({ date, total: value });
       }
-      setLoading(false);
-    };
-    fetchTrend();
+    }
+    setTrendData(mockData);
+    setLoading(false);
   }, [currencyMode, days]);
 
   // 处理双基准数据
