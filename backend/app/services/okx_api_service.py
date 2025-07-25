@@ -8,6 +8,7 @@ from app.settings import settings
 from app.utils.logger import log_okx_api
 from app.utils.auto_logger import auto_log
 import logging
+import json
 
 # 创建logger实例
 logger = logging.getLogger(__name__)
@@ -63,11 +64,14 @@ class OKXAPIService:
     async def _make_request(self, method: str, path: str, params: Dict = None, body: str = "", auth_required: bool = True) -> Optional[Dict[str, Any]]:
         """统一的请求方法"""
         try:
-            url = self.base_url + path
+            # 构建完整的请求路径（包含查询参数）
+            request_path = path
             if params:
-                url += "?" + "&".join([f"{k}={v}" for k, v in params.items()])
+                request_path += "?" + "&".join([f"{k}={v}" for k, v in params.items()])
             
-            headers = self._auth_headers(method, path, body) if auth_required else {}
+            url = self.base_url + request_path
+            
+            headers = self._auth_headers(method, request_path, body) if auth_required else {}
             
             logger.info(f"请求OKX接口: {method} {url}")
             
@@ -124,14 +128,19 @@ class OKXAPIService:
             return None
         return await self._make_request('GET', '/api/v5/account/positions')
 
-    async def get_bills(self, inst_type: str = None, limit: int = 100) -> Optional[Dict[str, Any]]:
-        """获取账单流水"""
+    async def get_bills_archive(self, inst_type: str = None, limit: int = 100) -> Optional[Dict[str, Any]]:
+        """获取账单归档流水"""
+        logger.info(f"开始获取账单归档流水: inst_type={inst_type}, limit={limit}")
         if not self._validate_config():
+            logger.error("OKX API配置验证失败")
             return None
         params = {'limit': str(limit)}
         if inst_type:
             params['instType'] = inst_type
-        return await self._make_request('GET', '/api/v5/account/bills', params=params)
+        logger.info(f"调用bills-archive接口，参数: {params}")
+        result = await self._make_request('GET', '/api/v5/account/bills-archive', params=params)
+        logger.info(f"bills-archive接口返回结果: {result}")
+        return result
 
     @auto_log("system")
     async def get_config(self) -> Dict[str, Any]:
@@ -370,37 +379,104 @@ class OKXAPIService:
         finally:
             db.close()
 
+    def safe_float(self, val, default=0.0):
+        try:
+            if val in (None, ""):
+                return default
+            return float(val)
+        except (TypeError, ValueError):
+            return default
+
     @auto_log("database", log_result=True)
     async def sync_transactions_to_db(self, days: int = 30) -> Dict[str, Any]:
         """同步OKX交易记录到数据库"""
         from app.models.database import OKXTransaction
         from app.utils.database import SessionLocal
         from datetime import datetime, timedelta
+        import traceback
         
+        logger.info("[DEBUG] sync_transactions_to_db try块已进入")
+        print("[DEBUG] sync_transactions_to_db try块已进入")
         db = SessionLocal()
         try:
-            # 获取账单流水
-            bills = await self.get_bills(limit=1000)
-            
+            logger.info(f"[DEBUG] get_bills_archive调用前, days={days}")
+            print(f"[DEBUG] get_bills_archive调用前, days={days}")
+            bills = await self.get_bills_archive(limit=1000)
+            logger.info(f"[DEBUG] get_bills_archive调用后, bills={bills}")
+            print(f"[DEBUG] get_bills_archive调用后, bills={bills}")
+            # 打印原始json
+            logger.info(f"[RAW_BILLS_DATA] {json.dumps(bills, ensure_ascii=False)}")
+            print(f"[RAW_BILLS_DATA] {json.dumps(bills, ensure_ascii=False)}")
             if not bills or not bills.get('data'):
+                logger.info("[DEBUG] 未获取到交易数据，提前返回")
+                print("[DEBUG] 未获取到交易数据，提前返回")
                 return {"success": False, "message": "未获取到交易数据"}
-            
+            logger.info(f"[DEBUG] 开始处理{len(bills['data'])}条账单数据")
+            print(f"[DEBUG] 开始处理{len(bills['data'])}条账单数据")
             total_new = 0
             total_updated = 0
-            
-            # 计算时间范围
             end_time = datetime.now()
             start_time = end_time - timedelta(days=days)
-            
+            logger.info(f"[DEBUG] 时间范围: {start_time} 到 {end_time}")
+            print(f"[DEBUG] 时间范围: {start_time} 到 {end_time}")
             for bill in bills['data']:
-                # 解析时间戳
-                bill_time = datetime.fromisoformat(bill.get('ts', '').replace('Z', '+00:00'))
-                
-                # 只处理指定时间范围内的记录
+                logger.info(f"处理账单数据: {bill}")
+                print(f"处理账单数据: {bill}")
+                # 解析时间戳（OKX返回的是毫秒级时间戳）
+                ts_str = bill.get('ts', '')
+                if ts_str:
+                    try:
+                        ts_seconds = int(ts_str) / 1000
+                        bill_time = datetime.fromtimestamp(ts_seconds)
+                    except (ValueError, TypeError):
+                        bill_time = datetime.now()
+                else:
+                    bill_time = datetime.now()
+                logger.info(f"bill['ts']={ts_str}, bill_time={bill_time}, type={type(bill_time)}")
+                print(f"bill['ts']={ts_str}, bill_time={bill_time}, type={type(bill_time)}")
+                assert isinstance(bill_time, datetime), f"bill_time类型错误: {bill_time} ({type(bill_time)})"
                 if bill_time < start_time:
                     continue
+                # 字段转换日志
+                def log_field(field, val, conv):
+                    logger.info(f"字段[{field}] 原始值: {val!r}, 转换后: {conv!r}")
+                    print(f"字段[{field}] 原始值: {val!r}, 转换后: {conv!r}")
+                amount_raw = bill.get('bal', 0)
+                # 保持原始精度，不进行float转换
+                amount = amount_raw if amount_raw not in (None, "") else "0"
+                log_field('amount/bal', amount_raw, amount)
+                fee_raw = bill.get('fee', 0)
+                # 保持原始精度，不进行float转换
+                fee = fee_raw if fee_raw not in (None, "") else "0"
+                log_field('fee', fee_raw, fee)
+                px_raw = bill.get('px', 0)
+                price = self.safe_float(px_raw, None) if px_raw not in (None, "") else None
+                log_field('price/px', px_raw, price)
+                sz_raw = bill.get('sz', 0)
+                if sz_raw in (None, ""):
+                    quantity = None
+                else:
+                    quantity = self.safe_float(sz_raw, None)
+                log_field('quantity/sz', sz_raw, quantity)
+                # 根据type和sz推断交易方向
+                side = None
+                bill_type = bill.get('type', '')
+                if bill_type == '2':  # 交易类型
+                    if quantity and quantity > 0:
+                        side = 'buy'
+                    elif quantity and quantity < 0:
+                        side = 'sell'
+                elif bill_type == '1':  # 充值
+                    side = 'deposit'
+                elif bill_type == '3':  # 提现
+                    side = 'withdrawal'
+                elif bill_type == '6':  # 资金划转
+                    side = 'transfer'
                 
-                # 准备交易数据
+                # 记录side字段的推断过程
+                logger.info(f"[SIDE] type={bill_type}, quantity={quantity}, side={side}")
+                print(f"[SIDE] type={bill_type}, quantity={quantity}, side={side}")
+                
                 transaction_data = {
                     "transaction_id": bill.get('billId', ''),
                     "account_id": bill.get('acctId', ''),
@@ -410,45 +486,81 @@ class OKXAPIService:
                     "order_id": bill.get('ordId'),
                     "bill_id": bill.get('billId'),
                     "type": bill.get('type', ''),
-                    "side": bill.get('side'),
-                    "amount": float(bill.get('bal', 0)),
+                    "side": side,
+                    "amount": amount,
                     "currency": bill.get('ccy', ''),
-                    "fee": float(bill.get('fee', 0)),
+                    "fee": fee,
                     "fee_currency": bill.get('feeCcy'),
-                    "price": float(bill.get('px', 0)) if bill.get('px') else None,
-                    "quantity": float(bill.get('sz', 0)) if bill.get('sz') else None,
-                    "timestamp": bill_time
+                    "price": price,
+                    "quantity": quantity,
+                    "timestamp": bill_time,
+                    "bal": bill.get('bal'),
+                    "bal_chg": bill.get('balChg'),
+                    "ccy": bill.get('ccy'),
+                    "cl_ord_id": bill.get('clOrdId'),
+                    "exec_type": bill.get('execType'),
+                    "fill_fwd_px": bill.get('fillFwdPx'),
+                    "fill_idx_px": bill.get('fillIdxPx'),
+                    "fill_mark_px": bill.get('fillMarkPx'),
+                    "fill_mark_vol": bill.get('fillMarkVol'),
+                    "fill_px_usd": bill.get('fillPxUsd'),
+                    "fill_px_vol": bill.get('fillPxVol'),
+                    "fill_time": bill.get('fillTime'),
+                    "from_addr": bill.get('from'),
+                    "interest": bill.get('interest'),
+                    "mgn_mode": bill.get('mgnMode'),
+                    "notes": bill.get('notes'),
+                    "pnl": bill.get('pnl'),
+                    "pos_bal": bill.get('posBal'),
+                    "pos_bal_chg": bill.get('posBalChg'),
+                    "sub_type": bill.get('subType'),
+                    "tag": bill.get('tag'),
+                    "to_addr": bill.get('to')
                 }
-                
-                # 检查是否已存在
+                logger.info(f"[STEP] transaction_data: {transaction_data}")
+                print(f"[STEP] transaction_data: {transaction_data}")
+                from app.models.database import OKXTransaction
+                model_fields = {c.name for c in OKXTransaction.__table__.columns}
+                filtered_transaction_data = {k: v for k, v in transaction_data.items() if k in model_fields}
+                logger.info(f"[STEP] filtered_transaction_data: {filtered_transaction_data}")
+                print(f"[STEP] filtered_transaction_data: {filtered_transaction_data}")
                 existing = db.query(OKXTransaction).filter_by(
-                    transaction_id=transaction_data["transaction_id"]
+                    transaction_id=filtered_transaction_data["transaction_id"]
                 ).first()
-                
                 if existing:
-                    # 更新现有记录
-                    for key, value in transaction_data.items():
-                        if key != 'transaction_id':  # 不更新唯一键
+                    for key, value in filtered_transaction_data.items():
+                        if key != 'transaction_id':
                             setattr(existing, key, value)
                     total_updated += 1
                 else:
-                    # 插入新记录
-                    new_tx = OKXTransaction(**transaction_data)
-                    db.add(new_tx)
+                    try:
+                        logger.info(f"准备创建新的OKXTransaction记录")
+                        print(f"准备创建新的OKXTransaction记录")
+                        new_tx = OKXTransaction(**filtered_transaction_data)
+                        logger.info(f"OKXTransaction对象创建成功: {new_tx}")
+                        print(f"OKXTransaction对象创建成功: {new_tx}")
+                        db.add(new_tx)
+                        logger.info(f"记录已添加到数据库会话")
+                        print(f"记录已添加到数据库会话")
+                    except Exception as e:
+                        logger.error(f"入库时异常: {e}, filtered_transaction_data={filtered_transaction_data}")
+                        print(f"入库时异常: {e}, filtered_transaction_data={filtered_transaction_data}")
+                        print(traceback.format_exc())
+                        logger.error(traceback.format_exc())
+                        raise
                     total_new += 1
-            
             db.commit()
-            
             return {
                 "success": True, 
                 "message": f"交易记录同步完成，新增{total_new}条，更新{total_updated}条",
                 "total_new": total_new,
                 "total_updated": total_updated
             }
-            
         except Exception as e:
-            db.rollback()
-            logger.error(f"同步OKX交易记录失败: {e}")
+            logger.error(f"[EXCEPT] 同步OKX交易记录失败: {e}")
+            print(f"[EXCEPT] 同步OKX交易记录失败: {e}")
+            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             return {"success": False, "message": f"同步失败: {str(e)}"}
         finally:
             db.close()
@@ -614,7 +726,7 @@ class OKXAPIService:
             # 获取余额数据
             balances = await self.get_asset_balances()
             positions = await self.get_positions()
-            bills = await self.get_bills(limit=100)
+            bills = await self.get_bills_archive(limit=100)
             
             # 计算总余额（USD）
             total_balance_usd = 0
