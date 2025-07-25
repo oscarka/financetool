@@ -41,7 +41,7 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
     label: {
       type: 'spider',
       labelHeight: 28,
-      content: '{name}: {percentage}',
+      content: '{name}',
     },
     legend: { position: 'bottom' },
     tooltip: {},
