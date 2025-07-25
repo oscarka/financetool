@@ -26,46 +26,26 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
       const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
       const randomChange = (Math.random() - 0.5) * 0.1;
       const value = baseValue * (1 + randomChange + i * 0.02);
-      if (currencyMode === 'BOTH') {
-        mockData.push({ date, total_cny: value, total_usd: value * 0.14 });
-      } else {
-        mockData.push({ date, total: value });
-      }
+      mockData.push({ date, value });
     }
     setTrendData(mockData);
     setLoading(false);
   }, [currencyMode, days]);
 
-  // 处理双基准数据
-  let chartData: any[] = [];
-  if (currencyMode === 'BOTH') {
-    // 假设API返回格式为 [{date, total_cny, total_usd}]
-    chartData = trendData.flatMap((item: any) => [
-      { date: item.date, value: item.total_cny, currency: 'CNY' },
-      { date: item.date, value: item.total_usd, currency: 'USD' },
-    ]);
-  } else {
-    // [{date, total}]
-    chartData = trendData.map((item: any) => ({
-      date: item.date,
-      value: item.total,
-      currency: currencyMode,
-    }));
-  }
+  // 简化数据处理
+  const chartData = trendData;
 
   const config = {
     data: chartData,
     xField: 'date',
     yField: 'value',
-    seriesField: 'currency',
     smooth: true,
     height: 280,
-    width: '100%',
-    color: ['#1890ff', '#52c41a'],
+    color: ['#1890ff'],
     legend: { position: 'top' },
     tooltip: { showMarkers: true },
     animation: true,
-    xAxis: { type: 'time', title: { text: '日期' } },
+    xAxis: { type: 'time' },
     yAxis: { title: { text: '总资产' } },
   };
 

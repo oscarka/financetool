@@ -30,33 +30,21 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
     setLoading(false);
   }, [currencyMode]);
 
-  // 处理双基准数据
-  let chartData: any[] = [];
-  if (currencyMode === 'BOTH') {
-    // 为双基准模式生成数据
-    chartData = pieData.flatMap((item: any) => [
-      { type: item.type, value: item.value, currency: 'CNY' },
-      { type: item.type, value: item.value * 0.14, currency: 'USD' },
-    ]);
-  } else {
-    // 单基准模式，直接使用mock数据
-    chartData = pieData;
-  }
+  // 简化数据处理
+  const chartData = pieData;
 
   const config = {
     appendPadding: 10,
     data: chartData,
     angleField: 'value',
     colorField: 'type',
-    seriesField: currencyMode === 'BOTH' ? 'currency' : undefined,
-    radius: 0.9,
+    radius: 0.8,
     label: {
-      type: 'spider',
-      labelHeight: 28,
-      content: '{name}\n{percentage}',
+      type: 'outer',
+      content: '{name} {percentage}',
     },
     interactions: [{ type: 'element-active' }],
-    legend: { position: 'top' },
+    legend: { position: 'bottom' },
     tooltip: { showMarkers: true },
     animation: true,
     height: 280,
