@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input } from 'antd';
+import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input, Affix, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI } from '../services/api';
@@ -147,95 +147,110 @@ const AssetSnapshotOverview: React.FC = () => {
 
   return (
     <Card title="资产快照多基准货币展示" style={{ margin: 24 }}>
-      {/* 筛选器区域 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} md={6}>
-          <Button type="primary" onClick={handleExtractSnapshot} block>
-            主动快照
-          </Button>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select 
-            value={baseCurrency} 
-            onChange={setBaseCurrency} 
-            style={{ width: '100%' }}
-            placeholder="基准货币"
-          >
-            {baseCurrencies.map((c) => (
-              <Option key={c} value={c}>{c}</Option>
-            ))}
-          </Select>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select 
-            value={platform} 
-            onChange={setPlatform} 
-            style={{ width: '100%' }}
-            placeholder="选择平台"
-            allowClear
-          >
-            {platforms.map((p) => (
-              <Option key={p} value={p}>{p}</Option>
-            ))}
-          </Select>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select 
-            value={assetType} 
-            onChange={setAssetType} 
-            style={{ width: '100%' }}
-            placeholder="资产类型"
-            allowClear
-          >
-            {assetTypes.map((t) => (
-              <Option key={t} value={t}>{t}</Option>
-            ))}
-          </Select>
-        </Col>
-      </Row>
-      
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} md={6}>
-          <Select 
-            value={currency} 
-            onChange={setCurrency} 
-            style={{ width: '100%' }}
-            placeholder="选择币种"
-            allowClear
-          >
-            {currencies.map((c) => (
-              <Option key={c} value={c}>{c}</Option>
-            ))}
-          </Select>
-        </Col>
-        <Col xs={24} sm={12} md={12}>
-          <RangePicker
-            value={dateRange}
-            onChange={handleRangeChange}
-            allowClear
-            style={{ width: '100%' }}
-            placeholder={['开始日期', '结束日期']}
-          />
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Button onClick={clearFilters} block>
-            清空筛选
-          </Button>
-        </Col>
-      </Row>
-
-      {/* 搜索框 */}
-      <Row style={{ marginBottom: 16 }}>
-        <Col span={24}>
-          <Search
-            placeholder="搜索平台、资产类型、代码、币种等..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-            style={{ width: '100%' }}
-          />
-        </Col>
-      </Row>
+      {/* 筛选器区域 - 卡片分组+吸顶+分隔线+紧凑间距+动效+高亮 */}
+      <Affix offsetTop={0}>
+        <Card
+          bordered={false}
+          style={{ marginBottom: 16, boxShadow: '0 2px 8px #f0f1f2', borderRadius: 10, background: '#fafcff' }}
+          bodyStyle={{ padding: 16 }}
+        >
+          <Row gutter={[8, 8]} align="middle" style={{ marginBottom: 8 }}>
+            <Col xs={24} sm={12} md={6}>
+              <Button type="primary" onClick={handleExtractSnapshot} block style={{ transition: 'all 0.2s' }}>
+                主动快照
+              </Button>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                value={baseCurrency}
+                onChange={setBaseCurrency}
+                style={{ width: '100%', transition: 'all 0.2s' }}
+                placeholder="基准货币"
+                dropdownStyle={{ borderRadius: 8 }}
+                dropdownMatchSelectWidth={false}
+              >
+                {baseCurrencies.map((c) => (
+                  <Option key={c} value={c}>{c}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                value={platform}
+                onChange={setPlatform}
+                style={{ width: '100%', transition: 'all 0.2s' }}
+                placeholder="选择平台"
+                allowClear
+                dropdownStyle={{ borderRadius: 8 }}
+                dropdownMatchSelectWidth={false}
+              >
+                {platforms.map((p) => (
+                  <Option key={p} value={p}>{p}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                value={assetType}
+                onChange={setAssetType}
+                style={{ width: '100%', transition: 'all 0.2s' }}
+                placeholder="资产类型"
+                allowClear
+                dropdownStyle={{ borderRadius: 8 }}
+                dropdownMatchSelectWidth={false}
+              >
+                {assetTypes.map((t) => (
+                  <Option key={t} value={t}>{t}</Option>
+                ))}
+              </Select>
+            </Col>
+          </Row>
+          <Divider style={{ margin: '8px 0' }} />
+          <Row gutter={[8, 8]} align="middle">
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                value={currency}
+                onChange={setCurrency}
+                style={{ width: '100%', transition: 'all 0.2s' }}
+                placeholder="选择币种"
+                allowClear
+                dropdownStyle={{ borderRadius: 8 }}
+                dropdownMatchSelectWidth={false}
+              >
+                {currencies.map((c) => (
+                  <Option key={c} value={c}>{c}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} sm={12} md={12}>
+              <RangePicker
+                value={dateRange}
+                onChange={handleRangeChange}
+                allowClear
+                style={{ width: '100%', transition: 'all 0.2s' }}
+                placeholder={['开始日期', '结束日期']}
+                popupStyle={{ borderRadius: 8 }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Button onClick={clearFilters} block style={{ transition: 'all 0.2s' }}>
+                清空筛选
+              </Button>
+            </Col>
+          </Row>
+          <Row style={{ marginTop: 8 }}>
+            <Col span={24}>
+              <Search
+                placeholder="搜索平台、资产类型、代码、币种等..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                allowClear
+                style={{ width: '100%', transition: 'all 0.2s' }}
+              />
+            </Col>
+          </Row>
+        </Card>
+      </Affix>
 
       {/* 数据统计 */}
       <Row style={{ marginBottom: 16 }}>
