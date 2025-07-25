@@ -73,6 +73,27 @@ const AssetSnapshotOverview: React.FC = () => {
     },
   ];
 
+  // 优化表头icon显示，避免TS类型错误
+  const columnsWithIcon = columns.map(col => {
+    let baseTitle = col.title;
+    if (typeof baseTitle === 'function') baseTitle = '';
+    return {
+      ...col,
+      title: (
+        <span>
+          {col.key === 'platform' && '🏦'}
+          {col.key === 'asset_type' && '📦'}
+          {col.key === 'asset_code' && '🔢'}
+          {col.key === 'currency' && '💱'}
+          {col.key === 'base_value' && '💰'}
+          {col.key === 'snapshot_time' && '⏰'}
+          {baseTitle}
+        </span>
+      ),
+      ellipsis: true,
+    };
+  });
+
   const loadData = async () => {
     setLoading(true);
     let params: any = {};
@@ -289,21 +310,7 @@ const AssetSnapshotOverview: React.FC = () => {
       >
         <Spin spinning={loading} tip="数据加载中..." size="large">
           <Table
-            columns={columns.map(col => ({
-              ...col,
-              title: (
-                <span>
-                  {col.key === 'platform' && '🏦'}
-                  {col.key === 'asset_type' && '📦'}
-                  {col.key === 'asset_code' && '🔢'}
-                  {col.key === 'currency' && '💱'}
-                  {col.key === 'base_value' && '💰'}
-                  {col.key === 'snapshot_time' && '⏰'}
-                  {col.title}
-                </span>
-              ),
-              ellipsis: true,
-            }))}
+            columns={columnsWithIcon}
             dataSource={filteredData}
             rowKey="id"
             pagination={{ 
