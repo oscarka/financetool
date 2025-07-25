@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Pie } from '@ant-design/charts';
-import { snapshotAPI } from '../services/api';
 import { Spin, Radio, Space } from 'antd';
 
 interface AssetPieChartProps {

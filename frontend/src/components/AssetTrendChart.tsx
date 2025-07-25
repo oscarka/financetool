@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Line } from '@ant-design/charts';
-import { snapshotAPI } from '../services/api';
 import { Spin, Radio, Space } from 'antd';
 import dayjs from 'dayjs';
 
