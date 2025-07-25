@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pie } from '@ant-design/charts';
-import { snapshotAPI } from '../services/api';
-import { Spin, Radio, Space } from 'antd';
+import { Spin, Radio, Space, Empty } from 'antd';
 
 interface AssetPieChartProps {
   baseCurrency: string | 'BOTH'; // 'CNY' | 'USD' | 'BOTH'
@@ -17,40 +16,39 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
   }, [baseCurrency]);
 
   useEffect(() => {
-    const fetchPie = async () => {
-      setLoading(true);
-      try {
-        const params: any = {};
-        if (currencyMode !== 'BOTH') params.base_currency = currencyMode;
-        const resp = await snapshotAPI.getAssetSnapshots(params);
-        if (resp.success && resp.data) {
-          setPieData(resp.data);
-        } else {
-          setPieData([]);
-        }
-      } catch (e) {
-        setPieData([]);
-      }
+    // 只用mock数据，不请求API
+    setLoading(true);
+    setTimeout(() => {
+      setPieData([
+        { asset_type: 'BTC', total_cny: 5000, total_usd: 700 },
+        { asset_type: 'ETH', total_cny: 3000, total_usd: 420 },
+        { asset_type: 'USDT', total_cny: 2000, total_usd: 280 },
+      ]);
       setLoading(false);
-    };
-    fetchPie();
+    }, 300);
   }, [currencyMode]);
 
   // 处理双基准数据
   let chartData: any[] = [];
   if (currencyMode === 'BOTH') {
-    // 假设API返回格式为 [{asset_type, total_cny, total_usd}]
     chartData = pieData.flatMap((item: any) => [
       { type: item.asset_type, value: item.total_cny, currency: 'CNY' },
       { type: item.asset_type, value: item.total_usd, currency: 'USD' },
     ]);
   } else {
-    // [{asset_type, total}]
     chartData = pieData.map((item: any) => ({
       type: item.asset_type,
       value: currencyMode === 'CNY' ? item.total_cny : item.total_usd,
       currency: currencyMode,
     }));
+  }
+  // 饼图只显示前10大资产，其他合并为“其他”
+  if (chartData.length > 10) {
+    const sorted = chartData.sort((a, b) => b.value - a.value);
+    const top10 = sorted.slice(0, 10);
+    const otherValue = sorted.slice(10).reduce((sum, item) => sum + item.value, 0);
+    top10.push({ type: '其他', value: otherValue, currency: chartData[0].currency });
+    chartData = top10;
   }
 
   const config = {
@@ -62,8 +60,7 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
     radius: 0.9,
     label: {
       type: 'spider',
-      labelHeight: 28,
-      content: '{name}\n{percentage}',
+      formatter: (datum: any) => `${datum.type}: ${(datum.percent * 100).toFixed(2)}%`,
     },
     interactions: [{ type: 'element-active' }],
     legend: { position: 'top' },
@@ -84,7 +81,7 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
           <Radio.Button value="BOTH">双基准</Radio.Button>
         </Radio.Group>
       </Space>
-      <Pie {...config} />
+      {chartData.length === 0 ? <Empty description="暂无分布数据" /> : <Pie {...config} />}
     </Spin>
   );
 };
