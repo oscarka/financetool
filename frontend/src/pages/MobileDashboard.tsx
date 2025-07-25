@@ -11,7 +11,6 @@ import {
     RightOutlined,
     DollarOutlined,
     BankOutlined,
-    FireOutlined,
     ClockCircleOutlined,
     ExclamationCircleOutlined,
     CheckCircleOutlined,
@@ -211,9 +210,9 @@ const MobileDashboard: React.FC = () => {
                         </Text>
                     </div>
                     <div className="mobile-welcome-right">
-                        <Avatar size={48} icon={<UserOutlined />} className="mobile-avatar" />
+                        <Avatar size={36} icon={<UserOutlined />} className="mobile-avatar" />
                         <Badge count={3} size="small" className="mobile-notification-badge">
-                            <BellOutlined style={{ color: 'white', fontSize: '20px' }} />
+                            <BellOutlined style={{ color: 'white', fontSize: '16px' }} />
                         </Badge>
                     </div>
                 </div>
@@ -224,7 +223,7 @@ const MobileDashboard: React.FC = () => {
                 title={
                     <div className="mobile-card-title">
                         <span>核心指标</span>
-                        <Tag color="blue" style={{ marginLeft: 8 }}>实时</Tag>
+                        <Tag color="blue" style={{ marginLeft: 8, fontSize: '10px' }}>实时</Tag>
                     </div>
                 } 
                 bordered={false} 
@@ -233,7 +232,7 @@ const MobileDashboard: React.FC = () => {
                 loading={loading}
             >
                 {stats && (
-                    <Row gutter={[12, 12]}>
+                    <Row gutter={[8, 8]}>
                         <Col xs={12}>
                             <Card size="small" className="mobile-metric-card">
                                 <Statistic
@@ -242,7 +241,7 @@ const MobileDashboard: React.FC = () => {
                                     precision={0}
                                     valueStyle={{
                                         color: '#1890ff',
-                                        fontSize: '20px',
+                                        fontSize: '16px',
                                         fontWeight: 'bold',
                                         letterSpacing: 1
                                     }}
@@ -255,7 +254,7 @@ const MobileDashboard: React.FC = () => {
                                         />
                                     )}
                                 />
-                                <Space style={{ marginTop: 8 }}>
+                                <Space style={{ marginTop: 4 }}>
                                     {safeNumber(stats.total_profit) >= 0 ? (
                                         <ArrowUpOutlined style={{ color: '#3f8600' }} />
                                     ) : (
@@ -263,7 +262,7 @@ const MobileDashboard: React.FC = () => {
                                     )}
                                     <Text style={{ 
                                         color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
-                                        fontSize: '12px'
+                                        fontSize: '11px'
                                     }}>
                                         {formatPercent(stats.total_profit_rate)}
                                     </Text>
@@ -272,7 +271,7 @@ const MobileDashboard: React.FC = () => {
                                     percent={Math.min(Math.abs(safeNumber(stats.total_profit_rate) * 100), 100)} 
                                     showInfo={false} 
                                     size="small"
-                                    style={{ marginTop: 8 }}
+                                    style={{ marginTop: 4 }}
                                     strokeColor={safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322'}
                                 />
                             </Card>
@@ -285,7 +284,7 @@ const MobileDashboard: React.FC = () => {
                                     precision={0}
                                     valueStyle={{
                                         color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
-                                        fontSize: '20px',
+                                        fontSize: '16px',
                                         fontWeight: 'bold',
                                         letterSpacing: 1
                                     }}
@@ -298,7 +297,7 @@ const MobileDashboard: React.FC = () => {
                                         />
                                     )}
                                 />
-                                <Space style={{ marginTop: 8 }}>
+                                <Space style={{ marginTop: 4 }}>
                                     {safeNumber(stats.total_profit) >= 0 ? (
                                         <ArrowUpOutlined style={{ color: '#3f8600' }} />
                                     ) : (
@@ -306,7 +305,7 @@ const MobileDashboard: React.FC = () => {
                                     )}
                                     <Text style={{ 
                                         color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
-                                        fontSize: '12px'
+                                        fontSize: '11px'
                                     }}>
                                         {formatPercent(stats.total_profit_rate)}
                                     </Text>
@@ -315,7 +314,7 @@ const MobileDashboard: React.FC = () => {
                                     percent={Math.min(Math.abs(safeNumber(stats.total_profit_rate) * 100), 100)} 
                                     showInfo={false} 
                                     size="small"
-                                    style={{ marginTop: 8 }}
+                                    style={{ marginTop: 4 }}
                                     strokeColor={safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322'}
                                 />
                             </Card>
@@ -327,35 +326,35 @@ const MobileDashboard: React.FC = () => {
             {/* 投资概览 */}
             {stats && (
                 <Card 
-                    title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>投资概览</span>} 
+                    title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>投资概览</span>} 
                     bordered={false} 
                     className="mobile-overview-card"
                 >
-                    <Row gutter={[12, 12]}>
+                    <Row gutter={[8, 8]}>
                         <Col xs={12}>
                             <div className="mobile-overview-block mobile-overview-block-blue">
-                                <DollarOutlined style={{ color: '#1890ff', fontSize: '16px', marginBottom: '4px' }} />
-                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                <DollarOutlined style={{ color: '#1890ff', fontSize: '14px', marginBottom: '2px' }} />
+                                <Text type="secondary" style={{ fontSize: '11px' }}>
                                     累计投入
                                 </Text>
                                 <div className="mobile-overview-amount">
                                     ¥{formatAmount(stats.total_invested)}
                                 </div>
-                                <Text style={{ color: '#1890ff', fontSize: '12px' }}>
+                                <Text style={{ color: '#1890ff', fontSize: '11px' }}>
                                     本金
                                 </Text>
                             </div>
                         </Col>
                         <Col xs={12}>
                             <div className="mobile-overview-block mobile-overview-block-purple">
-                                <BankOutlined style={{ color: '#722ed1', fontSize: '16px', marginBottom: '4px' }} />
-                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                <BankOutlined style={{ color: '#722ed1', fontSize: '14px', marginBottom: '2px' }} />
+                                <Text type="secondary" style={{ fontSize: '11px' }}>
                                     持仓数量
                                 </Text>
                                 <div className="mobile-overview-amount">
                                     {stats.asset_count || 0}
                                 </div>
-                                <Text style={{ color: '#722ed1', fontSize: '12px' }}>
+                                <Text style={{ color: '#722ed1', fontSize: '11px' }}>
                                     个基金
                                 </Text>
                             </div>
@@ -366,7 +365,7 @@ const MobileDashboard: React.FC = () => {
 
             {/* 资产趋势 */}
             <Card 
-                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>资产趋势</span>} 
+                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>资产趋势</span>} 
                 bordered={false}
                 className="mobile-chart-card"
             >
@@ -375,127 +374,128 @@ const MobileDashboard: React.FC = () => {
                 </div>
             </Card>
 
-            {/* 热门基金 */}
+            {/* 热门基金和最近操作合并 */}
             <Card 
-                title={
-                    <div className="mobile-card-title">
-                        <span>热门基金</span>
-                        <FireOutlined style={{ color: '#ff4d4f', marginLeft: 4 }} />
-                    </div>
-                } 
+                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>热门基金 & 最近操作</span>} 
                 bordered={false}
                 className="mobile-hot-funds-card"
             >
-                <List
-                    size="small"
-                    dataSource={hotFunds}
-                    renderItem={(item) => (
-                        <List.Item className="mobile-hot-fund-item">
-                            <div className="mobile-hot-fund-info">
-                                <div className="mobile-hot-fund-name">{item.name}</div>
-                                <div className="mobile-hot-fund-code">{item.code}</div>
-                            </div>
-                            <div className="mobile-hot-fund-rate">
-                                <Text style={{ 
-                                    color: item.trend === 'up' ? '#3f8600' : '#cf1322',
-                                    fontWeight: 'bold'
-                                }}>
-                                    {item.rate}
-                                </Text>
-                                {item.trend === 'up' ? (
-                                    <ArrowUpOutlined style={{ color: '#3f8600', marginLeft: 4 }} />
-                                ) : (
-                                    <ArrowDownOutlined style={{ color: '#cf1322', marginLeft: 4 }} />
-                                )}
-                            </div>
-                        </List.Item>
-                    )}
-                />
+                <Row gutter={[8, 8]}>
+                    <Col xs={12}>
+                        <div style={{ marginBottom: 8 }}>
+                            <Text strong style={{ fontSize: '12px', color: '#666' }}>热门基金</Text>
+                        </div>
+                        <List
+                            size="small"
+                            dataSource={hotFunds.slice(0, 2)}
+                            renderItem={(item) => (
+                                <List.Item className="mobile-hot-fund-item" style={{ padding: '4px 0 !important' }}>
+                                    <div className="mobile-hot-fund-info">
+                                        <div className="mobile-hot-fund-name">{item.name}</div>
+                                        <div className="mobile-hot-fund-code">{item.code}</div>
+                                    </div>
+                                    <div className="mobile-hot-fund-rate">
+                                        <Text style={{ 
+                                            color: item.trend === 'up' ? '#3f8600' : '#cf1322',
+                                            fontWeight: 'bold',
+                                            fontSize: '11px'
+                                        }}>
+                                            {item.rate}
+                                        </Text>
+                                        {item.trend === 'up' ? (
+                                            <ArrowUpOutlined style={{ color: '#3f8600', marginLeft: 2, fontSize: '10px' }} />
+                                        ) : (
+                                            <ArrowDownOutlined style={{ color: '#cf1322', marginLeft: 2, fontSize: '10px' }} />
+                                        )}
+                                    </div>
+                                </List.Item>
+                            )}
+                        />
+                    </Col>
+                    <Col xs={12}>
+                        <div style={{ marginBottom: 8 }}>
+                            <Text strong style={{ fontSize: '12px', color: '#666' }}>最近操作</Text>
+                        </div>
+                        <List
+                            size="small"
+                            dataSource={recentOperations.slice(0, 2)}
+                            renderItem={(item) => (
+                                <List.Item className="mobile-recent-item" style={{ padding: '4px 0 !important' }}>
+                                    <div className="mobile-recent-icon">
+                                        {getStatusIcon(item.status)}
+                                    </div>
+                                    <div className="mobile-recent-content">
+                                        <div className="mobile-recent-title">
+                                            {item.type} - {item.fund}
+                                        </div>
+                                        <div className="mobile-recent-time">
+                                            {item.time}
+                                        </div>
+                                    </div>
+                                    <div className="mobile-recent-amount">
+                                        ¥{item.amount.toLocaleString()}
+                                    </div>
+                                </List.Item>
+                            )}
+                        />
+                    </Col>
+                </Row>
             </Card>
 
             {/* 快速操作 */}
             <Card 
-                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>快速操作</span>} 
+                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>快速操作</span>} 
                 bordered={false}
                 className="mobile-action-card"
             >
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Row gutter={[8, 8]}>
                     {quickActions.map((action) => {
                         const IconComponent = action.icon
                         return (
-                            <Card
-                                key={action.title}
-                                size="small"
-                                hoverable
-                                className="mobile-action-item"
-                                onClick={() => navigate(action.path)}
-                            >
-                                <div className="mobile-action-item-inner">
-                                    <Space>
-                                        <div className="mobile-action-icon" style={{ background: action.color }}>
-                                            <IconComponent style={{ color: 'white', fontSize: '18px' }} />
-                                        </div>
-                                        <div>
-                                            <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
-                                                {action.title}
-                                                {action.badge && (
-                                                    <Tag color="red" style={{ marginLeft: 8, fontSize: '10px' }}>
-                                                        {action.badge}
-                                                    </Tag>
-                                                )}
+                            <Col xs={12} key={action.title}>
+                                <Card
+                                    size="small"
+                                    hoverable
+                                    className="mobile-action-item"
+                                    onClick={() => navigate(action.path)}
+                                >
+                                    <div className="mobile-action-item-inner">
+                                        <Space>
+                                            <div className="mobile-action-icon" style={{ background: action.color }}>
+                                                <IconComponent style={{ color: 'white', fontSize: '14px' }} />
                                             </div>
-                                            <Text type="secondary" style={{ fontSize: '12px' }}>
-                                                {action.description}
-                                            </Text>
-                                        </div>
-                                    </Space>
-                                    <RightOutlined style={{ color: '#999' }} />
-                                </div>
-                            </Card>
+                                            <div>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '1px', fontSize: '12px' }}>
+                                                    {action.title}
+                                                    {action.badge && (
+                                                        <Tag color="red" style={{ marginLeft: 4, fontSize: '9px' }}>
+                                                            {action.badge}
+                                                        </Tag>
+                                                    )}
+                                                </div>
+                                                <Text type="secondary" style={{ fontSize: '10px' }}>
+                                                    {action.description}
+                                                </Text>
+                                            </div>
+                                        </Space>
+                                        <RightOutlined style={{ color: '#999', fontSize: '10px' }} />
+                                    </div>
+                                </Card>
+                            </Col>
                         )
                     })}
-                </Space>
-            </Card>
-
-            {/* 最近操作 */}
-            <Card 
-                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>最近操作</span>} 
-                bordered={false}
-                className="mobile-recent-card"
-            >
-                <List
-                    size="small"
-                    dataSource={recentOperations}
-                    renderItem={(item) => (
-                        <List.Item className="mobile-recent-item">
-                            <div className="mobile-recent-icon">
-                                {getStatusIcon(item.status)}
-                            </div>
-                            <div className="mobile-recent-content">
-                                <div className="mobile-recent-title">
-                                    {item.type} - {item.fund}
-                                </div>
-                                <div className="mobile-recent-time">
-                                    {item.time}
-                                </div>
-                            </div>
-                            <div className="mobile-recent-amount">
-                                ¥{item.amount.toLocaleString()}
-                            </div>
-                        </List.Item>
-                    )}
-                />
+                </Row>
             </Card>
 
             {/* 基金分布 */}
             {stats && (
                 <Card 
-                    title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>基金分布</span>} 
+                    title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>基金分布</span>} 
                     bordered={false}
                     size="small"
                     className="mobile-fund-card"
                 >
-                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
                         <div className="mobile-fund-row">
                             <Text type="secondary">总基金数</Text>
                             <Text style={{ fontWeight: 'bold' }}>{stats.asset_count} 个</Text>
@@ -509,7 +509,7 @@ const MobileDashboard: React.FC = () => {
                             <Text style={{ color: '#cf1322', fontWeight: 'bold' }}>{stats.loss_count} 个</Text>
                         </div>
                         {stats.asset_count > 0 && (
-                            <div style={{ marginTop: 12 }}>
+                            <div style={{ marginTop: 8 }}>
                                 <Progress 
                                     percent={(stats.profitable_count / stats.asset_count) * 100}
                                     showInfo={false}
@@ -533,7 +533,7 @@ const MobileDashboard: React.FC = () => {
             {/* 风险提示 */}
             <Alert
                 message="投资有风险，入市需谨慎"
-                description="本应用仅用于投资记录和分析，不构成投资建议。请根据自身风险承受能力进行投资决策。"
+                description="本应用仅用于投资记录和分析，不构成投资建议。"
                 type="warning"
                 showIcon
                 className="mobile-risk-alert"

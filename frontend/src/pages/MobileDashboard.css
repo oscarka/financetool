@@ -1,5 +1,5 @@
 .mobile-dashboard-root {
-  padding: 0 8px 20px 8px;
+  padding: 0 4px 12px 4px;
   background: #f6f8fa;
 }
 
@@ -8,8 +8,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  margin-bottom: 12px;
+  padding: 4px 0;
+  margin-bottom: 8px;
   border-bottom: 1px solid #f0f0f0;
 }
 
@@ -20,16 +20,16 @@
 
 .mobile-status-right {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 /* 欢迎区域 */
 .mobile-welcome-card {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-radius: 16px !important;
-  box-shadow: 0 4px 20px #b3b3e633;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 12px #b3b3e633;
   position: relative;
   overflow: hidden;
 }
@@ -47,7 +47,7 @@
 
 @keyframes float {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(180deg); }
+  50% { transform: translateY(-5px) rotate(180deg); }
 }
 
 .mobile-welcome-content {
@@ -56,20 +56,32 @@
   align-items: center;
   position: relative;
   z-index: 1;
+  padding: 8px 0;
 }
 
 .mobile-welcome-left {
   flex: 1;
 }
 
+.mobile-welcome-left h4 {
+  margin: 0 0 2px 0 !important;
+  font-size: 16px !important;
+}
+
+.mobile-welcome-left .ant-typography {
+  font-size: 12px !important;
+}
+
 .mobile-welcome-right {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .mobile-avatar {
+  width: 36px !important;
+  height: 36px !important;
   border: 2px solid rgba(255,255,255,0.3);
   background: rgba(255,255,255,0.2);
 }
@@ -78,49 +90,83 @@
   position: relative;
 }
 
+.mobile-notification-badge .ant-badge-count {
+  min-width: 16px !important;
+  height: 16px !important;
+  line-height: 16px !important;
+  font-size: 10px !important;
+}
+
 /* 卡片标题 */
 .mobile-card-title {
   display: flex;
   align-items: center;
   font-weight: 600;
   color: #1d39c4;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* 基础卡片样式 */
 .mobile-core-card, .mobile-overview-card, .mobile-chart-card, .mobile-action-card, .mobile-fund-card, .mobile-hot-funds-card, .mobile-recent-card {
-  margin-bottom: 16px;
-  border-radius: 14px !important;
-  box-shadow: 0 2px 8px #f0f1f2 !important;
+  margin-bottom: 8px;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 4px #f0f1f2 !important;
   background: #fff;
   transition: all 0.3s ease;
 }
 
+.mobile-core-card .ant-card-head {
+  min-height: 36px !important;
+  padding: 0 12px !important;
+}
+
+.mobile-core-card .ant-card-head-title {
+  padding: 8px 0 !important;
+  font-size: 14px !important;
+}
+
+.mobile-core-card .ant-card-body {
+  padding: 8px 12px !important;
+}
+
 .mobile-core-card:hover, .mobile-overview-card:hover, .mobile-chart-card:hover, .mobile-action-card:hover, .mobile-fund-card:hover, .mobile-hot-funds-card:hover, .mobile-recent-card:hover {
-  box-shadow: 0 4px 16px #d6e4ff44 !important;
-  transform: translateY(-2px);
+  box-shadow: 0 2px 8px #d6e4ff44 !important;
+  transform: translateY(-1px);
 }
 
 /* 指标卡片 */
 .mobile-metric-card {
   text-align: center;
-  border-radius: 12px !important;
-  box-shadow: 0 1px 6px #e6f7ff33;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px #e6f7ff33;
   background: #fafdff;
   transition: all 0.3s ease;
   border: 1px solid #e6f7ff;
 }
 
+.mobile-metric-card .ant-card-body {
+  padding: 8px !important;
+}
+
+.mobile-metric-card .ant-statistic-title {
+  font-size: 12px !important;
+  margin-bottom: 4px !important;
+}
+
+.mobile-metric-card .ant-statistic-content {
+  font-size: 16px !important;
+}
+
 .mobile-metric-card:hover {
-  box-shadow: 0 4px 16px #bae7ff66;
-  transform: scale(1.02);
+  box-shadow: 0 2px 8px #bae7ff66;
+  transform: scale(1.01);
 }
 
 /* 概览块 */
 .mobile-overview-block {
   text-align: center;
-  padding: 16px 0;
-  border-radius: 12px;
+  padding: 8px 0;
+  border-radius: 8px;
   margin-bottom: 0;
   background: #f6f8fa;
   transition: all 0.3s ease;
@@ -128,8 +174,8 @@
 }
 
 .mobile-overview-block:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px #d6e4ff44;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px #d6e4ff44;
 }
 
 .mobile-overview-block-blue {
@@ -143,9 +189,9 @@
 }
 
 .mobile-overview-amount {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: bold;
-  margin: 4px 0;
+  margin: 2px 0;
   color: #1890ff;
 }
 
@@ -154,8 +200,12 @@
   background: linear-gradient(135deg, #fff7e6 0%, #fff2e8 100%);
 }
 
+.mobile-hot-funds-card .ant-card-body {
+  padding: 8px 12px !important;
+}
+
 .mobile-hot-fund-item {
-  padding: 12px 0 !important;
+  padding: 6px 0 !important;
   border-bottom: 1px solid #f0f0f0;
   transition: all 0.2s ease;
 }
@@ -166,8 +216,8 @@
 
 .mobile-hot-fund-item:hover {
   background: #fafafa;
-  padding-left: 8px;
-  border-radius: 8px;
+  padding-left: 4px;
+  border-radius: 6px;
 }
 
 .mobile-hot-fund-info {
@@ -177,18 +227,19 @@
 .mobile-hot-fund-name {
   font-weight: 600;
   color: #262626;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
+  font-size: 13px;
 }
 
 .mobile-hot-fund-code {
-  font-size: 12px;
+  font-size: 11px;
   color: #8c8c8c;
 }
 
 .mobile-hot-fund-rate {
   display: flex;
   align-items: center;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 /* 最近操作 */
@@ -196,8 +247,12 @@
   background: linear-gradient(135deg, #f6ffed 0%, #fcffe6 100%);
 }
 
+.mobile-recent-card .ant-card-body {
+  padding: 8px 12px !important;
+}
+
 .mobile-recent-item {
-  padding: 12px 0 !important;
+  padding: 6px 0 !important;
   border-bottom: 1px solid #f0f0f0;
   transition: all 0.2s ease;
 }
@@ -208,13 +263,13 @@
 
 .mobile-recent-item:hover {
   background: #fafafa;
-  padding-left: 8px;
-  border-radius: 8px;
+  padding-left: 4px;
+  border-radius: 6px;
 }
 
 .mobile-recent-icon {
-  margin-right: 12px;
-  font-size: 16px;
+  margin-right: 8px;
+  font-size: 14px;
 }
 
 .mobile-recent-content {
@@ -224,24 +279,29 @@
 .mobile-recent-title {
   font-weight: 600;
   color: #262626;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
+  font-size: 13px;
 }
 
 .mobile-recent-time {
-  font-size: 12px;
+  font-size: 11px;
   color: #8c8c8c;
 }
 
 .mobile-recent-amount {
   font-weight: 600;
   color: #1890ff;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 /* 快速操作 */
+.mobile-action-card .ant-card-body {
+  padding: 8px 12px !important;
+}
+
 .mobile-action-item {
-  border-radius: 12px !important;
-  box-shadow: 0 1px 6px #e6f7ff33;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px #e6f7ff33;
   background: #fafdff;
   margin-bottom: 0;
   cursor: pointer;
@@ -249,9 +309,13 @@
   border: 1px solid #e6f7ff !important;
 }
 
+.mobile-action-item .ant-card-body {
+  padding: 6px 8px !important;
+}
+
 .mobile-action-item:hover {
-  box-shadow: 0 6px 20px #bae7ff66;
-  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 3px 10px #bae7ff66;
+  transform: translateY(-2px) scale(1.01);
   border-color: #91d5ff !important;
 }
 
@@ -259,75 +323,115 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .mobile-action-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px #d6e4ff44;
+  box-shadow: 0 1px 4px #d6e4ff44;
   transition: all 0.3s ease;
 }
 
+.mobile-action-icon .anticon {
+  font-size: 14px !important;
+}
+
 .mobile-action-item:hover .mobile-action-icon {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px #d6e4ff66;
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px #d6e4ff66;
 }
 
 /* 基金分布 */
+.mobile-fund-card .ant-card-body {
+  padding: 8px 12px !important;
+}
+
 .mobile-fund-row {
   display: flex;
   justify-content: space-between;
-  font-size: 15px;
-  padding: 4px 0;
+  font-size: 13px;
+  padding: 2px 0;
 }
 
 .mobile-fund-progress-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 11px;
 }
 
 /* 风险提示 */
 .mobile-risk-alert {
-  margin-top: 16px;
-  border-radius: 12px !important;
+  margin-top: 8px;
+  border-radius: 8px !important;
   border: 1px solid #ffe7ba;
   background: linear-gradient(135deg, #fff7e6 0%, #fff2e8 100%);
+}
+
+.mobile-risk-alert .ant-alert-message {
+  font-size: 12px !important;
+}
+
+.mobile-risk-alert .ant-alert-description {
+  font-size: 11px !important;
+}
+
+/* 图表卡片优化 */
+.mobile-chart-card .ant-card-body {
+  padding: 8px 12px !important;
+}
+
+/* 概览卡片优化 */
+.mobile-overview-card .ant-card-body {
+  padding: 8px 12px !important;
 }
 
 /* 响应式调整 */
 @media (max-width: 480px) {
   .mobile-dashboard-root {
-    padding: 0 4px 16px 4px;
+    padding: 0 2px 8px 2px;
   }
   
   .mobile-welcome-content {
     flex-direction: column;
     text-align: center;
-    gap: 12px;
+    gap: 6px;
+    padding: 6px 0;
   }
   
   .mobile-welcome-right {
     flex-direction: row;
-    gap: 16px;
+    gap: 8px;
+  }
+  
+  .mobile-avatar {
+    width: 32px !important;
+    height: 32px !important;
   }
   
   .mobile-overview-amount {
-    font-size: 18px;
-  }
-  
-  .mobile-hot-fund-name, .mobile-recent-title {
     font-size: 14px;
   }
   
+  .mobile-hot-fund-name, .mobile-recent-title {
+    font-size: 12px;
+  }
+  
   .mobile-hot-fund-code, .mobile-recent-time {
-    font-size: 11px;
+    font-size: 10px;
+  }
+  
+  .mobile-metric-card .ant-statistic-content {
+    font-size: 14px !important;
+  }
+  
+  .mobile-metric-card .ant-statistic-title {
+    font-size: 11px !important;
   }
 }
 
@@ -335,7 +439,7 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -344,13 +448,13 @@
 }
 
 .mobile-core-card, .mobile-overview-card, .mobile-chart-card, .mobile-hot-funds-card, .mobile-action-card, .mobile-recent-card, .mobile-fund-card {
-  animation: fadeInUp 0.6s ease-out;
+  animation: fadeInUp 0.4s ease-out;
 }
 
-.mobile-core-card { animation-delay: 0.1s; }
-.mobile-overview-card { animation-delay: 0.2s; }
-.mobile-chart-card { animation-delay: 0.3s; }
-.mobile-hot-funds-card { animation-delay: 0.4s; }
-.mobile-action-card { animation-delay: 0.5s; }
-.mobile-recent-card { animation-delay: 0.6s; }
-.mobile-fund-card { animation-delay: 0.7s; }
+.mobile-core-card { animation-delay: 0.05s; }
+.mobile-overview-card { animation-delay: 0.1s; }
+.mobile-chart-card { animation-delay: 0.15s; }
+.mobile-hot-funds-card { animation-delay: 0.2s; }
+.mobile-action-card { animation-delay: 0.25s; }
+.mobile-recent-card { animation-delay: 0.3s; }
+.mobile-fund-card { animation-delay: 0.35s; }
