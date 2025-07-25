@@ -39,7 +39,9 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
     colorField: 'type',
     radius: 0.6,
     label: {
-      type: 'outer',
+      type: 'spider',
+      labelHeight: 28,
+      content: '{name}\n{percentage}',
     },
     legend: { position: 'bottom' },
     tooltip: {},
@@ -60,10 +62,6 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
           <Radio.Button value="BOTH">双基准</Radio.Button>
         </Radio.Group>
       </Space>
-      <div style={{ border: '1px solid #ddd', padding: 10, marginBottom: 10 }}>
-        <div>数据长度: {chartData.length}</div>
-        <div>数据预览: {JSON.stringify(chartData.slice(0, 2))}</div>
-      </div>
       <Pie {...config} />
     </Spin>
   );
