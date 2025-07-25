@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Line } from '@ant-design/charts';
+<<<<<<< HEAD
+import { Spin, Radio, Space } from 'antd';
+import dayjs from 'dayjs';
+=======
 import { Spin, Radio, Space, Empty } from 'antd';
+>>>>>>> origin/feature/asset-dashboard-enhance
 
 interface AssetTrendChartProps {
   baseCurrency: string | 'BOTH'; // 'CNY' | 'USD' | 'BOTH'
@@ -17,6 +22,24 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
   }, [baseCurrency]);
 
   useEffect(() => {
+<<<<<<< HEAD
+    // 彻底mock数据，无论API如何都注入
+    setLoading(true);
+    const mockData: any[] = [];
+    const baseValue = 1000000;
+    for (let i = 0; i < 30; i++) {
+      const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
+      const randomChange = (Math.random() - 0.5) * 0.1;
+      const value = baseValue * (1 + randomChange + i * 0.02);
+      mockData.push({ date, value });
+    }
+    setTrendData(mockData);
+    setLoading(false);
+  }, [currencyMode, days]);
+
+  // 简化数据处理
+  const chartData = trendData;
+=======
     // 只用mock数据，不请求API
     setLoading(true);
     setTimeout(() => {
@@ -47,19 +70,19 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
   }
   // 限制最大点数
   if (chartData.length > 90) chartData = chartData.slice(-90);
+>>>>>>> origin/feature/asset-dashboard-enhance
 
   const config = {
     data: chartData,
     xField: 'date',
     yField: 'value',
-    seriesField: 'currency',
     smooth: true,
-    height: 320,
-    color: ['#1890ff', '#52c41a'],
+    height: 280,
+    color: ['#1890ff'],
     legend: { position: 'top' },
     tooltip: { showMarkers: true },
     animation: true,
-    xAxis: { type: 'time', title: { text: '日期' } },
+    xAxis: { type: 'time' },
     yAxis: { title: { text: '总资产' } },
   };
 
