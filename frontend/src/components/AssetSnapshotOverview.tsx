@@ -4,7 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI } from '../services/api';
 import AssetTrendChart from './AssetTrendChart';
-import AssetPieChart from './AssetPieChart';
+import AssetBarChart from './AssetBarChart';
 import './AssetSnapshotOverview.css';
 import CountUp from 'react-countup';
 import { ArrowUpOutlined, PlusOutlined, DownloadOutlined, ReloadOutlined, ExclamationCircleOutlined, TrophyOutlined, RiseOutlined, DollarOutlined, BankOutlined } from '@ant-design/icons';
@@ -430,7 +430,7 @@ const AssetSnapshotOverview: React.FC = () => {
       <Row gutter={24} style={{ marginBottom: 32 }}>
         <Col xs={24} md={12}>
           <Card 
-            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产分布饼图 🥧</span>} 
+            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产类型分布条形图 📊</span>} 
             bordered={false}
             style={{ 
               background: 'linear-gradient(135deg, #f0f5ff 0%, #e0e7ff 100%)',
@@ -440,7 +440,7 @@ const AssetSnapshotOverview: React.FC = () => {
             }}
             bodyStyle={{ padding: 16 }}
           >
-            <AssetPieChart baseCurrency={baseCurrency} />
+            <AssetBarChart />
           </Card>
         </Col>
         <Col xs={24} md={12}>
