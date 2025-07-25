@@ -49,6 +49,7 @@ const ExchangeRates: React.FC = () => {
     const [toCurrency, setToCurrency] = useState<string>('CNY');
     const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
     const [convertLoading, setConvertLoading] = useState(false);
+    const [timeGranularity, setTimeGranularity] = useState<'day' | 'half_day' | 'hour' | 'raw'>('day');
 
     // 获取所有汇率
     const fetchRates = async () => {
@@ -89,6 +90,23 @@ const ExchangeRates: React.FC = () => {
         }
     };
 
+    // 获取汇率快照历史（支持时间粒度）
+    const fetchExchangeRateSnapshots = async () => {
+        try {
+            const response = await exchangeRateAPI.getExchangeRateSnapshots({
+                from_currency: selectedCurrency,
+                to_currency: 'CNY',
+                time_granularity: timeGranularity,
+                days: 30
+            });
+            if (response.success) {
+                setHistoricalData(response.data);
+            }
+        } catch (error) {
+            console.error('获取汇率快照失败:', error);
+        }
+    };
+
     // 货币转换
     const handleConvert = async () => {
         setConvertLoading(true);
@@ -115,9 +133,9 @@ const ExchangeRates: React.FC = () => {
 
     useEffect(() => {
         if (selectedCurrency) {
-            fetchHistoricalRates();
+            fetchExchangeRateSnapshots();
         }
-    }, [selectedCurrency]);
+    }, [selectedCurrency, timeGranularity]);
 
     const columns = [
         {
@@ -166,9 +184,15 @@ const ExchangeRates: React.FC = () => {
 
     const historicalColumns = [
         {
-            title: '日期',
-            dataIndex: 'date',
-            key: 'date',
+            title: '时间',
+            dataIndex: timeGranularity === 'raw' ? 'snapshot_time' : 'time_period',
+            key: 'time',
+            render: (value: string) => {
+                if (timeGranularity === 'raw') {
+                    return new Date(value).toLocaleString();
+                }
+                return value;
+            },
         },
         {
             title: '汇率',
@@ -177,24 +201,24 @@ const ExchangeRates: React.FC = () => {
             render: (value: number) => value.toFixed(4),
         },
         {
-            title: '涨跌',
-            dataIndex: 'change',
-            key: 'change',
-            render: (value: number) => (
-                <span style={{ color: value >= 0 ? '#52c41a' : '#ff4d4f' }}>
-                    {value >= 0 ? '+' : ''}{value.toFixed(4)}
-                </span>
-            ),
+            title: '货币对',
+            dataIndex: 'from_currency',
+            key: 'currency_pair',
+            render: (value: string, record: any) => `${value}/${record.to_currency}`,
         },
         {
-            title: '涨跌幅',
-            dataIndex: 'change_pct',
-            key: 'change_pct',
-            render: (value: number) => (
-                <span style={{ color: value >= 0 ? '#52c41a' : '#ff4d4f' }}>
-                    {value >= 0 ? '+' : ''}{value.toFixed(2)}%
-                </span>
-            ),
+            title: '数据源',
+            dataIndex: 'source',
+            key: 'source',
+            render: (value: string) => {
+                const sourceMap: { [key: string]: string } = {
+                    'wise': 'Wise',
+                    'cache': '缓存',
+                    'calculated': '计算',
+                    'okx_cache': 'OKX缓存'
+                };
+                return sourceMap[value] || value;
+            },
         },
     ];
 
@@ -374,9 +398,19 @@ const ExchangeRates: React.FC = () => {
                                         </Option>
                                     ))}
                                 </Select>
+                                <Select
+                                    value={timeGranularity}
+                                    onChange={setTimeGranularity}
+                                    style={{ width: 100 }}
+                                >
+                                    <Option value="raw">原始数据</Option>
+                                    <Option value="hour">按小时</Option>
+                                    <Option value="half_day">按半天</Option>
+                                    <Option value="day">按天</Option>
+                                </Select>
                                 <Button
                                     icon={<ReloadOutlined />}
-                                    onClick={fetchHistoricalRates}
+                                    onClick={fetchExchangeRateSnapshots}
                                 >
                                     刷新
                                 </Button>
@@ -386,7 +420,7 @@ const ExchangeRates: React.FC = () => {
                         <Table
                             columns={historicalColumns}
                             dataSource={historicalData}
-                            rowKey="date"
+                            rowKey={timeGranularity === 'raw' ? 'id' : 'datetime'}
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,
