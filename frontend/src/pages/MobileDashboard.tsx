@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import { fundAPI } from '../services/api'
 import AssetTrendChart from '../components/AssetTrendChart';
 import AssetPieChart from '../components/AssetPieChart';
+import SnapshotManagement from '../components/SnapshotManagement';
 
 const { Title, Text } = Typography
 
@@ -383,6 +384,9 @@ const MobileDashboard: React.FC = () => {
                     </Space>
                 </Card>
             )}
+
+            {/* 快照管理 */}
+            <SnapshotManagement />
         </div>
     )
 }

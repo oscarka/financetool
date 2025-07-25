@@ -498,12 +498,29 @@ export const snapshotAPI = {
         api.post('/snapshot/extract', {}),
 
     // 获取资产快照趋势
-    getAssetTrend: (params?: any): Promise<APIResponse> =>
+    getAssetTrend: (params?: {
+        platform?: string;
+        asset_type?: string;
+        currency?: string;
+        base_currency?: string;
+        days?: number;
+        time_granularity?: 'day' | 'half_day' | 'hour';
+    }): Promise<APIResponse> =>
         api.get('/snapshot/assets/trend', { params }),
 
     // 获取汇率快照
-    getExchangeRateSnapshots: (params?: any): Promise<APIResponse> =>
+    getExchangeRateSnapshots: (params?: {
+        from_currency?: string;
+        to_currency?: string;
+        start?: string;
+        end?: string;
+        time_granularity?: 'day' | 'half_day' | 'hour' | 'raw';
+    }): Promise<APIResponse> =>
         api.get('/snapshot/exchange-rates', { params }),
+
+    // 主动触发汇率快照
+    extractExchangeRateSnapshot: (): Promise<APIResponse> =>
+        api.post('/snapshot/extract-exchange-rates', {}),
 }
 
 export default api 
