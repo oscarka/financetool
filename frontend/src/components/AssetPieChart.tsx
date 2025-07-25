@@ -31,9 +31,6 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
     setLoading(false);
   }, [currencyMode]);
 
-  // 简化数据处理
-  const chartData = pieData;
-
   const config = {
     data: pieData,
     angleField: 'value',
