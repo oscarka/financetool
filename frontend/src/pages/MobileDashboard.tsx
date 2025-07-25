@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Statistic, Typography, Space, Progress } from 'antd'
+import { Card, Row, Col, Statistic, Typography, Space, Progress, Tag, Alert, Button, Avatar, List, Badge } from 'antd'
 import {
     ArrowUpOutlined,
     ArrowDownOutlined,
@@ -8,11 +8,23 @@ import {
     PieChartOutlined,
     LineChartOutlined,
     EyeOutlined,
-    RightOutlined
+    RightOutlined,
+    DollarOutlined,
+    BankOutlined,
+    FireOutlined,
+    ClockCircleOutlined,
+    ExclamationCircleOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    ReloadOutlined,
+    SettingOutlined,
+    BellOutlined,
+    UserOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { fundAPI } from '../services/api'
 import AssetTrendChart from '../components/AssetTrendChart';
+import CountUp from 'react-countup';
 import './MobileDashboard.css';
 
 const { Title, Text } = Typography
@@ -31,6 +43,7 @@ const MobileDashboard: React.FC = () => {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
     const [stats, setStats] = useState<DashboardStats | null>(null)
+    const [lastUpdateTime, setLastUpdateTime] = useState<string>('')
     
     // 获取持仓汇总数据
     const fetchStats = async () => {
@@ -66,6 +79,7 @@ const MobileDashboard: React.FC = () => {
             setStats(mockStats)
         } finally {
             setLoading(false)
+            setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'))
         }
     }
 
@@ -94,57 +108,125 @@ const MobileDashboard: React.FC = () => {
         return `${numRate >= 0 ? '+' : ''}${(numRate * 100).toFixed(2)}%`
     }
 
+    // 模拟最近操作数据
+    const recentOperations = [
+        { id: 1, type: '买入', fund: '华夏成长混合', amount: 50000, time: '10:30', status: 'success' },
+        { id: 2, type: '卖出', fund: '易方达消费行业', amount: 30000, time: '09:15', status: 'success' },
+        { id: 3, type: '定投', fund: '招商中证白酒', amount: 2000, time: '昨天', status: 'pending' },
+        { id: 4, type: '赎回', fund: '广发稳健增长', amount: 15000, time: '昨天', status: 'failed' }
+    ]
+
+    // 模拟热门基金数据
+    const hotFunds = [
+        { name: '华夏成长混合', code: '000001', rate: '+5.23%', trend: 'up' },
+        { name: '易方达消费行业', code: '110022', rate: '+3.45%', trend: 'up' },
+        { name: '招商中证白酒', code: '161725', rate: '-1.67%', trend: 'down' },
+        { name: '广发稳健增长', code: '270002', rate: '+2.18%', trend: 'up' }
+    ]
+
     const quickActions = [
         {
             title: '添加操作',
             description: '记录新的投资操作',
             icon: PlusCircleOutlined,
             color: '#1890ff',
-            path: '/operations'
+            path: '/operations',
+            badge: 'new'
         },
         {
             title: '查看持仓',
             description: '查看当前投资持仓',
             icon: BarChartOutlined,
             color: '#52c41a',
-            path: '/positions'
+            path: '/positions',
+            badge: null
         },
         {
             title: '收益分析',
             description: '分析投资收益情况',
             icon: PieChartOutlined,
             color: '#faad14',
-            path: '/analysis'
+            path: '/analysis',
+            badge: null
         },
         {
             title: '基金管理',
             description: '管理基金投资',
             icon: LineChartOutlined,
             color: '#722ed1',
-            path: '/funds'
+            path: '/funds',
+            badge: null
         }
     ]
 
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'success': return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+            case 'pending': return <ClockCircleOutlined style={{ color: '#faad14' }} />
+            case 'failed': return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+            default: return <ExclamationCircleOutlined style={{ color: '#1890ff' }} />
+        }
+    }
+
     return (
         <div className="mobile-dashboard-root">
+            {/* 顶部状态栏 */}
+            <div className="mobile-status-bar">
+                <div className="mobile-status-left">
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                        <ClockCircleOutlined /> {lastUpdateTime || '刚刚更新'}
+                    </Text>
+                </div>
+                <div className="mobile-status-right">
+                    <Button 
+                        type="text" 
+                        size="small" 
+                        icon={<ReloadOutlined />} 
+                        onClick={fetchStats}
+                        loading={loading}
+                        style={{ color: '#1890ff' }}
+                    />
+                    <Button 
+                        type="text" 
+                        size="small" 
+                        icon={<SettingOutlined />} 
+                        onClick={() => navigate('/settings')}
+                        style={{ color: '#666' }}
+                    />
+                </div>
+            </div>
+
             {/* 欢迎区域 */}
             <Card 
                 bordered={false}
                 className="mobile-welcome-card"
             >
-                <Space direction="vertical" size={8}>
-                    <Title level={4} style={{ color: 'white', margin: 0, letterSpacing: 1 }}>
-                        欢迎回来！
-                    </Title>
-                    <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
-                        {stats ? '查看您的投资概况' : '正在加载投资数据...'}
-                    </Text>
-                </Space>
+                <div className="mobile-welcome-content">
+                    <div className="mobile-welcome-left">
+                        <Title level={4} style={{ color: 'white', margin: 0, letterSpacing: 1 }}>
+                            欢迎回来！
+                        </Title>
+                        <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
+                            {stats ? '查看您的投资概况' : '正在加载投资数据...'}
+                        </Text>
+                    </div>
+                    <div className="mobile-welcome-right">
+                        <Avatar size={48} icon={<UserOutlined />} className="mobile-avatar" />
+                        <Badge count={3} size="small" className="mobile-notification-badge">
+                            <BellOutlined style={{ color: 'white', fontSize: '20px' }} />
+                        </Badge>
+                    </div>
+                </div>
             </Card>
 
             {/* 核心指标 */}
             <Card 
-                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>核心指标</span>} 
+                title={
+                    <div className="mobile-card-title">
+                        <span>核心指标</span>
+                        <Tag color="blue" style={{ marginLeft: 8 }}>实时</Tag>
+                    </div>
+                } 
                 bordered={false} 
                 className="mobile-core-card"
                 extra={<EyeOutlined onClick={() => navigate('/positions')} style={{color:'#1d39c4'}} />}
@@ -165,6 +247,13 @@ const MobileDashboard: React.FC = () => {
                                         letterSpacing: 1
                                     }}
                                     prefix="¥"
+                                    formatter={(value) => (
+                                        <CountUp 
+                                            end={value as number} 
+                                            duration={2}
+                                            separator=","
+                                        />
+                                    )}
                                 />
                                 <Space style={{ marginTop: 8 }}>
                                     {safeNumber(stats.total_profit) >= 0 ? (
@@ -201,6 +290,13 @@ const MobileDashboard: React.FC = () => {
                                         letterSpacing: 1
                                     }}
                                     prefix={safeNumber(stats.total_profit) >= 0 ? '+¥' : '-¥'}
+                                    formatter={(value) => (
+                                        <CountUp 
+                                            end={value as number} 
+                                            duration={2}
+                                            separator=","
+                                        />
+                                    )}
                                 />
                                 <Space style={{ marginTop: 8 }}>
                                     {safeNumber(stats.total_profit) >= 0 ? (
@@ -238,6 +334,7 @@ const MobileDashboard: React.FC = () => {
                     <Row gutter={[12, 12]}>
                         <Col xs={12}>
                             <div className="mobile-overview-block mobile-overview-block-blue">
+                                <DollarOutlined style={{ color: '#1890ff', fontSize: '16px', marginBottom: '4px' }} />
                                 <Text type="secondary" style={{ fontSize: '12px' }}>
                                     累计投入
                                 </Text>
@@ -251,6 +348,7 @@ const MobileDashboard: React.FC = () => {
                         </Col>
                         <Col xs={12}>
                             <div className="mobile-overview-block mobile-overview-block-purple">
+                                <BankOutlined style={{ color: '#722ed1', fontSize: '16px', marginBottom: '4px' }} />
                                 <Text type="secondary" style={{ fontSize: '12px' }}>
                                     持仓数量
                                 </Text>
@@ -275,6 +373,44 @@ const MobileDashboard: React.FC = () => {
                 <div>
                     <AssetTrendChart baseCurrency="CNY" days={30} />
                 </div>
+            </Card>
+
+            {/* 热门基金 */}
+            <Card 
+                title={
+                    <div className="mobile-card-title">
+                        <span>热门基金</span>
+                        <FireOutlined style={{ color: '#ff4d4f', marginLeft: 4 }} />
+                    </div>
+                } 
+                bordered={false}
+                className="mobile-hot-funds-card"
+            >
+                <List
+                    size="small"
+                    dataSource={hotFunds}
+                    renderItem={(item) => (
+                        <List.Item className="mobile-hot-fund-item">
+                            <div className="mobile-hot-fund-info">
+                                <div className="mobile-hot-fund-name">{item.name}</div>
+                                <div className="mobile-hot-fund-code">{item.code}</div>
+                            </div>
+                            <div className="mobile-hot-fund-rate">
+                                <Text style={{ 
+                                    color: item.trend === 'up' ? '#3f8600' : '#cf1322',
+                                    fontWeight: 'bold'
+                                }}>
+                                    {item.rate}
+                                </Text>
+                                {item.trend === 'up' ? (
+                                    <ArrowUpOutlined style={{ color: '#3f8600', marginLeft: 4 }} />
+                                ) : (
+                                    <ArrowDownOutlined style={{ color: '#cf1322', marginLeft: 4 }} />
+                                )}
+                            </div>
+                        </List.Item>
+                    )}
+                />
             </Card>
 
             {/* 快速操作 */}
@@ -302,6 +438,11 @@ const MobileDashboard: React.FC = () => {
                                         <div>
                                             <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
                                                 {action.title}
+                                                {action.badge && (
+                                                    <Tag color="red" style={{ marginLeft: 8, fontSize: '10px' }}>
+                                                        {action.badge}
+                                                    </Tag>
+                                                )}
                                             </div>
                                             <Text type="secondary" style={{ fontSize: '12px' }}>
                                                 {action.description}
@@ -314,6 +455,36 @@ const MobileDashboard: React.FC = () => {
                         )
                     })}
                 </Space>
+            </Card>
+
+            {/* 最近操作 */}
+            <Card 
+                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>最近操作</span>} 
+                bordered={false}
+                className="mobile-recent-card"
+            >
+                <List
+                    size="small"
+                    dataSource={recentOperations}
+                    renderItem={(item) => (
+                        <List.Item className="mobile-recent-item">
+                            <div className="mobile-recent-icon">
+                                {getStatusIcon(item.status)}
+                            </div>
+                            <div className="mobile-recent-content">
+                                <div className="mobile-recent-title">
+                                    {item.type} - {item.fund}
+                                </div>
+                                <div className="mobile-recent-time">
+                                    {item.time}
+                                </div>
+                            </div>
+                            <div className="mobile-recent-amount">
+                                ¥{item.amount.toLocaleString()}
+                            </div>
+                        </List.Item>
+                    )}
+                />
             </Card>
 
             {/* 基金分布 */}
@@ -358,6 +529,15 @@ const MobileDashboard: React.FC = () => {
                     </Space>
                 </Card>
             )}
+
+            {/* 风险提示 */}
+            <Alert
+                message="投资有风险，入市需谨慎"
+                description="本应用仅用于投资记录和分析，不构成投资建议。请根据自身风险承受能力进行投资决策。"
+                type="warning"
+                showIcon
+                className="mobile-risk-alert"
+            />
         </div>
     )
 }
