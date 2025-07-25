@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input, Affix, Divider, Statistic, Progress, Tag, Alert, Space } from 'antd';
+=======
+import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input, Statistic } from 'antd';
+>>>>>>> origin/feature/asset-dashboard-enhance
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI } from '../services/api';
 import AssetTrendChart from './AssetTrendChart';
+<<<<<<< HEAD
 import AssetBarChart from './AssetBarChart';
 import './AssetSnapshotOverview.css';
 import CountUp from 'react-countup';
 import { ArrowUpOutlined, PlusOutlined, DownloadOutlined, ReloadOutlined, ExclamationCircleOutlined, TrophyOutlined, RiseOutlined, DollarOutlined, BankOutlined } from '@ant-design/icons';
+=======
+import AssetPieChart from './AssetPieChart';
+import { DollarCircleOutlined, RiseOutlined, AppstoreOutlined, UserOutlined } from '@ant-design/icons';
+// import AssetTrendChart from './AssetTrendChart'; // 如有趋势图可解开
+>>>>>>> origin/feature/asset-dashboard-enhance
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -50,6 +60,14 @@ const AssetSnapshotOverview: React.FC = () => {
   const platforms = Array.from(new Set(assetData.map(item => item.platform))).sort();
   const assetTypes = Array.from(new Set(assetData.map(item => item.asset_type))).sort();
   const currencies = Array.from(new Set(assetData.map(item => item.currency))).sort();
+
+  // 统计信息
+  const totalAsset = assetData.reduce((sum, item) => sum + (item.base_value || 0), 0);
+  const assetTypesCount = new Set(assetData.map(item => item.asset_type)).size;
+  const platformCount = new Set(assetData.map(item => item.platform)).size;
+  // 这里24h涨跌和账户数可根据实际数据补充
+  const change24h = 0; // TODO: 可根据趋势数据计算
+  const accountCount = platformCount;
 
   const columns: ColumnsType<AssetSnapshot> = [
     { title: '平台', dataIndex: 'platform', key: 'platform', width: 100 },
@@ -230,6 +248,7 @@ const AssetSnapshotOverview: React.FC = () => {
 
   return (
     <Card title="资产快照多基准货币展示" style={{ margin: 24 }}>
+<<<<<<< HEAD
       {/* 筛选器区域 - 卡片分组+吸顶+分隔线+紧凑间距+动效+高亮 */}
       <Affix offsetTop={0}>
         <Card
@@ -334,6 +353,159 @@ const AssetSnapshotOverview: React.FC = () => {
           </Row>
         </Card>
       </Affix>
+=======
+      {/* Summary 卡片区 */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: '#f0f5ff' }}>
+            <Statistic
+              title="总资产"
+              value={totalAsset}
+              precision={2}
+              prefix={<DollarCircleOutlined style={{ color: '#1890ff' }} />}
+              valueStyle={{ color: '#1890ff', fontWeight: 'bold', fontSize: 22 }}
+              suffix={baseCurrency}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: '#f6ffed' }}>
+            <Statistic
+              title="24h涨跌"
+              value={change24h}
+              precision={2}
+              prefix={<RiseOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a', fontWeight: 'bold', fontSize: 22 }}
+              suffix="%"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: '#fffbe6' }}>
+            <Statistic
+              title="资产种类"
+              value={assetTypesCount}
+              prefix={<AppstoreOutlined style={{ color: '#faad14' }} />}
+              valueStyle={{ color: '#faad14', fontWeight: 'bold', fontSize: 22 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: '#fff0f6' }}>
+            <Statistic
+              title="账户数"
+              value={accountCount}
+              prefix={<UserOutlined style={{ color: '#eb2f96' }} />}
+              valueStyle={{ color: '#eb2f96', fontWeight: 'bold', fontSize: 22 }}
+            />
+          </Card>
+        </Col>
+      </Row>
+      {/* 快捷时间筛选按钮 */}
+      <Row gutter={8} style={{ marginBottom: 8 }}>
+        <Col>
+          <Button size="small" onClick={() => setDateRange([dayjs().startOf('week'), dayjs().endOf('week')])}>本周</Button>
+        </Col>
+        <Col>
+          <Button size="small" onClick={() => setDateRange([dayjs().startOf('month'), dayjs().endOf('month')])}>本月</Button>
+        </Col>
+        <Col>
+          <Button size="small" onClick={() => setDateRange([dayjs().subtract(3, 'month'), dayjs()])}>近三月</Button>
+        </Col>
+        <Col>
+          <Button size="small" onClick={() => setDateRange([dayjs().startOf('year'), dayjs()])}>今年</Button>
+        </Col>
+      </Row>
+      {/* 筛选器区域 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Button type="primary" onClick={handleExtractSnapshot} block>
+            主动快照
+          </Button>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select 
+            value={baseCurrency} 
+            onChange={setBaseCurrency} 
+            style={{ width: '100%' }}
+            placeholder="基准货币"
+          >
+            {baseCurrencies.map((c) => (
+              <Option key={c} value={c}>{c}</Option>
+            ))}
+          </Select>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select 
+            value={platform} 
+            onChange={setPlatform} 
+            style={{ width: '100%' }}
+            placeholder="选择平台"
+            allowClear
+          >
+            {platforms.map((p) => (
+              <Option key={p} value={p}>{p}</Option>
+            ))}
+          </Select>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Select 
+            value={assetType} 
+            onChange={setAssetType} 
+            style={{ width: '100%' }}
+            placeholder="资产类型"
+            allowClear
+          >
+            {assetTypes.map((t) => (
+              <Option key={t} value={t}>{t}</Option>
+            ))}
+          </Select>
+        </Col>
+      </Row>
+      
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Select 
+            value={currency} 
+            onChange={setCurrency} 
+            style={{ width: '100%' }}
+            placeholder="选择币种"
+            allowClear
+          >
+            {currencies.map((c) => (
+              <Option key={c} value={c}>{c}</Option>
+            ))}
+          </Select>
+        </Col>
+        <Col xs={24} sm={12} md={12}>
+          <RangePicker
+            value={dateRange}
+            onChange={handleRangeChange}
+            allowClear
+            style={{ width: '100%' }}
+            placeholder={['开始日期', '结束日期']}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Button onClick={clearFilters} block>
+            清空筛选
+          </Button>
+        </Col>
+      </Row>
+
+      {/* 搜索框 */}
+      <Row style={{ marginBottom: 16 }}>
+        <Col span={24}>
+          <Search
+            placeholder="搜索平台、资产类型、代码、币种等..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+            style={{ width: '100%' }}
+          />
+        </Col>
+      </Row>
+>>>>>>> origin/feature/asset-dashboard-enhance
 
       {/* 数据统计 */}
       <Row style={{ marginBottom: 16 }}>

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react'
+<<<<<<< HEAD
 import { Card, Row, Col, Statistic, Typography, Space, Progress, Tag, Alert, Button, Avatar, List, Badge } from 'antd'
+=======
+import { Card, Row, Col, Statistic, Typography, Space, Progress, Tabs } from 'antd'
+>>>>>>> origin/feature/asset-dashboard-enhance
 import {
-    ArrowUpOutlined,
-    ArrowDownOutlined,
     PlusCircleOutlined,
     BarChartOutlined,
     PieChartOutlined,
     LineChartOutlined,
+<<<<<<< HEAD
     EyeOutlined,
     RightOutlined,
     DollarOutlined,
@@ -19,6 +22,9 @@ import {
     SettingOutlined,
     BellOutlined,
     UserOutlined
+=======
+    RightOutlined
+>>>>>>> origin/feature/asset-dashboard-enhance
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { fundAPI } from '../services/api'
@@ -40,13 +46,11 @@ interface DashboardStats {
 
 const MobileDashboard: React.FC = () => {
     const navigate = useNavigate()
-    const [loading, setLoading] = useState(false)
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [lastUpdateTime, setLastUpdateTime] = useState<string>('')
     
     // 获取持仓汇总数据
     const fetchStats = async () => {
-        setLoading(true)
         try {
             const response = await fundAPI.getPositionSummary()
             if (response.success && response.data) {
@@ -65,6 +69,7 @@ const MobileDashboard: React.FC = () => {
                 setStats(mockStats)
             }
         } catch (error) {
+<<<<<<< HEAD
             // Mock数据 - 生成移动端统计数据
             const mockStats = {
                 total_value: 1200000,
@@ -79,6 +84,9 @@ const MobileDashboard: React.FC = () => {
         } finally {
             setLoading(false)
             setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'))
+=======
+            console.error('获取统计数据失败:', error)
+>>>>>>> origin/feature/asset-dashboard-enhance
         }
     }
 
@@ -92,20 +100,7 @@ const MobileDashboard: React.FC = () => {
         return isNaN(numValue) ? 0 : numValue
     }
 
-    // 格式化金额
-    const formatAmount = (amount: number | string) => {
-        const numAmount = safeNumber(amount)
-        return numAmount.toLocaleString('zh-CN', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        })
-    }
-
-    // 格式化百分比
-    const formatPercent = (rate: number | string) => {
-        const numRate = safeNumber(rate)
-        return `${numRate >= 0 ? '+' : ''}${(numRate * 100).toFixed(2)}%`
-    }
+    // 移除未使用的formatAmount和formatPercent
 
     // 模拟最近操作数据
     const recentOperations = [
@@ -158,6 +153,7 @@ const MobileDashboard: React.FC = () => {
         }
     ]
 
+<<<<<<< HEAD
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'success': return <CheckCircleOutlined style={{ color: '#52c41a' }} />
@@ -166,6 +162,19 @@ const MobileDashboard: React.FC = () => {
             default: return <ExclamationCircleOutlined style={{ color: '#1890ff' }} />
         }
     }
+=======
+    // 统计信息
+    const totalAsset = stats ? safeNumber(stats.total_value) : 0;
+    const assetTypesCount = stats ? stats.asset_count : 0;
+    const change24h = stats ? safeNumber(stats.total_profit_rate) * 100 : 0;
+    const accountCount = 1; // TODO: 如有多账户可补充
+
+    const mockAssets = [
+      { asset: 'BTC', amount: 2.5, cny: 432000, usd: 60000, change: 5 },
+      { asset: 'ETH', amount: 10, cny: 144000, usd: 20000, change: 2 },
+      { asset: 'USDT', amount: 5000, cny: 36000, usd: 5000, change: -1 },
+    ];
+>>>>>>> origin/feature/asset-dashboard-enhance
 
     return (
         <div className="mobile-dashboard-root">
@@ -218,6 +227,7 @@ const MobileDashboard: React.FC = () => {
                 </div>
             </Card>
 
+<<<<<<< HEAD
             {/* 核心指标 */}
             <Card 
                 title={
@@ -370,9 +380,80 @@ const MobileDashboard: React.FC = () => {
                 className="mobile-chart-card"
             >
                 <div>
+=======
+            {/* Summary 卡片区 */}
+            <Row gutter={8} style={{ marginBottom: 16 }}>
+                <Col span={12}>
+                    <Card bordered={false} style={{ background: '#f0f5ff' }}>
+                        <Statistic
+                            title="总资产"
+                            value={totalAsset}
+                            precision={2}
+                            valueStyle={{ color: '#1890ff', fontWeight: 'bold', fontSize: 18 }}
+                            prefix="¥"
+                        />
+                    </Card>
+                </Col>
+                <Col span={12}>
+                    <Card bordered={false} style={{ background: '#f6ffed' }}>
+                        <Statistic
+                            title="24h涨跌"
+                            value={change24h}
+                            precision={2}
+                            valueStyle={{ color: '#52c41a', fontWeight: 'bold', fontSize: 18 }}
+                            suffix="%"
+                        />
+                    </Card>
+                </Col>
+            </Row>
+            <Row gutter={8} style={{ marginBottom: 16 }}>
+                <Col span={12}>
+                    <Card bordered={false} style={{ background: '#fffbe6' }}>
+                        <Statistic
+                            title="资产种类"
+                            value={assetTypesCount}
+                            valueStyle={{ color: '#faad14', fontWeight: 'bold', fontSize: 18 }}
+                        />
+                    </Card>
+                </Col>
+                <Col span={12}>
+                    <Card bordered={false} style={{ background: '#fff0f6' }}>
+                        <Statistic
+                            title="账户数"
+                            value={accountCount}
+                            valueStyle={{ color: '#eb2f96', fontWeight: 'bold', fontSize: 18 }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+            {/* Tab分区展示资产分布、趋势、主要资产 */}
+            <Tabs defaultActiveKey="pie" style={{ marginBottom: 16 }}>
+                <Tabs.TabPane tab="资产分布" key="pie">
+                    <AssetPieChart baseCurrency="CNY" />
+                </Tabs.TabPane>
+                <Tabs.TabPane tab="资产趋势" key="trend">
+>>>>>>> origin/feature/asset-dashboard-enhance
                     <AssetTrendChart baseCurrency="CNY" days={30} />
-                </div>
-            </Card>
+                </Tabs.TabPane>
+                <Tabs.TabPane tab="主要资产" key="table">
+                    <Card bordered={false} style={{ margin: 0, padding: 0 }}>
+                        {mockAssets.map(item => (
+                            <div key={item.asset} style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                padding: '12px 0', borderBottom: '1px solid #f0f0f0'
+                            }}>
+                                <span style={{ fontWeight: 600 }}>{item.asset}</span>
+                                <span>{item.amount}</span>
+                                <span style={{ color: '#1890ff' }}>￥{item.cny.toLocaleString()}</span>
+                                <span style={{ color: '#52c41a' }}>${item.usd.toLocaleString()}</span>
+                                <span style={{ color: item.change >= 0 ? '#3f8600' : '#cf1322' }}>
+                                    {item.change >= 0 ? '+' : ''}{item.change}%
+                                </span>
+                            </div>
+                        ))}
+                    </Card>
+                </Tabs.TabPane>
+            </Tabs>
 
             {/* 热门基金和最近操作合并 */}
             <Card 

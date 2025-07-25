@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Line } from '@ant-design/charts';
+<<<<<<< HEAD
 import { Spin, Radio, Space } from 'antd';
 import dayjs from 'dayjs';
+=======
+import { Spin, Radio, Space, Empty } from 'antd';
+>>>>>>> origin/feature/asset-dashboard-enhance
 
 interface AssetTrendChartProps {
   baseCurrency: string | 'BOTH'; // 'CNY' | 'USD' | 'BOTH'
@@ -18,6 +22,7 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
   }, [baseCurrency]);
 
   useEffect(() => {
+<<<<<<< HEAD
     // 彻底mock数据，无论API如何都注入
     setLoading(true);
     const mockData: any[] = [];
@@ -34,6 +39,38 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
 
   // 简化数据处理
   const chartData = trendData;
+=======
+    // 只用mock数据，不请求API
+    setLoading(true);
+    setTimeout(() => {
+      setTrendData([
+        { date: '2024-06-01', total_cny: 10000, total_usd: 1500 },
+        { date: '2024-06-02', total_cny: 10200, total_usd: 1530 },
+        { date: '2024-06-03', total_cny: 10100, total_usd: 1515 },
+        { date: '2024-06-04', total_cny: 10500, total_usd: 1580 },
+        { date: '2024-06-05', total_cny: 10700, total_usd: 1600 },
+      ]);
+      setLoading(false);
+    }, 300);
+  }, [currencyMode, days]);
+
+  // 处理双基准数据
+  let chartData: any[] = [];
+  if (currencyMode === 'BOTH') {
+    chartData = trendData.flatMap((item: any) => [
+      { date: item.date, value: item.total_cny, currency: 'CNY' },
+      { date: item.date, value: item.total_usd, currency: 'USD' },
+    ]);
+  } else {
+    chartData = trendData.map((item: any) => ({
+      date: item.date,
+      value: currencyMode === 'CNY' ? item.total_cny : item.total_usd,
+      currency: currencyMode,
+    }));
+  }
+  // 限制最大点数
+  if (chartData.length > 90) chartData = chartData.slice(-90);
+>>>>>>> origin/feature/asset-dashboard-enhance
 
   const config = {
     data: chartData,
@@ -62,7 +99,7 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
           <Radio.Button value="BOTH">双基准</Radio.Button>
         </Radio.Group>
       </Space>
-      <Line {...config} />
+      {chartData.length === 0 ? <Empty description="暂无趋势数据" /> : <Line {...config} />}
     </Spin>
   );
 };
