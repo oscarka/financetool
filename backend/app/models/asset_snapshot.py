@@ -1,7 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, DECIMAL, JSON, func
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from app.models.database import Base
 
 class AssetSnapshot(Base):
     __tablename__ = 'asset_snapshot'

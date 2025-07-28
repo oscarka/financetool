@@ -19,34 +19,41 @@ def check_database_compatibility(conn):
     print("🔍 开始数据库兼容性检查...")
     issues = []
     
-    # 定义必需的表和字段（基于实际模型）
-    required_tables = {
-        'user_operations': ['id', 'operation_date', 'platform', 'asset_type', 'operation_type', 'asset_code', 'asset_name', 'amount', 'currency', 'created_at'],
-        'asset_positions': ['id', 'platform', 'asset_type', 'asset_code', 'asset_name', 'currency', 'quantity', 'current_price', 'current_value', 'last_updated'],
-        'fund_info': ['id', 'fund_code', 'fund_name', 'fund_type', 'created_at'],
-        'fund_nav': ['id', 'fund_code', 'nav_date', 'nav', 'created_at'],
-        'fund_dividend': ['id', 'fund_code', 'dividend_date', 'dividend_amount', 'created_at'],
-        'dca_plans': ['id', 'plan_name', 'platform', 'asset_type', 'asset_code', 'asset_name', 'amount', 'currency', 'frequency', 'smart_dca', 'skip_holidays', 'enable_notification', 'created_at'],
-        'exchange_rates': ['id', 'from_currency', 'to_currency', 'rate', 'rate_date', 'created_at'],
-        'system_config': ['id', 'config_key', 'config_value', 'updated_at'],
-        'wise_transactions': ['id', 'transaction_id', 'amount', 'currency', 'status', 'created_at'],
-        'wise_balances': ['id', 'account_id', 'currency', 'available_balance', 'created_at'],
-        'wise_exchange_rates': ['id', 'source_currency', 'target_currency', 'rate', 'created_at'],
-        'ibkr_accounts': ['id', 'account_id', 'account_name', 'created_at'],
-        'ibkr_balances': ['id', 'account_id', 'currency', 'total_cash', 'created_at'],
-        'ibkr_positions': ['id', 'account_id', 'symbol', 'quantity', 'created_at'],
-        'ibkr_sync_logs': ['id', 'sync_type', 'status', 'created_at'],
-        'okx_balances': ['id', 'account_id', 'currency', 'available_balance', 'created_at'],
-        'okx_transactions': ['id', 'transaction_id', 'account_id', 'inst_type', 'inst_id', 'trade_id', 'order_id', 'bill_id', 'type', 'side', 'amount', 'currency', 'fee', 'fee_currency', 'price', 'quantity', 'timestamp', 'created_at', 'bal', 'bal_chg', 'ccy', 'cl_ord_id', 'exec_type', 'fill_fwd_px', 'fill_idx_px', 'fill_mark_px', 'fill_mark_vol', 'fill_px_usd', 'fill_px_vol', 'fill_time', 'from_addr', 'interest', 'mgn_mode', 'notes', 'pnl', 'pos_bal', 'pos_bal_chg', 'sub_type', 'tag', 'to_addr'],
-        'okx_positions': ['id', 'account_id', 'inst_id', 'quantity', 'created_at'],
-        'okx_market_data': ['id', 'inst_id', 'last_price', 'timestamp', 'created_at'],
-        'okx_account_overview': ['id', 'total_assets_usd', 'created_at'],
-        'web3_balances': ['id', 'project_id', 'account_id', 'total_value', 'created_at'],
-        'web3_tokens': ['id', 'project_id', 'account_id', 'token_address', 'token_name', 'token_symbol', 'created_at'],
-        'web3_transactions': ['id', 'project_id', 'account_id', 'transaction_hash', 'from_address', 'to_address', 'amount', 'created_at'],
-        'asset_snapshot': ['id', 'user_id', 'platform', 'asset_type', 'asset_code', 'asset_name', 'currency', 'balance', 'base_value', 'snapshot_time', 'created_at'],
-        'exchange_rate_snapshot': ['id', 'from_currency', 'to_currency', 'rate', 'snapshot_time', 'created_at']
-    }
+    # 动态从SQLAlchemy模型生成检查规则
+    try:
+        from app.models.database import Base
+        # 确保导入所有模型
+        from app.models import asset_snapshot
+        
+        # 获取所有模型类
+        required_tables = {}
+        
+        # 遍历所有模型，动态生成字段列表
+        for table_name in Base.metadata.tables:
+            table = Base.metadata.tables[table_name]
+            required_fields = [column.name for column in table.columns]
+            required_tables[table_name] = required_fields
+            
+        print(f"📊 动态生成检查规则: {len(required_tables)} 个表")
+        
+        # 添加特殊表的检查规则
+        special_tables = {
+            'alembic_version': ['version_num'],  # Alembic版本表
+            'audit_log': [  # 审计日志表（通过SQL创建）
+                'id', 'table_name', 'operation', 'old_data', 'new_data',
+                'source_ip', 'user_agent', 'api_key', 'request_id', 
+                'session_id', 'changed_at'
+            ]
+        }
+        
+        # 合并特殊表到检查规则中
+        required_tables.update(special_tables)
+        print(f"📊 包含特殊表后的检查规则: {len(required_tables)} 个表")
+        
+    except ImportError as e:
+        print(f"⚠️  无法导入模型，使用备用检查方法: {e}")
+        # 备用方案：使用简化的检查
+        return check_database_basic_compatibility(conn)
     
     # 检查表结构
     for table_name, required_fields in required_tables.items():
@@ -77,17 +84,18 @@ def check_database_compatibility(conn):
             if field not in existing_fields:
                 issues.append(f"❌ 表 {table_name} 缺少字段: {field}")
         
-        # 检查索引
-        result = conn.execute(text(f"""
-            SELECT indexname, indexdef
-            FROM pg_indexes 
-            WHERE tablename = '{table_name}'
-        """))
-        existing_indexes = [row[0] for row in result]
-        
-        # 检查主键索引
-        if f"{table_name}_pkey" not in existing_indexes:
-            issues.append(f"❌ 表 {table_name} 缺少主键索引")
+        # 检查索引（只对业务表检查主键索引）
+        if table_name not in ['alembic_version', 'audit_log']:
+            result = conn.execute(text(f"""
+                SELECT indexname, indexdef
+                FROM pg_indexes 
+                WHERE tablename = '{table_name}'
+            """))
+            existing_indexes = [row[0] for row in result]
+            
+            # 检查主键索引
+            if f"{table_name}_pkey" not in existing_indexes:
+                issues.append(f"❌ 表 {table_name} 缺少主键索引")
     
     # 检查 alembic_version 表
     result = conn.execute(text("""
@@ -113,6 +121,38 @@ def check_database_compatibility(conn):
         return False
     else:
         print("✅ 数据库兼容性检查通过")
+        return True
+
+def check_database_basic_compatibility(conn):
+    """基础数据库兼容性检查（备用方案）"""
+    print("🔍 执行基础数据库兼容性检查...")
+    issues = []
+    
+    # 只检查关键表的存在性
+    critical_tables = [
+        'user_operations', 'asset_positions', 'fund_info', 
+        'wise_transactions', 'okx_transactions', 'asset_snapshot'
+    ]
+    
+    for table_name in critical_tables:
+        result = conn.execute(text(f"""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' AND table_name = '{table_name}'
+            )
+        """))
+        table_exists = result.scalar()
+        
+        if not table_exists:
+            issues.append(f"❌ 关键表 {table_name} 不存在")
+    
+    if issues:
+        print("❌ 基础检查发现不一致:")
+        for issue in issues:
+            print(f"  {issue}")
+        return False
+    else:
+        print("✅ 基础数据库兼容性检查通过")
         return True
 
 def rollback_database_changes(conn):
