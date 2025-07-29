@@ -35,8 +35,8 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
           console.log('🔄 [AssetPieChart] 数据转换过程:');
           console.log('  - 原始数据:', response.data);
           console.log('  - 转换后数据:', formattedData);
-          console.log('  - CNY总计:', formattedData.reduce((sum, item) => sum + item.total_cny, 0));
-          console.log('  - USD总计:', formattedData.reduce((sum, item) => sum + item.total_usd, 0));
+          console.log('  - CNY总计:', formattedData.reduce((sum: number, item: any) => sum + item.total_cny, 0));
+          console.log('  - USD总计:', formattedData.reduce((sum: number, item: any) => sum + item.total_usd, 0));
           setPieData(formattedData);
         } else {
           console.warn('⚠️ [AssetPieChart] API返回失败，使用模拟数据');

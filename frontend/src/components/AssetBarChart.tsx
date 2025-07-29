@@ -25,7 +25,7 @@ const AssetBarChart: React.FC = () => {
           console.log('🔄 [AssetBarChart] 数据转换过程:');
           console.log('  - 原始数据:', response.data);
           console.log('  - 转换后数据:', formattedData);
-          console.log('  - 总计:', formattedData.reduce((sum, item) => sum + item.value, 0));
+          console.log('  - 总计:', formattedData.reduce((sum: number, item: any) => sum + item.value, 0));
           setData(formattedData);
         } else {
           console.warn('⚠️ [AssetBarChart] API返回失败，使用模拟数据');
