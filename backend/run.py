@@ -432,13 +432,7 @@ def safe_railway_migration():
 def check_railway_environment():
     """检查Railway环境配置"""
     is_railway = os.getenv("RAILWAY_ENVIRONMENT") is not None
-    
-    # 根据环境设置数据目录
-    if is_railway:
-        data_path = os.getenv("DATABASE_PERSISTENT_PATH", "/app/data")
-    else:
-        # 本地环境使用相对路径
-        data_path = os.getenv("DATABASE_PERSISTENT_PATH", "./data")
+    data_path = os.getenv("DATABASE_PERSISTENT_PATH", "/app/data")
     
     print(f"🚀 启动个人财务管理系统")
     print(f"📍 运行环境: {'Railway' if is_railway else '本地/其他'}")
