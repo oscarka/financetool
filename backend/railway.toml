@@ -3,7 +3,7 @@ builder = "dockerfile"
 dockerfilePath = "backend/Dockerfile"
 
 [deploy]
-startCommand = "python run.py"
+startCommand = "python backup_critical_data.py && python consolidate_migrations.py consolidate && python run.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
