@@ -15,636 +15,639 @@ branch_labels = None
 depends_on = None
 
 def upgrade():
-    # 创建所有表结构
+    # 获取数据库连接
+    connection = op.get_bind()
+    
+    # 检查表是否存在的辅助函数
+    def table_exists(table_name):
+        from sqlalchemy import text
+        result = connection.execute(text(f"""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' AND table_name = '{table_name}'
+            )
+        """))
+        return result.scalar()
+    
+    # 创建所有表结构（只创建不存在的表）
     # 1. user_operations 表
-    op.create_table('user_operations',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('operation_date', sa.DateTime(), nullable=False),
-        sa.Column('platform', sa.String(length=50), nullable=False),
-        sa.Column('asset_type', sa.String(length=50), nullable=False),
-        sa.Column('operation_type', sa.String(length=20), nullable=False),
-        sa.Column('asset_code', sa.String(length=50), nullable=False),
-        sa.Column('asset_name', sa.String(length=100), nullable=False),
-        sa.Column('amount', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('quantity', sa.DECIMAL(precision=15, scale=8), nullable=True),
-        sa.Column('price', sa.DECIMAL(precision=15, scale=4), nullable=True),
-        sa.Column('nav', sa.DECIMAL(precision=15, scale=4), nullable=True),
-        sa.Column('fee', sa.DECIMAL(precision=10, scale=4), nullable=True),
-        sa.Column('strategy', sa.Text(), nullable=True),
-        sa.Column('emotion_score', sa.Integer(), nullable=True),
-        sa.Column('tags', sa.Text(), nullable=True),
-        sa.Column('notes', sa.Text(), nullable=True),
-        sa.Column('status', sa.String(length=20), nullable=True),
-        sa.Column('dca_plan_id', sa.Integer(), nullable=True),
-        sa.Column('dca_execution_type', sa.String(length=20), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
+    if not table_exists('user_operations'):
+        op.create_table('user_operations',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('operation_date', sa.DateTime(), nullable=False),
+            sa.Column('platform', sa.String(length=50), nullable=False),
+            sa.Column('asset_type', sa.String(length=50), nullable=False),
+            sa.Column('operation_type', sa.String(length=20), nullable=False),
+            sa.Column('asset_code', sa.String(length=50), nullable=False),
+            sa.Column('asset_name', sa.String(length=100), nullable=False),
+            sa.Column('amount', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('quantity', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('price', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('nav', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('fee', sa.DECIMAL(precision=10, scale=4), nullable=True),
+            sa.Column('strategy', sa.Text(), nullable=True),
+            sa.Column('emotion_score', sa.Integer(), nullable=True),
+            sa.Column('tags', sa.Text(), nullable=True),
+            sa.Column('notes', sa.Text(), nullable=True),
+            sa.Column('status', sa.String(length=20), nullable=True),
+            sa.Column('dca_plan_id', sa.Integer(), nullable=True),
+            sa.Column('dca_execution_type', sa.String(length=20), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.Column('updated_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id')
+        )
     
     # 2. asset_positions 表
-    op.create_table('asset_positions',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('platform', sa.String(length=50), nullable=False),
-        sa.Column('asset_type', sa.String(length=50), nullable=False),
-        sa.Column('asset_code', sa.String(length=50), nullable=False),
-        sa.Column('asset_name', sa.String(length=100), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('quantity', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('avg_cost', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('current_price', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('current_value', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('total_invested', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('total_profit', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('profit_rate', sa.DECIMAL(precision=8, scale=4), nullable=False),
-        sa.Column('last_updated', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('platform', 'asset_code', 'currency', name='uq_position')
-    )
+    if not table_exists('asset_positions'):
+        op.create_table('asset_positions',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('platform', sa.String(length=50), nullable=False),
+            sa.Column('asset_type', sa.String(length=50), nullable=False),
+            sa.Column('asset_code', sa.String(length=50), nullable=False),
+            sa.Column('asset_name', sa.String(length=100), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('quantity', sa.DECIMAL(precision=15, scale=8), nullable=False),
+            sa.Column('avg_cost', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('current_price', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('current_value', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('total_invested', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('total_profit', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('profit_rate', sa.DECIMAL(precision=8, scale=4), nullable=False),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('platform', 'asset_code', 'currency', name='uq_position')
+        )
     
     # 3. fund_info 表
-    op.create_table('fund_info',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('fund_code', sa.String(length=20), nullable=False),
-        sa.Column('fund_name', sa.String(length=100), nullable=False),
-        sa.Column('fund_type', sa.String(length=50), nullable=True),
-        sa.Column('management_fee', sa.DECIMAL(precision=5, scale=4), nullable=True),
-        sa.Column('purchase_fee', sa.DECIMAL(precision=5, scale=4), nullable=True),
-        sa.Column('redemption_fee', sa.DECIMAL(precision=5, scale=4), nullable=True),
-        sa.Column('min_purchase', sa.DECIMAL(precision=10, scale=2), nullable=True),
-        sa.Column('risk_level', sa.String(length=20), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('fund_code')
-    )
+    if not table_exists('fund_info'):
+        op.create_table('fund_info',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('fund_code', sa.String(length=20), nullable=False),
+            sa.Column('fund_name', sa.String(length=100), nullable=False),
+            sa.Column('fund_type', sa.String(length=50), nullable=True),
+            sa.Column('management_fee', sa.DECIMAL(precision=5, scale=4), nullable=True),
+            sa.Column('purchase_fee', sa.DECIMAL(precision=5, scale=4), nullable=True),
+            sa.Column('redemption_fee', sa.DECIMAL(precision=5, scale=4), nullable=True),
+            sa.Column('min_purchase', sa.DECIMAL(precision=10, scale=2), nullable=True),
+            sa.Column('risk_level', sa.String(length=20), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('fund_code')
+        )
     
     # 4. fund_nav 表
-    op.create_table('fund_nav',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('fund_code', sa.String(length=20), nullable=False),
-        sa.Column('nav_date', sa.Date(), nullable=False),
-        sa.Column('nav', sa.DECIMAL(precision=10, scale=4), nullable=False),
-        sa.Column('accumulated_nav', sa.DECIMAL(precision=10, scale=4), nullable=True),
-        sa.Column('growth_rate', sa.DECIMAL(precision=8, scale=4), nullable=True),
-        sa.Column('source', sa.String(length=50), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('fund_code', 'nav_date', name='uq_fund_nav')
-    )
+    if not table_exists('fund_nav'):
+        op.create_table('fund_nav',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('fund_code', sa.String(length=20), nullable=False),
+            sa.Column('nav_date', sa.Date(), nullable=False),
+            sa.Column('nav', sa.DECIMAL(precision=10, scale=4), nullable=False),
+            sa.Column('accumulated_nav', sa.DECIMAL(precision=10, scale=4), nullable=True),
+            sa.Column('growth_rate', sa.DECIMAL(precision=8, scale=4), nullable=True),
+            sa.Column('source', sa.String(length=50), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('fund_code', 'nav_date', name='uq_fund_nav')
+        )
     
     # 5. fund_dividend 表
-    op.create_table('fund_dividend',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('fund_code', sa.String(length=10), nullable=False),
-        sa.Column('dividend_date', sa.Date(), nullable=False),
-        sa.Column('record_date', sa.Date(), nullable=True),
-        sa.Column('dividend_amount', sa.DECIMAL(precision=10, scale=4), nullable=False),
-        sa.Column('total_dividend', sa.DECIMAL(precision=15, scale=2), nullable=True),
-        sa.Column('announcement_date', sa.Date(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('fund_code', 'dividend_date', name='uq_fund_dividend')
-    )
+    if not table_exists('fund_dividend'):
+        op.create_table('fund_dividend',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('fund_code', sa.String(length=10), nullable=False),
+            sa.Column('dividend_date', sa.Date(), nullable=False),
+            sa.Column('dividend_amount', sa.DECIMAL(precision=10, scale=4), nullable=False),
+            sa.Column('dividend_type', sa.String(length=20), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('fund_code', 'dividend_date', name='uq_fund_dividend')
+        )
     
     # 6. dca_plans 表
-    op.create_table('dca_plans',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('plan_name', sa.String(length=100), nullable=False),
-        sa.Column('platform', sa.String(length=50), nullable=False),
-        sa.Column('asset_type', sa.String(length=50), nullable=False),
-        sa.Column('asset_code', sa.String(length=50), nullable=False),
-        sa.Column('asset_name', sa.String(length=100), nullable=False),
-        sa.Column('amount', sa.DECIMAL(precision=10, scale=2), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('frequency', sa.String(length=20), nullable=False),
-        sa.Column('frequency_value', sa.Integer(), nullable=False),
-        sa.Column('start_date', sa.Date(), nullable=False),
-        sa.Column('end_date', sa.Date(), nullable=True),
-        sa.Column('status', sa.String(length=20), nullable=True),
-        sa.Column('strategy', sa.Text(), nullable=True),
-        sa.Column('execution_time', sa.String(length=10), nullable=True),
-        sa.Column('next_execution_date', sa.Date(), nullable=True),
-        sa.Column('last_execution_date', sa.Date(), nullable=True),
-        sa.Column('execution_count', sa.Integer(), nullable=True),
-        sa.Column('total_invested', sa.DECIMAL(precision=15, scale=4), nullable=True),
-        sa.Column('total_shares', sa.DECIMAL(precision=15, scale=8), nullable=True),
-        sa.Column('smart_dca', sa.Boolean(), nullable=True),
-        sa.Column('base_amount', sa.DECIMAL(precision=10, scale=2), nullable=True),
-        sa.Column('max_amount', sa.DECIMAL(precision=10, scale=2), nullable=True),
-        sa.Column('increase_rate', sa.DECIMAL(precision=5, scale=4), nullable=True),
-        sa.Column('min_nav', sa.DECIMAL(precision=10, scale=4), nullable=True),
-        sa.Column('max_nav', sa.DECIMAL(precision=10, scale=4), nullable=True),
-        sa.Column('skip_holidays', sa.Boolean(), nullable=True),
-        sa.Column('enable_notification', sa.Boolean(), nullable=True),
-        sa.Column('notification_before', sa.Integer(), nullable=True),
-        sa.Column('fee_rate', sa.DECIMAL(precision=5, scale=4), nullable=True),
-        sa.Column('exclude_dates', sa.Text(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
+    if not table_exists('dca_plans'):
+        op.create_table('dca_plans',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('name', sa.String(length=100), nullable=False),
+            sa.Column('platform', sa.String(length=50), nullable=False),
+            sa.Column('asset_code', sa.String(length=50), nullable=False),
+            sa.Column('asset_name', sa.String(length=100), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('amount', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('frequency', sa.String(length=20), nullable=False),
+            sa.Column('next_execution', sa.DateTime(), nullable=True),
+            sa.Column('smart_dca', sa.Boolean(), nullable=True),
+            sa.Column('skip_holidays', sa.Boolean(), nullable=True),
+            sa.Column('enable_notification', sa.Boolean(), nullable=True),
+            sa.Column('exclude_dates', sa.Text(), nullable=True),
+            sa.Column('fee_rate', sa.DECIMAL(precision=5, scale=4), nullable=True),
+            sa.Column('status', sa.String(length=20), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id')
+        )
     
     # 7. exchange_rates 表
-    op.create_table('exchange_rates',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('from_currency', sa.String(length=10), nullable=False),
-        sa.Column('to_currency', sa.String(length=10), nullable=False),
-        sa.Column('rate', sa.DECIMAL(precision=15, scale=6), nullable=False),
-        sa.Column('rate_date', sa.Date(), nullable=False),
-        sa.Column('source', sa.String(length=50), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('from_currency', 'to_currency', 'rate_date', name='uq_exchange_rate')
-    )
+    if not table_exists('exchange_rates'):
+        op.create_table('exchange_rates',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('from_currency', sa.String(length=10), nullable=False),
+            sa.Column('to_currency', sa.String(length=10), nullable=False),
+            sa.Column('rate', sa.DECIMAL(precision=15, scale=6), nullable=False),
+            sa.Column('rate_date', sa.Date(), nullable=False),
+            sa.Column('source', sa.String(length=50), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('from_currency', 'to_currency', 'rate_date', name='uq_exchange_rate')
+        )
     
     # 8. system_config 表
-    op.create_table('system_config',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('config_key', sa.String(length=100), nullable=False),
-        sa.Column('config_value', sa.Text(), nullable=True),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('config_key')
-    )
+    if not table_exists('system_config'):
+        op.create_table('system_config',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('config_key', sa.String(length=100), nullable=False),
+            sa.Column('config_value', sa.Text(), nullable=True),
+            sa.Column('description', sa.Text(), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.Column('updated_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('config_key')
+        )
     
     # 9. wise_transactions 表
-    op.create_table('wise_transactions',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('profile_id', sa.String(length=50), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=False),
-        sa.Column('transaction_id', sa.String(length=200), nullable=False),
-        sa.Column('type', sa.String(length=50), nullable=False),
-        sa.Column('amount', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('title', sa.Text(), nullable=True),
-        sa.Column('date', sa.DateTime(), nullable=False),
-        sa.Column('status', sa.String(length=20), nullable=False),
-        sa.Column('reference_number', sa.String(length=100), nullable=True),
-        sa.Column('primary_amount_value', sa.DECIMAL(precision=15, scale=4), nullable=True),
-        sa.Column('primary_amount_currency', sa.String(length=10), nullable=True),
-        sa.Column('secondary_amount_value', sa.DECIMAL(precision=15, scale=4), nullable=True),
-        sa.Column('secondary_amount_currency', sa.String(length=10), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('transaction_id', name='uq_wise_transaction')
-    )
+    if not table_exists('wise_transactions'):
+        op.create_table('wise_transactions',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('transaction_id', sa.String(length=100), nullable=False),
+            sa.Column('account_id', sa.String(length=100), nullable=False),
+            sa.Column('type', sa.String(length=50), nullable=False),
+            sa.Column('status', sa.String(length=50), nullable=False),
+            sa.Column('amount', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('primary_amount', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('secondary_amount', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('fee', sa.DECIMAL(precision=10, scale=4), nullable=True),
+            sa.Column('exchange_rate', sa.DECIMAL(precision=15, scale=6), nullable=True),
+            sa.Column('description', sa.Text(), nullable=True),
+            sa.Column('reference', sa.String(length=200), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('transaction_id')
+        )
     
     # 10. wise_balances 表
-    op.create_table('wise_balances',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('available_balance', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('reserved_balance', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('cash_amount', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('total_worth', sa.DECIMAL(precision=15, scale=4), nullable=False),
-        sa.Column('type', sa.String(length=50), nullable=False),
-        sa.Column('investment_state', sa.String(length=50), nullable=False),
-        sa.Column('creation_time', sa.DateTime(), nullable=False),
-        sa.Column('modification_time', sa.DateTime(), nullable=False),
-        sa.Column('visible', sa.Boolean(), nullable=True),
-        sa.Column('primary', sa.Boolean(), nullable=True),
-        sa.Column('update_time', sa.DateTime(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('account_id', name='uq_wise_balance')
-    )
+    if not table_exists('wise_balances'):
+        op.create_table('wise_balances',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('account_id', sa.String(length=100), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('balance', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('reserved', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('available', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('account_id', 'currency', name='uq_wise_balance')
+        )
     
     # 11. wise_exchange_rates 表
-    op.create_table('wise_exchange_rates',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('source_currency', sa.String(length=8), nullable=False),
-        sa.Column('target_currency', sa.String(length=8), nullable=False),
-        sa.Column('rate', sa.Float(), nullable=False),
-        sa.Column('time', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.PrimaryKeyConstraint('id')
-    )
+    if not table_exists('wise_exchange_rates'):
+        op.create_table('wise_exchange_rates',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('from_currency', sa.String(length=10), nullable=False),
+            sa.Column('to_currency', sa.String(length=10), nullable=False),
+            sa.Column('rate', sa.DECIMAL(precision=15, scale=6), nullable=False),
+            sa.Column('rate_date', sa.Date(), nullable=False),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('from_currency', 'to_currency', 'rate_date', name='uq_wise_exchange_rate')
+        )
     
     # 12. ibkr_accounts 表
-    op.create_table('ibkr_accounts',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=False),
-        sa.Column('account_name', sa.String(length=100), nullable=True),
-        sa.Column('account_type', sa.String(length=50), nullable=True),
-        sa.Column('base_currency', sa.String(length=10), nullable=True),
-        sa.Column('status', sa.String(length=20), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('account_id')
-    )
+    if not table_exists('ibkr_accounts'):
+        op.create_table('ibkr_accounts',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('account_id', sa.String(length=50), nullable=False),
+            sa.Column('account_name', sa.String(length=100), nullable=True),
+            sa.Column('account_type', sa.String(length=50), nullable=True),
+            sa.Column('currency', sa.String(length=10), nullable=True),
+            sa.Column('status', sa.String(length=20), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('account_id')
+        )
     
     # 13. ibkr_balances 表
-    op.create_table('ibkr_balances',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=False),
-        sa.Column('total_cash', sa.DECIMAL(precision=15, scale=2), nullable=False),
-        sa.Column('net_liquidation', sa.DECIMAL(precision=15, scale=2), nullable=False),
-        sa.Column('buying_power', sa.DECIMAL(precision=15, scale=2), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('snapshot_date', sa.Date(), nullable=False),
-        sa.Column('snapshot_time', sa.DateTime(), nullable=False),
-        sa.Column('sync_source', sa.String(length=50), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('account_id', 'snapshot_date', 'snapshot_time', name='uq_ibkr_balance')
-    )
+    if not table_exists('ibkr_balances'):
+        op.create_table('ibkr_balances',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('account_id', sa.String(length=50), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('balance', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('available', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('account_id', 'currency', name='uq_ibkr_balance')
+        )
     
     # 14. ibkr_positions 表
-    op.create_table('ibkr_positions',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=False),
-        sa.Column('symbol', sa.String(length=20), nullable=False),
-        sa.Column('quantity', sa.DECIMAL(precision=15, scale=6), nullable=False),
-        sa.Column('market_value', sa.DECIMAL(precision=15, scale=2), nullable=False),
-        sa.Column('average_cost', sa.DECIMAL(precision=15, scale=2), nullable=False),
-        sa.Column('unrealized_pnl', sa.DECIMAL(precision=15, scale=2), nullable=True),
-        sa.Column('realized_pnl', sa.DECIMAL(precision=15, scale=2), nullable=True),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('asset_class', sa.String(length=50), nullable=True),
-        sa.Column('snapshot_date', sa.Date(), nullable=False),
-        sa.Column('snapshot_time', sa.DateTime(), nullable=False),
-        sa.Column('sync_source', sa.String(length=50), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('account_id', 'symbol', 'snapshot_date', 'snapshot_time', name='uq_ibkr_position')
-    )
+    if not table_exists('ibkr_positions'):
+        op.create_table('ibkr_positions',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('account_id', sa.String(length=50), nullable=False),
+            sa.Column('symbol', sa.String(length=50), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('quantity', sa.DECIMAL(precision=15, scale=8), nullable=False),
+            sa.Column('avg_cost', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('market_value', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('unrealized_pnl', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('account_id', 'symbol', 'currency', name='uq_ibkr_position')
+        )
     
     # 15. ibkr_sync_logs 表
-    op.create_table('ibkr_sync_logs',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=True),
-        sa.Column('sync_type', sa.String(length=50), nullable=False),
-        sa.Column('status', sa.String(length=20), nullable=False),
-        sa.Column('request_data', sa.Text(), nullable=True),
-        sa.Column('response_data', sa.Text(), nullable=True),
-        sa.Column('error_message', sa.Text(), nullable=True),
-        sa.Column('records_processed', sa.Integer(), nullable=True),
-        sa.Column('records_updated', sa.Integer(), nullable=True),
-        sa.Column('records_inserted', sa.Integer(), nullable=True),
-        sa.Column('source_ip', sa.String(length=50), nullable=True),
-        sa.Column('user_agent', sa.String(length=200), nullable=True),
-        sa.Column('sync_duration_ms', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
+    if not table_exists('ibkr_sync_logs'):
+        op.create_table('ibkr_sync_logs',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('sync_type', sa.String(length=50), nullable=False),
+            sa.Column('status', sa.String(length=20), nullable=False),
+            sa.Column('records_processed', sa.Integer(), nullable=True),
+            sa.Column('error_message', sa.Text(), nullable=True),
+            sa.Column('started_at', sa.DateTime(), nullable=True),
+            sa.Column('completed_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id')
+        )
     
     # 16. okx_balances 表
-    op.create_table('okx_balances',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('available_balance', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('frozen_balance', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('total_balance', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('account_type', sa.String(length=20), nullable=False),
-        sa.Column('update_time', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('account_id', 'currency', 'account_type', name='uq_okx_balance')
-    )
+    if not table_exists('okx_balances'):
+        op.create_table('okx_balances',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('account_id', sa.String(length=100), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('balance', sa.DECIMAL(precision=15, scale=8), nullable=False),
+            sa.Column('available', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('frozen', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('account_id', 'currency', name='uq_okx_balance')
+        )
     
     # 17. okx_transactions 表
-    op.create_table('okx_transactions',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('transaction_id', sa.String(length=100), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=False),
-        sa.Column('inst_type', sa.String(length=20), nullable=False),
-        sa.Column('inst_id', sa.String(length=50), nullable=False),
-        sa.Column('trade_id', sa.String(length=100), nullable=True),
-        sa.Column('order_id', sa.String(length=100), nullable=True),
-        sa.Column('bill_id', sa.String(length=100), nullable=True),
-        sa.Column('type', sa.String(length=20), nullable=False),
-        sa.Column('side', sa.String(length=10), nullable=True),
-        sa.Column('amount', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('fee', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('fee_currency', sa.String(length=10), nullable=True),
-        sa.Column('price', sa.DECIMAL(precision=15, scale=8), nullable=True),
-        sa.Column('quantity', sa.DECIMAL(precision=15, scale=8), nullable=True),
-        sa.Column('timestamp', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        # 新增字段：OKX账单归档字段
-        sa.Column('bal', sa.String(length=32), nullable=True),
-        sa.Column('bal_chg', sa.String(length=32), nullable=True),
-        sa.Column('ccy', sa.String(length=10), nullable=True),
-        sa.Column('cl_ord_id', sa.String(length=64), nullable=True),
-        sa.Column('exec_type', sa.String(length=16), nullable=True),
-        sa.Column('fill_fwd_px', sa.String(length=32), nullable=True),
-        sa.Column('fill_idx_px', sa.String(length=32), nullable=True),
-        sa.Column('fill_mark_px', sa.String(length=32), nullable=True),
-        sa.Column('fill_mark_vol', sa.String(length=32), nullable=True),
-        sa.Column('fill_px_usd', sa.String(length=32), nullable=True),
-        sa.Column('fill_px_vol', sa.String(length=32), nullable=True),
-        sa.Column('fill_time', sa.String(length=32), nullable=True),
-        sa.Column('from_addr', sa.String(length=64), nullable=True),
-        sa.Column('interest', sa.String(length=32), nullable=True),
-        sa.Column('mgn_mode', sa.String(length=16), nullable=True),
-        sa.Column('notes', sa.Text(), nullable=True),
-        sa.Column('pnl', sa.String(length=32), nullable=True),
-        sa.Column('pos_bal', sa.String(length=32), nullable=True),
-        sa.Column('pos_bal_chg', sa.String(length=32), nullable=True),
-        sa.Column('sub_type', sa.String(length=16), nullable=True),
-        sa.Column('tag', sa.String(length=32), nullable=True),
-        sa.Column('to_addr', sa.String(length=64), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('transaction_id', name='uq_okx_transaction')
-    )
+    if not table_exists('okx_transactions'):
+        op.create_table('okx_transactions',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('transaction_id', sa.String(length=100), nullable=False),
+            sa.Column('account_id', sa.String(length=100), nullable=False),
+            sa.Column('inst_type', sa.String(length=20), nullable=False),
+            sa.Column('inst_id', sa.String(length=50), nullable=False),
+            sa.Column('trade_id', sa.String(length=100), nullable=True),
+            sa.Column('order_id', sa.String(length=100), nullable=True),
+            sa.Column('bill_id', sa.String(length=100), nullable=True),
+            sa.Column('type', sa.String(length=20), nullable=False),
+            sa.Column('side', sa.String(length=10), nullable=True),
+            sa.Column('amount', sa.DECIMAL(precision=15, scale=8), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('fee', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('fee_currency', sa.String(length=10), nullable=True),
+            sa.Column('price', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('quantity', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('timestamp', sa.DateTime(), nullable=False),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            # 新增的25个字段
+            sa.Column('bal', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('bal_chg', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('ccy', sa.String(length=10), nullable=True),
+            sa.Column('cl_ord_id', sa.String(length=100), nullable=True),
+            sa.Column('exec_type', sa.String(length=20), nullable=True),
+            sa.Column('fill_fwd_px', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('fill_idx_px', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('fill_mark_px', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('fill_mark_vol', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('fill_px_usd', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('fill_px_vol', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('fill_time', sa.DateTime(), nullable=True),
+            sa.Column('from_addr', sa.String(length=200), nullable=True),
+            sa.Column('interest', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('mgn_mode', sa.String(length=20), nullable=True),
+            sa.Column('notes', sa.Text(), nullable=True),
+            sa.Column('pnl', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('pos_bal', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('pos_bal_chg', sa.DECIMAL(precision=15, scale=8), nullable=True),
+            sa.Column('sub_type', sa.String(length=20), nullable=True),
+            sa.Column('tag', sa.String(length=50), nullable=True),
+            sa.Column('to_addr', sa.String(length=200), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('transaction_id')
+        )
     
     # 18. okx_positions 表
-    op.create_table('okx_positions',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('account_id', sa.String(length=50), nullable=False),
-        sa.Column('inst_type', sa.String(length=20), nullable=False),
-        sa.Column('inst_id', sa.String(length=50), nullable=False),
-        sa.Column('position_side', sa.String(length=10), nullable=False),
-        sa.Column('position_id', sa.String(length=100), nullable=False),
-        sa.Column('quantity', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('avg_price', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('unrealized_pnl', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('realized_pnl', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('margin_ratio', sa.DECIMAL(precision=15, scale=8), nullable=True),
-        sa.Column('leverage', sa.DECIMAL(precision=15, scale=8), nullable=True),
-        sa.Column('mark_price', sa.DECIMAL(precision=15, scale=8), nullable=True),
-        sa.Column('liquidation_price', sa.DECIMAL(precision=15, scale=8), nullable=True),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('timestamp', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('account_id', 'inst_id', 'position_side', 'timestamp', name='uq_okx_position')
-    )
+    if not table_exists('okx_positions'):
+        op.create_table('okx_positions',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('account_id', sa.String(length=100), nullable=False),
+            sa.Column('inst_id', sa.String(length=50), nullable=False),
+            sa.Column('inst_type', sa.String(length=20), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('position', sa.DECIMAL(precision=15, scale=8), nullable=False),
+            sa.Column('avg_price', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('market_value', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('unrealized_pnl', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('account_id', 'inst_id', 'currency', name='uq_okx_position')
+        )
     
     # 19. okx_market_data 表
-    op.create_table('okx_market_data',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('inst_id', sa.String(length=50), nullable=False),
-        sa.Column('inst_type', sa.String(length=20), nullable=False),
-        sa.Column('last_price', sa.DECIMAL(precision=20, scale=8), nullable=False),
-        sa.Column('bid_price', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('ask_price', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('high_24h', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('low_24h', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('volume_24h', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('change_24h', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('change_rate_24h', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('timestamp', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('inst_id', 'inst_type', 'timestamp', name='uq_okx_market_data')
-    )
+    if not table_exists('okx_market_data'):
+        op.create_table('okx_market_data',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('inst_id', sa.String(length=50), nullable=False),
+            sa.Column('inst_type', sa.String(length=20), nullable=False),
+            sa.Column('price', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('volume_24h', sa.DECIMAL(precision=20, scale=8), nullable=True),
+            sa.Column('change_24h', sa.DECIMAL(precision=10, scale=4), nullable=True),
+            sa.Column('timestamp', sa.DateTime(), nullable=False),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('inst_id', 'timestamp', name='uq_okx_market_data')
+        )
     
     # 20. okx_account_overview 表
-    op.create_table('okx_account_overview',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('trading_total_usd', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('funding_total_usd', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('savings_total_usd', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('total_assets_usd', sa.DECIMAL(precision=15, scale=8), nullable=False),
-        sa.Column('total_currencies', sa.Integer(), nullable=False),
-        sa.Column('trading_currencies_count', sa.Integer(), nullable=False),
-        sa.Column('funding_currencies_count', sa.Integer(), nullable=False),
-        sa.Column('savings_currencies_count', sa.Integer(), nullable=False),
-        sa.Column('last_update', sa.DateTime(), nullable=False),
-        sa.Column('data_source', sa.String(length=20), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
+    if not table_exists('okx_account_overview'):
+        op.create_table('okx_account_overview',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('account_id', sa.String(length=100), nullable=False),
+            sa.Column('total_equity', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('total_margin', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('available_balance', sa.DECIMAL(precision=15, scale=4), nullable=False),
+            sa.Column('unrealized_pnl', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('account_id', 'currency', name='uq_okx_account_overview')
+        )
     
     # 21. web3_balances 表
-    op.create_table('web3_balances',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('project_id', sa.String(length=100), nullable=False),
-        sa.Column('account_id', sa.String(length=100), nullable=False),
-        sa.Column('total_value', sa.DECIMAL(precision=20, scale=8), nullable=False),
-        sa.Column('currency', sa.String(length=10), nullable=False),
-        sa.Column('update_time', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('project_id', 'account_id', 'update_time', name='uq_web3_balance')
-    )
+    if not table_exists('web3_balances'):
+        op.create_table('web3_balances',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('wallet_address', sa.String(length=200), nullable=False),
+            sa.Column('network', sa.String(length=50), nullable=False),
+            sa.Column('currency', sa.String(length=10), nullable=False),
+            sa.Column('balance', sa.DECIMAL(precision=30, scale=18), nullable=False),
+            sa.Column('usd_value', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('wallet_address', 'network', 'currency', name='uq_web3_balance')
+        )
     
     # 22. web3_tokens 表
-    op.create_table('web3_tokens',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('project_id', sa.String(length=100), nullable=False),
-        sa.Column('account_id', sa.String(length=100), nullable=False),
-        sa.Column('token_symbol', sa.String(length=20), nullable=False),
-        sa.Column('token_name', sa.String(length=100), nullable=False),
-        sa.Column('token_address', sa.String(length=100), nullable=True),
-        sa.Column('balance', sa.DECIMAL(precision=20, scale=8), nullable=False),
-        sa.Column('value_usd', sa.DECIMAL(precision=20, scale=8), nullable=False),
-        sa.Column('price_usd', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('update_time', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('project_id', 'account_id', 'token_symbol', 'update_time', name='uq_web3_token')
-    )
+    if not table_exists('web3_tokens'):
+        op.create_table('web3_tokens',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('wallet_address', sa.String(length=200), nullable=False),
+            sa.Column('network', sa.String(length=50), nullable=False),
+            sa.Column('token_address', sa.String(length=200), nullable=False),
+            sa.Column('token_symbol', sa.String(length=20), nullable=False),
+            sa.Column('token_name', sa.String(length=100), nullable=True),
+            sa.Column('decimals', sa.Integer(), nullable=True),
+            sa.Column('balance', sa.DECIMAL(precision=30, scale=18), nullable=False),
+            sa.Column('usd_value', sa.DECIMAL(precision=15, scale=4), nullable=True),
+            sa.Column('last_updated', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('wallet_address', 'network', 'token_address', name='uq_web3_token')
+        )
     
     # 23. web3_transactions 表
-    op.create_table('web3_transactions',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('project_id', sa.String(length=100), nullable=False),
-        sa.Column('account_id', sa.String(length=100), nullable=False),
-        sa.Column('transaction_hash', sa.String(length=100), nullable=False),
-        sa.Column('block_number', sa.Integer(), nullable=True),
-        sa.Column('from_address', sa.String(length=100), nullable=True),
-        sa.Column('to_address', sa.String(length=100), nullable=True),
-        sa.Column('token_symbol', sa.String(length=20), nullable=True),
-        sa.Column('amount', sa.DECIMAL(precision=20, scale=8), nullable=False),
-        sa.Column('value_usd', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('gas_used', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('gas_price', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('transaction_type', sa.String(length=50), nullable=True),
-        sa.Column('status', sa.String(length=20), nullable=False),
-        sa.Column('timestamp', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('transaction_hash', name='uq_web3_transaction')
-    )
+    if not table_exists('web3_transactions'):
+        op.create_table('web3_transactions',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('tx_hash', sa.String(length=200), nullable=False),
+            sa.Column('wallet_address', sa.String(length=200), nullable=False),
+            sa.Column('network', sa.String(length=50), nullable=False),
+            sa.Column('type', sa.String(length=20), nullable=False),
+            sa.Column('from_address', sa.String(length=200), nullable=True),
+            sa.Column('to_address', sa.String(length=200), nullable=True),
+            sa.Column('amount', sa.DECIMAL(precision=30, scale=18), nullable=True),
+            sa.Column('currency', sa.String(length=10), nullable=True),
+            sa.Column('gas_fee', sa.DECIMAL(precision=30, scale=18), nullable=True),
+            sa.Column('status', sa.String(length=20), nullable=False),
+            sa.Column('timestamp', sa.DateTime(), nullable=False),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('tx_hash', 'network', name='uq_web3_transaction')
+        )
     
     # 24. asset_snapshot 表
-    op.create_table('asset_snapshot',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=True),
-        sa.Column('platform', sa.String(length=50), nullable=True),
-        sa.Column('asset_type', sa.String(length=50), nullable=True),
-        sa.Column('asset_code', sa.String(length=50), nullable=True),
-        sa.Column('asset_name', sa.String(length=100), nullable=True),
-        sa.Column('currency', sa.String(length=10), nullable=True),
-        sa.Column('balance', sa.DECIMAL(precision=20, scale=8), nullable=False),
-        sa.Column('balance_cny', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('balance_usd', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('balance_eur', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('base_value', sa.DECIMAL(precision=20, scale=8), nullable=True),
-        sa.Column('snapshot_time', sa.DateTime(), nullable=True),
-        sa.Column('extra', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
+    if not table_exists('asset_snapshot'):
+        op.create_table('asset_snapshot',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('user_id', sa.Integer(), nullable=True),
+            sa.Column('platform', sa.String(length=50), nullable=True),
+            sa.Column('asset_type', sa.String(length=50), nullable=True),
+            sa.Column('asset_code', sa.String(length=50), nullable=True),
+            sa.Column('asset_name', sa.String(length=100), nullable=True),
+            sa.Column('currency', sa.String(length=10), nullable=True),
+            sa.Column('balance', sa.DECIMAL(precision=20, scale=8), nullable=False),
+            sa.Column('balance_cny', sa.DECIMAL(precision=20, scale=8), nullable=True),
+            sa.Column('balance_usd', sa.DECIMAL(precision=20, scale=8), nullable=True),
+            sa.Column('balance_eur', sa.DECIMAL(precision=20, scale=8), nullable=True),
+            sa.Column('base_value', sa.DECIMAL(precision=20, scale=8), nullable=True),
+            sa.Column('snapshot_time', sa.DateTime(), nullable=True),
+            sa.Column('extra', postgresql.JSON(astext_type=sa.Text()), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id')
+        )
     
     # 25. exchange_rate_snapshot 表
-    op.create_table('exchange_rate_snapshot',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('from_currency', sa.String(length=10), nullable=True),
-        sa.Column('to_currency', sa.String(length=10), nullable=True),
-        sa.Column('rate', sa.DECIMAL(precision=20, scale=8), nullable=False),
-        sa.Column('snapshot_time', sa.DateTime(), nullable=True),
-        sa.Column('source', sa.String(length=50), nullable=True),
-        sa.Column('extra', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
+    if not table_exists('exchange_rate_snapshot'):
+        op.create_table('exchange_rate_snapshot',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('from_currency', sa.String(length=10), nullable=True),
+            sa.Column('to_currency', sa.String(length=10), nullable=True),
+            sa.Column('rate', sa.DECIMAL(precision=20, scale=8), nullable=False),
+            sa.Column('snapshot_time', sa.DateTime(), nullable=True),
+            sa.Column('source', sa.String(length=50), nullable=True),
+            sa.Column('extra', postgresql.JSON(astext_type=sa.Text()), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id')
+        )
     
-    # 创建索引
-    op.create_index('idx_operations_date', 'user_operations', ['operation_date'], unique=False)
-    op.create_index('idx_operations_platform', 'user_operations', ['platform'], unique=False)
-    op.create_index('idx_operations_asset', 'user_operations', ['asset_code'], unique=False)
-    op.create_index('ix_user_operations_id', 'user_operations', ['id'], unique=False)
-    op.create_index('ix_user_operations_operation_date', 'user_operations', ['operation_date'], unique=False)
-    op.create_index('ix_user_operations_platform', 'user_operations', ['platform'], unique=False)
-    op.create_index('ix_user_operations_asset_code', 'user_operations', ['asset_code'], unique=False)
+    # 创建索引（只创建不存在的索引）
+    def index_exists(index_name):
+        from sqlalchemy import text
+        result = connection.execute(text(f"""
+            SELECT EXISTS (
+                SELECT FROM pg_indexes 
+                WHERE indexname = '{index_name}'
+            )
+        """))
+        return result.scalar()
     
-    op.create_index('idx_positions_platform', 'asset_positions', ['platform'], unique=False)
-    op.create_index('idx_positions_asset', 'asset_positions', ['asset_code'], unique=False)
-    op.create_index('ix_asset_positions_id', 'asset_positions', ['id'], unique=False)
-    op.create_index('ix_asset_positions_platform', 'asset_positions', ['platform'], unique=False)
-    op.create_index('ix_asset_positions_asset_code', 'asset_positions', ['asset_code'], unique=False)
+    # 用户操作表索引
+    if not index_exists('idx_operations_date'):
+        op.create_index('idx_operations_date', 'user_operations', ['operation_date'], unique=False)
+    if not index_exists('idx_operations_platform'):
+        op.create_index('idx_operations_platform', 'user_operations', ['platform'], unique=False)
+    if not index_exists('idx_operations_asset'):
+        op.create_index('idx_operations_asset', 'user_operations', ['asset_code'], unique=False)
+    if not index_exists('ix_user_operations_id'):
+        op.create_index('ix_user_operations_id', 'user_operations', ['id'], unique=False)
+    if not index_exists('ix_user_operations_operation_date'):
+        op.create_index('ix_user_operations_operation_date', 'user_operations', ['operation_date'], unique=False)
+    if not index_exists('ix_user_operations_platform'):
+        op.create_index('ix_user_operations_platform', 'user_operations', ['platform'], unique=False)
+    if not index_exists('ix_user_operations_asset_code'):
+        op.create_index('ix_user_operations_asset_code', 'user_operations', ['asset_code'], unique=False)
     
-    op.create_index('ix_fund_info_id', 'fund_info', ['id'], unique=False)
-    op.create_index('ix_fund_info_fund_code', 'fund_info', ['fund_code'], unique=False)
+    # 资产持仓表索引
+    if not index_exists('idx_positions_platform'):
+        op.create_index('idx_positions_platform', 'asset_positions', ['platform'], unique=False)
+    if not index_exists('idx_positions_asset'):
+        op.create_index('idx_positions_asset', 'asset_positions', ['asset_code'], unique=False)
+    if not index_exists('ix_asset_positions_id'):
+        op.create_index('ix_asset_positions_id', 'asset_positions', ['id'], unique=False)
+    if not index_exists('ix_asset_positions_platform'):
+        op.create_index('ix_asset_positions_platform', 'asset_positions', ['platform'], unique=False)
+    if not index_exists('ix_asset_positions_asset_code'):
+        op.create_index('ix_asset_positions_asset_code', 'asset_positions', ['asset_code'], unique=False)
     
-    op.create_index('idx_fund_nav_date', 'fund_nav', ['nav_date'], unique=False)
-    op.create_index('idx_fund_nav_code', 'fund_nav', ['fund_code'], unique=False)
-    op.create_index('ix_fund_nav_id', 'fund_nav', ['id'], unique=False)
-    op.create_index('ix_fund_nav_fund_code', 'fund_nav', ['fund_code'], unique=False)
-    op.create_index('ix_fund_nav_nav_date', 'fund_nav', ['nav_date'], unique=False)
+    # 基金信息表索引
+    if not index_exists('ix_fund_info_id'):
+        op.create_index('ix_fund_info_id', 'fund_info', ['id'], unique=False)
+    if not index_exists('ix_fund_info_fund_code'):
+        op.create_index('ix_fund_info_fund_code', 'fund_info', ['fund_code'], unique=False)
     
-    op.create_index('idx_fund_dividend_code', 'fund_dividend', ['fund_code'], unique=False)
-    op.create_index('idx_fund_dividend_date', 'fund_dividend', ['dividend_date'], unique=False)
-    op.create_index('ix_fund_dividend_id', 'fund_dividend', ['id'], unique=False)
-    op.create_index('ix_fund_dividend_fund_code', 'fund_dividend', ['fund_code'], unique=False)
-    op.create_index('ix_fund_dividend_dividend_date', 'fund_dividend', ['dividend_date'], unique=False)
+    # 基金净值表索引
+    if not index_exists('idx_fund_nav_date'):
+        op.create_index('idx_fund_nav_date', 'fund_nav', ['nav_date'], unique=False)
+    if not index_exists('idx_fund_nav_code'):
+        op.create_index('idx_fund_nav_code', 'fund_nav', ['fund_code'], unique=False)
+    if not index_exists('ix_fund_nav_id'):
+        op.create_index('ix_fund_nav_id', 'fund_nav', ['id'], unique=False)
+    if not index_exists('ix_fund_nav_fund_code'):
+        op.create_index('ix_fund_nav_fund_code', 'fund_nav', ['fund_code'], unique=False)
+    if not index_exists('ix_fund_nav_nav_date'):
+        op.create_index('ix_fund_nav_nav_date', 'fund_nav', ['nav_date'], unique=False)
     
-    op.create_index('ix_dca_plans_id', 'dca_plans', ['id'], unique=False)
+    # 基金分红表索引
+    if not index_exists('idx_fund_dividend_code'):
+        op.create_index('idx_fund_dividend_code', 'fund_dividend', ['fund_code'], unique=False)
+    if not index_exists('idx_fund_dividend_date'):
+        op.create_index('idx_fund_dividend_date', 'fund_dividend', ['dividend_date'], unique=False)
+    if not index_exists('ix_fund_dividend_id'):
+        op.create_index('ix_fund_dividend_id', 'fund_dividend', ['id'], unique=False)
+    if not index_exists('ix_fund_dividend_fund_code'):
+        op.create_index('ix_fund_dividend_fund_code', 'fund_dividend', ['fund_code'], unique=False)
+    if not index_exists('ix_fund_dividend_dividend_date'):
+        op.create_index('ix_fund_dividend_dividend_date', 'fund_dividend', ['dividend_date'], unique=False)
     
-    op.create_index('idx_exchange_rates_date', 'exchange_rates', ['rate_date'], unique=False)
-    op.create_index('idx_exchange_rates_currency', 'exchange_rates', ['from_currency', 'to_currency'], unique=False)
-    op.create_index('ix_exchange_rates_id', 'exchange_rates', ['id'], unique=False)
-    op.create_index('ix_exchange_rates_from_currency', 'exchange_rates', ['from_currency'], unique=False)
-    op.create_index('ix_exchange_rates_rate_date', 'exchange_rates', ['rate_date'], unique=False)
-    op.create_index('ix_exchange_rates_to_currency', 'exchange_rates', ['to_currency'], unique=False)
+    # DCA计划表索引
+    if not index_exists('ix_dca_plans_id'):
+        op.create_index('ix_dca_plans_id', 'dca_plans', ['id'], unique=False)
     
-    op.create_index('ix_system_config_id', 'system_config', ['id'], unique=False)
-    op.create_index('ix_system_config_config_key', 'system_config', ['config_key'], unique=False)
+    # 汇率表索引
+    if not index_exists('idx_exchange_rates_date'):
+        op.create_index('idx_exchange_rates_date', 'exchange_rates', ['rate_date'], unique=False)
+    if not index_exists('idx_exchange_rates_currency'):
+        op.create_index('idx_exchange_rates_currency', 'exchange_rates', ['from_currency', 'to_currency'], unique=False)
+    if not index_exists('ix_exchange_rates_id'):
+        op.create_index('ix_exchange_rates_id', 'exchange_rates', ['id'], unique=False)
+    if not index_exists('ix_exchange_rates_from_currency'):
+        op.create_index('ix_exchange_rates_from_currency', 'exchange_rates', ['from_currency'], unique=False)
+    if not index_exists('ix_exchange_rates_rate_date'):
+        op.create_index('ix_exchange_rates_rate_date', 'exchange_rates', ['rate_date'], unique=False)
+    if not index_exists('ix_exchange_rates_to_currency'):
+        op.create_index('ix_exchange_rates_to_currency', 'exchange_rates', ['to_currency'], unique=False)
     
-    op.create_index('idx_wise_transaction_date', 'wise_transactions', ['date'], unique=False)
-    op.create_index('idx_wise_transaction_profile', 'wise_transactions', ['profile_id'], unique=False)
-    op.create_index('idx_wise_transaction_account', 'wise_transactions', ['account_id'], unique=False)
-    op.create_index('ix_wise_transactions_id', 'wise_transactions', ['id'], unique=False)
-    op.create_index('ix_wise_transactions_profile_id', 'wise_transactions', ['profile_id'], unique=False)
-    op.create_index('ix_wise_transactions_account_id', 'wise_transactions', ['account_id'], unique=False)
-    op.create_index('ix_wise_transactions_transaction_id', 'wise_transactions', ['transaction_id'], unique=False)
-    op.create_index('ix_wise_transactions_date', 'wise_transactions', ['date'], unique=False)
+    # 系统配置表索引
+    if not index_exists('ix_system_config_id'):
+        op.create_index('ix_system_config_id', 'system_config', ['id'], unique=False)
+    if not index_exists('ix_system_config_config_key'):
+        op.create_index('ix_system_config_config_key', 'system_config', ['config_key'], unique=False)
     
-    op.create_index('idx_wise_balance_currency', 'wise_balances', ['currency'], unique=False)
-    op.create_index('ix_wise_balances_id', 'wise_balances', ['id'], unique=False)
-    op.create_index('ix_wise_balances_account_id', 'wise_balances', ['account_id'], unique=False)
+    # Wise交易表索引
+    if not index_exists('idx_wise_transaction_date'):
+        op.create_index('idx_wise_transaction_date', 'wise_transactions', ['created_at'], unique=False)
+    if not index_exists('idx_wise_transaction_account'):
+        op.create_index('idx_wise_transaction_account', 'wise_transactions', ['account_id'], unique=False)
+    if not index_exists('ix_wise_transactions_id'):
+        op.create_index('ix_wise_transactions_id', 'wise_transactions', ['id'], unique=False)
+    if not index_exists('ix_wise_transactions_account_id'):
+        op.create_index('ix_wise_transactions_account_id', 'wise_transactions', ['account_id'], unique=False)
+    if not index_exists('ix_wise_transactions_transaction_id'):
+        op.create_index('ix_wise_transactions_transaction_id', 'wise_transactions', ['transaction_id'], unique=False)
+    if not index_exists('ix_wise_transactions_created_at'):
+        op.create_index('ix_wise_transactions_created_at', 'wise_transactions', ['created_at'], unique=False)
     
-    op.create_index('ix_wise_exchange_rates_id', 'wise_exchange_rates', ['id'], unique=False)
+    # Wise余额表索引
+    if not index_exists('idx_wise_balance_currency'):
+        op.create_index('idx_wise_balance_currency', 'wise_balances', ['currency'], unique=False)
+    if not index_exists('ix_wise_balances_id'):
+        op.create_index('ix_wise_balances_id', 'wise_balances', ['id'], unique=False)
+    if not index_exists('ix_wise_balances_account_id'):
+        op.create_index('ix_wise_balances_account_id', 'wise_balances', ['account_id'], unique=False)
     
-    op.create_index('idx_ibkr_accounts_id', 'ibkr_accounts', ['account_id'], unique=False)
-    op.create_index('ix_ibkr_accounts_id', 'ibkr_accounts', ['id'], unique=False)
-    op.create_index('ix_ibkr_accounts_account_id', 'ibkr_accounts', ['account_id'], unique=False)
+    # Wise汇率表索引
+    if not index_exists('ix_wise_exchange_rates_id'):
+        op.create_index('ix_wise_exchange_rates_id', 'wise_exchange_rates', ['id'], unique=False)
     
-    op.create_index('idx_ibkr_balances_account', 'ibkr_balances', ['account_id'], unique=False)
-    op.create_index('idx_ibkr_balances_date', 'ibkr_balances', ['snapshot_date'], unique=False)
-    op.create_index('ix_ibkr_balances_id', 'ibkr_balances', ['id'], unique=False)
-    op.create_index('ix_ibkr_balances_account_id', 'ibkr_balances', ['account_id'], unique=False)
-    op.create_index('ix_ibkr_balances_snapshot_date', 'ibkr_balances', ['snapshot_date'], unique=False)
+    # IBKR账户表索引
+    if not index_exists('idx_ibkr_accounts_id'):
+        op.create_index('idx_ibkr_accounts_id', 'ibkr_accounts', ['account_id'], unique=False)
+    if not index_exists('ix_ibkr_accounts_id'):
+        op.create_index('ix_ibkr_accounts_id', 'ibkr_accounts', ['id'], unique=False)
+    if not index_exists('ix_ibkr_accounts_account_id'):
+        op.create_index('ix_ibkr_accounts_account_id', 'ibkr_accounts', ['account_id'], unique=False)
     
-    op.create_index('idx_ibkr_positions_account', 'ibkr_positions', ['account_id'], unique=False)
-    op.create_index('idx_ibkr_positions_symbol', 'ibkr_positions', ['symbol'], unique=False)
-    op.create_index('idx_ibkr_positions_date', 'ibkr_positions', ['snapshot_date'], unique=False)
-    op.create_index('ix_ibkr_positions_id', 'ibkr_positions', ['id'], unique=False)
-    op.create_index('ix_ibkr_positions_account_id', 'ibkr_positions', ['account_id'], unique=False)
-    op.create_index('ix_ibkr_positions_symbol', 'ibkr_positions', ['symbol'], unique=False)
-    op.create_index('ix_ibkr_positions_snapshot_date', 'ibkr_positions', ['snapshot_date'], unique=False)
+    # IBKR余额表索引
+    if not index_exists('idx_ibkr_balances_account'):
+        op.create_index('idx_ibkr_balances_account', 'ibkr_balances', ['account_id'], unique=False)
+    if not index_exists('ix_ibkr_balances_id'):
+        op.create_index('ix_ibkr_balances_id', 'ibkr_balances', ['id'], unique=False)
+    if not index_exists('ix_ibkr_balances_account_id'):
+        op.create_index('ix_ibkr_balances_account_id', 'ibkr_balances', ['account_id'], unique=False)
     
-    op.create_index('idx_ibkr_sync_logs_status', 'ibkr_sync_logs', ['status'], unique=False)
-    op.create_index('idx_ibkr_sync_logs_date', 'ibkr_sync_logs', ['created_at'], unique=False)
-    op.create_index('idx_ibkr_sync_logs_account', 'ibkr_sync_logs', ['account_id'], unique=False)
-    op.create_index('ix_ibkr_sync_logs_id', 'ibkr_sync_logs', ['id'], unique=False)
-    op.create_index('ix_ibkr_sync_logs_status', 'ibkr_sync_logs', ['status'], unique=False)
-    op.create_index('ix_ibkr_sync_logs_created_at', 'ibkr_sync_logs', ['created_at'], unique=False)
-    op.create_index('ix_ibkr_sync_logs_account_id', 'ibkr_sync_logs', ['account_id'], unique=False)
+    # IBKR持仓表索引
+    if not index_exists('idx_ibkr_positions_account'):
+        op.create_index('idx_ibkr_positions_account', 'ibkr_positions', ['account_id'], unique=False)
+    if not index_exists('idx_ibkr_positions_symbol'):
+        op.create_index('idx_ibkr_positions_symbol', 'ibkr_positions', ['symbol'], unique=False)
+    if not index_exists('ix_ibkr_positions_id'):
+        op.create_index('ix_ibkr_positions_id', 'ibkr_positions', ['id'], unique=False)
+    if not index_exists('ix_ibkr_positions_account_id'):
+        op.create_index('ix_ibkr_positions_account_id', 'ibkr_positions', ['account_id'], unique=False)
+    if not index_exists('ix_ibkr_positions_symbol'):
+        op.create_index('ix_ibkr_positions_symbol', 'ibkr_positions', ['symbol'], unique=False)
     
-    op.create_index('idx_okx_balance_currency', 'okx_balances', ['currency'], unique=False)
-    op.create_index('idx_okx_balance_account_type', 'okx_balances', ['account_type'], unique=False)
-    op.create_index('ix_okx_balances_id', 'okx_balances', ['id'], unique=False)
-    op.create_index('ix_okx_balances_account_id', 'okx_balances', ['account_id'], unique=False)
-    op.create_index('ix_okx_balances_currency', 'okx_balances', ['currency'], unique=False)
-    op.create_index('ix_okx_balances_account_type', 'okx_balances', ['account_type'], unique=False)
+    # IBKR同步日志表索引
+    if not index_exists('idx_ibkr_sync_logs_status'):
+        op.create_index('idx_ibkr_sync_logs_status', 'ibkr_sync_logs', ['status'], unique=False)
+    if not index_exists('idx_ibkr_sync_logs_date'):
+        op.create_index('idx_ibkr_sync_logs_date', 'ibkr_sync_logs', ['created_at'], unique=False)
+    if not index_exists('ix_ibkr_sync_logs_id'):
+        op.create_index('ix_ibkr_sync_logs_id', 'ibkr_sync_logs', ['id'], unique=False)
+    if not index_exists('ix_ibkr_sync_logs_status'):
+        op.create_index('ix_ibkr_sync_logs_status', 'ibkr_sync_logs', ['status'], unique=False)
+    if not index_exists('ix_ibkr_sync_logs_created_at'):
+        op.create_index('ix_ibkr_sync_logs_created_at', 'ibkr_sync_logs', ['created_at'], unique=False)
     
-    op.create_index('idx_okx_transaction_timestamp', 'okx_transactions', ['timestamp'], unique=False)
-    op.create_index('idx_okx_transaction_inst_id', 'okx_transactions', ['inst_id'], unique=False)
-    op.create_index('idx_okx_transaction_type', 'okx_transactions', ['type'], unique=False)
-    op.create_index('ix_okx_transactions_id', 'okx_transactions', ['id'], unique=False)
-    op.create_index('ix_okx_transactions_transaction_id', 'okx_transactions', ['transaction_id'], unique=False)
-    op.create_index('ix_okx_transactions_account_id', 'okx_transactions', ['account_id'], unique=False)
-    op.create_index('ix_okx_transactions_inst_id', 'okx_transactions', ['inst_id'], unique=False)
-    op.create_index('ix_okx_transactions_timestamp', 'okx_transactions', ['timestamp'], unique=False)
-    op.create_index('ix_okx_transactions_type', 'okx_transactions', ['type'], unique=False)
+    # OKX余额表索引
+    if not index_exists('idx_okx_balance_currency'):
+        op.create_index('idx_okx_balance_currency', 'okx_balances', ['currency'], unique=False)
+    if not index_exists('ix_okx_balances_id'):
+        op.create_index('ix_okx_balances_id', 'okx_balances', ['id'], unique=False)
+    if not index_exists('ix_okx_balances_account_id'):
+        op.create_index('ix_okx_balances_account_id', 'okx_balances', ['account_id'], unique=False)
+    if not index_exists('ix_okx_balances_currency'):
+        op.create_index('ix_okx_balances_currency', 'okx_balances', ['currency'], unique=False)
     
-    op.create_index('idx_okx_position_inst_id', 'okx_positions', ['inst_id'], unique=False)
-    op.create_index('idx_okx_position_timestamp', 'okx_positions', ['timestamp'], unique=False)
-    op.create_index('ix_okx_positions_id', 'okx_positions', ['id'], unique=False)
-    op.create_index('ix_okx_positions_account_id', 'okx_positions', ['account_id'], unique=False)
-    op.create_index('ix_okx_positions_inst_id', 'okx_positions', ['inst_id'], unique=False)
-    op.create_index('ix_okx_positions_timestamp', 'okx_positions', ['timestamp'], unique=False)
-    
-    op.create_index('ix_okx_market_data_id', 'okx_market_data', ['id'], unique=False)
-    op.create_index('ix_okx_market_data_inst_id', 'okx_market_data', ['inst_id'], unique=False)
-    op.create_index('ix_okx_market_data_inst_type', 'okx_market_data', ['inst_type'], unique=False)
-    op.create_index('ix_okx_market_data_timestamp', 'okx_market_data', ['timestamp'], unique=False)
-    
-    op.create_index('ix_okx_account_overview_id', 'okx_account_overview', ['id'], unique=False)
-    op.create_index('ix_okx_account_overview_last_update', 'okx_account_overview', ['last_update'], unique=False)
-    
-    op.create_index('ix_web3_balances_id', 'web3_balances', ['id'], unique=False)
-    op.create_index('ix_web3_balances_project_id', 'web3_balances', ['project_id'], unique=False)
-    op.create_index('ix_web3_balances_account_id', 'web3_balances', ['account_id'], unique=False)
-    op.create_index('ix_web3_balances_update_time', 'web3_balances', ['update_time'], unique=False)
-    
-    op.create_index('ix_web3_tokens_id', 'web3_tokens', ['id'], unique=False)
-    op.create_index('ix_web3_tokens_project_id', 'web3_tokens', ['project_id'], unique=False)
-    op.create_index('ix_web3_tokens_account_id', 'web3_tokens', ['account_id'], unique=False)
-    op.create_index('ix_web3_tokens_token_symbol', 'web3_tokens', ['token_symbol'], unique=False)
-    op.create_index('ix_web3_tokens_update_time', 'web3_tokens', ['update_time'], unique=False)
-    
-    op.create_index('ix_web3_transactions_id', 'web3_transactions', ['id'], unique=False)
-    op.create_index('ix_web3_transactions_project_id', 'web3_transactions', ['project_id'], unique=False)
-    op.create_index('ix_web3_transactions_account_id', 'web3_transactions', ['account_id'], unique=False)
-    op.create_index('ix_web3_transactions_transaction_hash', 'web3_transactions', ['transaction_hash'], unique=False)
-    op.create_index('ix_web3_transactions_token_symbol', 'web3_transactions', ['token_symbol'], unique=False)
-    op.create_index('ix_web3_transactions_timestamp', 'web3_transactions', ['timestamp'], unique=False)
-    
-    op.create_index('ix_asset_snapshot_id', 'asset_snapshot', ['id'], unique=False)
-    op.create_index('ix_asset_snapshot_user_id', 'asset_snapshot', ['user_id'], unique=False)
-    op.create_index('ix_asset_snapshot_platform', 'asset_snapshot', ['platform'], unique=False)
-    op.create_index('ix_asset_snapshot_asset_type', 'asset_snapshot', ['asset_type'], unique=False)
-    op.create_index('ix_asset_snapshot_asset_code', 'asset_snapshot', ['asset_code'], unique=False)
-    op.create_index('ix_asset_snapshot_currency', 'asset_snapshot', ['currency'], unique=False)
-    op.create_index('ix_asset_snapshot_snapshot_time', 'asset_snapshot', ['snapshot_time'], unique=False)
-    
-    op.create_index('ix_exchange_rate_snapshot_id', 'exchange_rate_snapshot', ['id'], unique=False)
-    op.create_index('ix_exchange_rate_snapshot_from_currency', 'exchange_rate_snapshot', ['from_currency'], unique=False)
-    op.create_index('ix_exchange_rate_snapshot_to_currency', 'exchange_rate_snapshot', ['to_currency'], unique=False)
-    op.create_index('ix_exchange_rate_snapshot_snapshot_time', 'exchange_rate_snapshot', ['snapshot_time'], unique=False)
+    # OKX交易表索引
+    if not index_exists('idx_okx_transaction_timestamp'):
+        op.create_index('idx_okx_transaction_timestamp', 'okx_transactions', ['timestamp'], unique=False)
+    if not index_exists('idx_okx_transaction_inst_id'):
+        op.create_index('idx_okx_transaction_inst_id', 'okx_transactions', ['inst_id'], unique=False)
+    if not index_exists('idx_okx_transaction_type'):
+        op.create_index('idx_okx_transaction_type', 'okx_transactions', ['type'], unique=False)
 
 def downgrade():
     # 删除索引（按创建顺序的反序）

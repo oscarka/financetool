@@ -18,6 +18,8 @@ def check_database_compatibility(conn):
     """检查数据库兼容性"""
     print("🔍 开始数据库兼容性检查...")
     issues = []
+    missing_tables = []
+    field_mismatches = []
     
     # 动态从SQLAlchemy模型生成检查规则
     try:
@@ -69,6 +71,7 @@ def check_database_compatibility(conn):
         table_exists = result.scalar()
         
         if not table_exists:
+            missing_tables.append(table_name)
             issues.append(f"❌ 表 {table_name} 不存在")
             continue
         
@@ -80,9 +83,17 @@ def check_database_compatibility(conn):
         """))
         existing_fields = {row[0]: {'type': row[1], 'nullable': row[2]} for row in result}
         
+        table_field_issues = []
         for field in required_fields:
             if field not in existing_fields:
+                table_field_issues.append(field)
                 issues.append(f"❌ 表 {table_name} 缺少字段: {field}")
+        
+        if table_field_issues:
+            field_mismatches.append({
+                'table': table_name,
+                'missing_fields': table_field_issues
+            })
         
         # 检查索引（只对业务表检查主键索引）
         if table_name not in ['alembic_version', 'audit_log']:
@@ -114,19 +125,32 @@ def check_database_compatibility(conn):
         current_version = result.scalar()
         print(f"📋 当前 Alembic 版本: {current_version}")
     
+    # 根据问题类型返回不同的状态
     if issues:
         print("❌ 检测到数据库不一致:")
         for issue in issues:
             print(f"  {issue}")
-        return False
+        
+        # 如果只有表缺失，没有字段不一致，返回 "missing_tables"
+        if missing_tables and not field_mismatches:
+            print("📋 只有表缺失，这是安全的操作")
+            return "missing_tables"
+        # 如果有字段不一致，返回 "field_mismatch"
+        elif field_mismatches:
+            print("⚠️  检测到字段不一致，需要谨慎处理")
+            return "field_mismatch"
+        # 其他情况返回 "incompatible"
+        else:
+            return "incompatible"
     else:
         print("✅ 数据库兼容性检查通过")
-        return True
+        return "compatible"
 
 def check_database_basic_compatibility(conn):
     """基础数据库兼容性检查（备用方案）"""
     print("🔍 执行基础数据库兼容性检查...")
     issues = []
+    missing_tables = []
     
     # 只检查关键表的存在性
     critical_tables = [
@@ -144,16 +168,23 @@ def check_database_basic_compatibility(conn):
         table_exists = result.scalar()
         
         if not table_exists:
+            missing_tables.append(table_name)
             issues.append(f"❌ 关键表 {table_name} 不存在")
     
     if issues:
         print("❌ 基础检查发现不一致:")
         for issue in issues:
             print(f"  {issue}")
-        return False
+        
+        # 如果只有表缺失，返回 "missing_tables"
+        if missing_tables:
+            print("📋 只有表缺失，这是安全的操作")
+            return "missing_tables"
+        else:
+            return "incompatible"
     else:
         print("✅ 基础数据库兼容性检查通过")
-        return True
+        return "compatible"
 
 def rollback_database_changes(conn):
     """回退数据库修改"""
@@ -163,8 +194,21 @@ def rollback_database_changes(conn):
         # 1. 恢复 alembic 版本号到基础版本
         print("📋 恢复 Alembic 版本号...")
         try:
+            # 确保在backend目录执行alembic命令
+            import os
+            current_dir = os.getcwd()
+            backend_dir = os.path.join(current_dir, 'backend') if os.path.exists(os.path.join(current_dir, 'backend')) else current_dir
+            
+            # 切换到backend目录
+            os.chdir(backend_dir)
+            print(f"📁 切换到目录: {backend_dir}")
+            
             # 尝试恢复到基础版本
             subprocess.run(["alembic", "stamp", "base"], check=True)
+            
+            # 恢复原目录
+            os.chdir(current_dir)
+            
             print("✅ Alembic 版本号已恢复到基础版本")
         except Exception as e:
             print(f"⚠️  恢复版本号失败: {e}")
@@ -197,11 +241,14 @@ def rollback_database_changes(conn):
         
     except Exception as e:
         print(f"❌ 回退失败: {e}")
-        print("⚠️  需要手动干预")
         return False
 
 def safe_railway_migration():
     """安全的Railway迁移"""
+    import os
+    import subprocess
+    from sqlalchemy import text
+    
     database_url = os.getenv("DATABASE_URL")
     if not database_url or not database_url.startswith("postgresql://"):
         print("⚠️  未配置PostgreSQL数据库，跳过Railway迁移")
@@ -216,9 +263,24 @@ def safe_railway_migration():
         engine = create_engine(database_url, echo=False)
         
         with engine.connect() as conn:
-            # 1. 预检查
+            # 1. 预检查 - 区分表缺失和字段不一致
             print("🔍 执行预检查...")
-            if not check_database_compatibility(conn):
+            compatibility_result = check_database_compatibility(conn)
+            
+            if compatibility_result == "missing_tables":
+                print("📋 检测到缺失表，将安全创建...")
+                # 表缺失是安全的，直接继续
+            elif compatibility_result == "field_mismatch":
+                print("❌ 检测到字段不一致，开始回退...")
+                if rollback_database_changes(conn):
+                    print("✅ 回退成功，迁移终止")
+                    return False
+                else:
+                    print("❌ 回退失败，需要手动干预")
+                    return False
+            elif compatibility_result == "compatible":
+                print("✅ 数据库兼容性检查通过")
+            else:
                 print("❌ 预检查失败，开始回退...")
                 if rollback_database_changes(conn):
                     print("✅ 回退成功，迁移终止")
@@ -243,7 +305,19 @@ def safe_railway_migration():
             # 3. 执行迁移
             print("🔄 执行迁移...")
             try:
+                # 确保在backend目录执行alembic命令
+                current_dir = os.getcwd()
+                backend_dir = os.path.join(current_dir, 'backend') if os.path.exists(os.path.join(current_dir, 'backend')) else current_dir
+                
+                # 切换到backend目录
+                os.chdir(backend_dir)
+                print(f"📁 切换到目录: {backend_dir}")
+                
                 result = subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True)
+                
+                # 恢复原目录
+                os.chdir(current_dir)
+                
                 if result.returncode != 0:
                     print(f"❌ 迁移失败: {result.stderr}")
                     print("🔄 开始回退...")
@@ -269,7 +343,8 @@ def safe_railway_migration():
             
             # 4. 迁移后验证
             print("🔍 执行迁移后验证...")
-            if not check_database_compatibility(conn):
+            final_check = check_database_compatibility(conn)
+            if final_check != "compatible" and final_check != "missing_tables":
                 print("❌ 迁移后验证失败，开始回退...")
                 if rollback_database_changes(conn):
                     print("✅ 回退成功")
