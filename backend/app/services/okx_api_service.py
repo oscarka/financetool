@@ -128,15 +128,6 @@ class OKXAPIService:
             return None
         return await self._make_request('GET', '/api/v5/account/positions')
 
-    async def get_bills(self, inst_type: str = None, limit: int = 100) -> Optional[Dict[str, Any]]:
-        """获取账单流水"""
-        if not self._validate_config():
-            return None
-        params = {'limit': str(limit)}
-        if inst_type:
-            params['instType'] = inst_type
-        return await self._make_request('GET', '/api/v5/account/bills', params=params)
-
     async def get_bills_archive(self, inst_type: str = None, limit: int = 100) -> Optional[Dict[str, Any]]:
         """获取账单归档流水"""
         logger.info(f"开始获取账单归档流水: inst_type={inst_type}, limit={limit}")
@@ -215,14 +206,11 @@ class OKXAPIService:
         return await self._make_request('GET', '/api/v5/finance/savings/balance', params=params)
 
     @auto_log("okx", log_result=True)
-    async def get_positions(self, inst_type: str = None) -> Optional[Dict[str, Any]]:
-        """获取持仓信息 (GET /api/v5/account/positions)"""
+    async def get_positions(self) -> Optional[Dict[str, Any]]:
+        """获取持仓信息"""
         if not self._validate_config():
             return None
-        params = {}
-        if inst_type:
-            params['instType'] = inst_type
-        return await self._make_request('GET', '/api/v5/account/positions', params=params)
+        return await self._make_request('GET', '/api/v5/account/positions')
 
     @auto_log("okx", log_result=True)
     async def get_trades(self, inst_id: str = None, limit: int = 100) -> Optional[Dict[str, Any]]:

@@ -145,16 +145,16 @@ async def get_okx_positions():
 
 @router.get("/bills")
 async def get_okx_bills(limit: int = Query(100, ge=1, le=1000)):
-    """获取OKX账单流水"""
+    """获取OKX账单归档流水"""
     try:
-        result = await okx_service.get_bills(limit=limit)
+        result = await okx_service.get_bills_archive(limit=limit)
         return {
             "success": True,
             "data": result
         }
     except Exception as e:
-        logger.error(f"获取OKX账单流水失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取账单流水失败: {str(e)}")
+        logger.error(f"获取OKX账单归档流水失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取账单归档流水失败: {str(e)}")
 
 
 @router.get("/ticker")
@@ -242,10 +242,14 @@ async def sync_okx_balances():
 async def sync_okx_transactions(days: int = Query(30, ge=1, le=365)):
     """主动同步OKX交易记录到数据库"""
     try:
+        logger.info(f"[入口日志] 调用sync_okx_transactions, days={days}")
         result = await okx_service.sync_transactions_to_db(days)
+        logger.info(f"[入口日志] sync_transactions_to_db返回: {result}")
         return result
     except Exception as e:
+        import traceback
         logger.error(f"同步OKX交易记录失败: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"同步OKX交易记录失败: {str(e)}")
 
 
@@ -448,8 +452,62 @@ async def get_stored_transactions(
             total = query.count()
             transactions = query.order_by(OKXTransaction.timestamp.desc()).offset(offset).limit(limit).all()
             
+            type_desc_map = {
+                '1': '划转',
+                '2': '交易',
+                '3': '交割',
+                '4': '自动换币',
+                '5': '强平',
+                '6': '保证金划转',
+                '7': '扣息',
+                '8': '资金费',
+                '9': '自动减仓',
+                '10': '穿仓补偿',
+                '11': '系统换币',
+                '12': '策略划拨',
+                '13': '对冲减仓',
+                '14': '大宗交易',
+                '15': '一键借币',
+                '16': '借币',
+                '22': '一键还债',
+                '24': '价差交易',
+                '26': '结构化产品',
+                '27': '闪兑',
+                '28': '小额兑换',
+                '29': '一键还债',
+                '30': '简单交易',
+                '32': '移仓',
+                '33': '借贷',
+                '34': '结算',
+                '250': '跟单人分润支出',
+                '251': '跟单人分润退还',
+            }
+            sub_type_desc_map = {
+                '1': '买入', '2': '卖出', '3': '开多', '4': '开空', '5': '平多', '6': '平空', '9': '市场借币扣息', '11': '转入', '12': '转出', '14': '尊享借币扣息',
+                '16': '强制还币', '17': '强制借币还息', '100': '强减平多', '101': '强减平空', '102': '强减买入', '103': '强减卖出', '104': '强平平多', '105': '强平平空',
+                '106': '强平买入', '107': '强平卖出', '108': '穿仓补偿', '110': '强平换币转入', '111': '强平换币转出', '112': '交割平多', '113': '交割平空',
+                '114': '自动换币买入', '115': '自动换币卖出', '118': '系统换币转入', '119': '系统换币转出', '125': '自动减仓平多', '126': '自动减仓平空',
+                '127': '自动减仓买入', '128': '自动减仓卖出', '131': '对冲买入', '132': '对冲卖出', '160': '手动追加保证金', '161': '手动减少保证金',
+                '162': '自动追加保证金', '170': '到期行权（实值期权买方）', '171': '到期被行权（实值期权卖方）', '172': '到期作废（非实值期权的买方和卖方）',
+                '173': '资金费支出', '174': '资金费收入', '200': '系统转入', '201': '手动转入', '202': '系统转出', '203': '手动转出',
+                '204': '大宗交易买', '205': '大宗交易卖', '206': '大宗交易开多', '207': '大宗交易开空', '208': '大宗交易平多', '209': '大宗交易平空',
+                '210': '一键借币的手动借币', '211': '一键借币的手动还币', '212': '一键借币的自动借币', '213': '一键借币的自动还币',
+                '220': 'USDT 买期权转入', '221': 'USDT 买期权转出', '224': '一键还债买入', '225': '一键还债卖出',
+                '236': '小额兑换买入', '237': '小额兑换卖出', '250': '永续分润支出', '251': '永续分润退还', '270': '价差交易买', '271': '价差交易卖',
+                '272': '价差交易开多', '273': '价差交易开空', '274': '价差交易平多', '275': '价差交易平空', '280': '现货分润支出', '281': '现货分润退还',
+                '284': '跟单自动转入', '285': '跟单手动转入', '286': '跟单自动转出', '287': '跟单手动转出', '290': '系统转出小额资产',
+                '293': '固定借币扣息', '294': '固定借币利息退款', '295': '固定借币逾期利息', '296': '结构化下单转出', '297': '结构化下单转入',
+                '298': '结构化结算转出', '299': '结构化结算转入', '306': '手动借币', '307': '自动借币', '308': '手动还币', '309': '自动还币',
+                '312': '自动折抵', '318': '闪兑买入', '319': '闪兑卖出', '320': '简单交易买入', '321': '简单交易卖出',
+                '324': '移仓买入', '325': '移仓卖出', '326': '移仓开多', '327': '移仓开空', '328': '移仓平多', '329': '移仓平空',
+                '332': '逐仓杠杆仓位转入保证金', '333': '逐仓杠杆仓位转出保证金', '334': '逐仓杆仓位保证金平仓消耗', '355': '结算盈亏',
+                '376': '质押借币超限买入', '377': '质押借币超限卖出', '381': '自动出借利息转入'
+            }
             transaction_list = []
             for tx in transactions:
+                type_desc = type_desc_map.get(str(tx.type), '未知')
+                sub_type = getattr(tx, 'sub_type', None)
+                sub_type_desc = sub_type_desc_map.get(str(sub_type), '未知') if sub_type else None
                 transaction_list.append({
                     "transaction_id": tx.transaction_id,
                     "account_id": tx.account_id,
@@ -459,6 +517,9 @@ async def get_stored_transactions(
                     "order_id": tx.order_id,
                     "bill_id": tx.bill_id,
                     "type": tx.type,
+                    "type_desc": type_desc,
+                    "sub_type": sub_type,
+                    "sub_type_desc": sub_type_desc,
                     "side": tx.side,
                     "amount": float(tx.amount),
                     "currency": tx.currency,
