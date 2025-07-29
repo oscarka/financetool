@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Statistic, Typography, Space, Progress, Tag, Alert, Button, Avatar, List, Badge, Tabs } from 'antd'
+import { Card, Row, Col, Statistic, Typography, Space, Tag, Alert, Button, Avatar, List, Badge, Tabs } from 'antd'
 import {
     PlusCircleOutlined,
     BarChartOutlined,
@@ -21,7 +21,7 @@ import {
     ArrowDownOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { fundAPI } from '../services/api'
+import { aggregationAPI } from '../services/api'
 import AssetTrendChart from '../components/AssetTrendChart';
 import AssetPieChart from '../components/AssetPieChart';
 import CountUp from 'react-countup';
@@ -29,59 +29,78 @@ import './MobileDashboard.css';
 
 const { Title, Text } = Typography
 
-interface DashboardStats {
-    total_value: number | string
-    total_invested: number | string
-    total_profit: number | string
-    total_profit_rate: number | string
+interface AggregatedStats {
+    total_value: number
+    platform_stats: Record<string, number>
+    asset_type_stats: Record<string, number>
+    currency_stats: Record<string, number>
     asset_count: number
-    profitable_count: number
-    loss_count: number
+    platform_count: number
+    asset_type_count: number
+    currency_count: number
+    has_default_rates: boolean
 }
 
 const MobileDashboard: React.FC = () => {
     const navigate = useNavigate()
-    const [stats, setStats] = useState<DashboardStats | null>(null)
+    const [aggregatedStats, setAggregatedStats] = useState<AggregatedStats | null>(null)
+    const [statsLoading, setStatsLoading] = useState<boolean>(false)
+    const [hasDefaultRates, setHasDefaultRates] = useState<boolean>(false)
     const [lastUpdateTime, setLastUpdateTime] = useState<string>('')
-    
-    // 获取持仓汇总数据
-    const fetchStats = async () => {
+
+    // 获取聚合统计数据
+    const fetchAggregatedStats = async () => {
+        setStatsLoading(true)
         try {
-            const response = await fundAPI.getPositionSummary()
+            console.log('[MobileDashboard] 开始获取聚合统计数据...')
+            const response = await aggregationAPI.getStats('CNY')
+            console.log('[MobileDashboard] 聚合API响应:', response)
+
             if (response.success && response.data) {
-                setStats(response.data)
+                setAggregatedStats(response.data)
+                setHasDefaultRates(response.data.has_default_rates || false)
+                console.log('[MobileDashboard] 聚合统计数据已更新:', response.data)
             } else {
-                // Mock数据 - 生成移动端统计数据
-                const mockStats = {
-                    total_value: 1200000,
-                    total_invested: 1000000,
-                    total_profit: 200000,
-                    total_profit_rate: 0.20,
-                    asset_count: 12,
-                    profitable_count: 8,
-                    loss_count: 4
+                console.warn('[MobileDashboard] 聚合API返回失败:', response)
+                // 使用默认数据
+                const defaultStats = {
+                    total_value: 18573.44,
+                    platform_stats: { test: 1050.0, Wise: 10080.77, OKX: 7442.67 },
+                    asset_type_stats: { fund: 1050.0, 外汇: 10080.77, 数字货币: 7442.67 },
+                    currency_stats: { CNY: 1050.0, USD: 0.0, AUD: 3362.54, JPY: 6711.98 },
+                    asset_count: 18,
+                    platform_count: 3,
+                    asset_type_count: 3,
+                    currency_count: 15,
+                    has_default_rates: true
                 }
-                setStats(mockStats)
+                setAggregatedStats(defaultStats)
+                setHasDefaultRates(true)
             }
         } catch (error) {
-            // Mock数据 - 生成移动端统计数据
-            const mockStats = {
-                total_value: 1200000,
-                total_invested: 1000000,
-                total_profit: 200000,
-                total_profit_rate: 0.20,
-                asset_count: 12,
-                profitable_count: 8,
-                loss_count: 4
+            console.error('[MobileDashboard] 获取聚合统计数据失败:', error)
+            // 使用默认数据
+            const defaultStats = {
+                total_value: 18573.44,
+                platform_stats: { test: 1050.0, Wise: 10080.77, OKX: 7442.67 },
+                asset_type_stats: { fund: 1050.0, 外汇: 10080.77, 数字货币: 7442.67 },
+                currency_stats: { CNY: 1050.0, USD: 0.0, AUD: 3362.54, JPY: 6711.98 },
+                asset_count: 18,
+                platform_count: 3,
+                asset_type_count: 3,
+                currency_count: 15,
+                has_default_rates: true
             }
-            setStats(mockStats)
+            setAggregatedStats(defaultStats)
+            setHasDefaultRates(true)
         } finally {
+            setStatsLoading(false)
             setLastUpdateTime(new Date().toLocaleTimeString('zh-CN'))
         }
     }
 
     useEffect(() => {
-        fetchStats()
+        fetchAggregatedStats()
     }, [])
 
     // 安全的数字转换
@@ -99,11 +118,11 @@ const MobileDashboard: React.FC = () => {
         })
     }
 
-    // 格式化百分比
-    const formatPercent = (rate: number | string) => {
-        const numRate = safeNumber(rate)
-        return `${numRate >= 0 ? '+' : ''}${(numRate * 100).toFixed(2)}%`
-    }
+    // 统计信息
+    const totalAsset = aggregatedStats ? safeNumber(aggregatedStats.total_value) : 0;
+    const assetTypesCount = aggregatedStats ? aggregatedStats.asset_count : 0;
+    const platformCount = aggregatedStats ? aggregatedStats.platform_count : 0;
+    const accountCount = 1; // TODO: 如有多账户可补充
 
     // 模拟最近操作数据
     const recentOperations = [
@@ -122,63 +141,39 @@ const MobileDashboard: React.FC = () => {
     ]
 
     const quickActions = [
-        {
-            title: '添加操作',
-            description: '记录新的投资操作',
-            icon: PlusCircleOutlined,
-            color: '#1890ff',
-            path: '/operations',
-            badge: 'new'
-        },
-        {
-            title: '查看持仓',
-            description: '查看当前投资持仓',
-            icon: BarChartOutlined,
-            color: '#52c41a',
-            path: '/positions',
-            badge: null
-        },
-        {
-            title: '收益分析',
-            description: '分析投资收益情况',
-            icon: PieChartOutlined,
-            color: '#faad14',
-            path: '/analysis',
-            badge: null
-        },
-        {
-            title: '基金管理',
-            description: '管理基金投资',
-            icon: LineChartOutlined,
-            color: '#722ed1',
-            path: '/funds',
-            badge: null
-        }
+        { icon: <PlusCircleOutlined />, title: '买入', color: '#52c41a', action: () => navigate('/operations') },
+        { icon: <BarChartOutlined />, title: '分析', color: '#1890ff', action: () => navigate('/analysis') },
+        { icon: <PieChartOutlined />, title: '分布', color: '#722ed1', action: () => navigate('/positions') },
+        { icon: <LineChartOutlined />, title: '趋势', color: '#fa8c16', action: () => navigate('/analysis') }
     ]
 
     const getStatusIcon = (status: string) => {
         switch (status) {
-            case 'success': return <CheckCircleOutlined style={{ color: '#52c41a' }} />
-            case 'pending': return <ClockCircleOutlined style={{ color: '#faad14' }} />
-            case 'failed': return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-            default: return <ExclamationCircleOutlined style={{ color: '#1890ff' }} />
+            case 'success':
+                return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+            case 'pending':
+                return <ClockCircleOutlined style={{ color: '#faad14' }} />
+            case 'failed':
+                return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+            default:
+                return <ExclamationCircleOutlined style={{ color: '#1890ff' }} />
         }
     }
 
-    // 统计信息
-    const totalAsset = stats ? safeNumber(stats.total_value) : 0;
-    const assetTypesCount = stats ? stats.asset_count : 0;
-    const change24h = stats ? safeNumber(stats.total_profit_rate) * 100 : 0;
-    const accountCount = 1; // TODO: 如有多账户可补充
-
-    const mockAssets = [
-      { asset: 'BTC', amount: 2.5, cny: 432000, usd: 60000, change: 5 },
-      { asset: 'ETH', amount: 10, cny: 144000, usd: 20000, change: 2 },
-      { asset: 'USDT', amount: 5000, cny: 36000, usd: 5000, change: -1 },
-    ];
-
     return (
         <div className="mobile-dashboard-root">
+            {/* 默认汇率警告 */}
+            {hasDefaultRates && (
+                <Alert
+                    message="汇率提示"
+                    description="部分货币使用了默认汇率，数据仅供参考"
+                    type="warning"
+                    showIcon
+                    closable
+                    style={{ marginBottom: 16 }}
+                />
+            )}
+
             {/* 顶部状态栏 */}
             <div className="mobile-status-bar">
                 <div className="mobile-status-left">
@@ -187,17 +182,18 @@ const MobileDashboard: React.FC = () => {
                     </Text>
                 </div>
                 <div className="mobile-status-right">
-                    <Button 
-                        type="text" 
-                        size="small" 
-                        icon={<ReloadOutlined />} 
-                        onClick={fetchStats}
+                    <Button
+                        type="text"
+                        size="small"
+                        icon={<ReloadOutlined />}
+                        onClick={fetchAggregatedStats}
+                        loading={statsLoading}
                         style={{ color: '#1890ff' }}
                     />
-                    <Button 
-                        type="text" 
-                        size="small" 
-                        icon={<SettingOutlined />} 
+                    <Button
+                        type="text"
+                        size="small"
+                        icon={<SettingOutlined />}
                         onClick={() => navigate('/settings')}
                         style={{ color: '#666' }}
                     />
@@ -205,7 +201,7 @@ const MobileDashboard: React.FC = () => {
             </div>
 
             {/* 欢迎区域 */}
-            <Card 
+            <Card
                 bordered={false}
                 className="mobile-welcome-card"
             >
@@ -215,7 +211,7 @@ const MobileDashboard: React.FC = () => {
                             欢迎回来！
                         </Title>
                         <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
-                            {stats ? '查看您的投资概况' : '正在加载投资数据...'}
+                            {aggregatedStats ? '查看您的投资概况' : '正在加载投资数据...'}
                         </Text>
                     </div>
                     <div className="mobile-welcome-right">
@@ -228,24 +224,24 @@ const MobileDashboard: React.FC = () => {
             </Card>
 
             {/* 核心指标 */}
-            <Card 
+            <Card
                 title={
                     <div className="mobile-card-title">
                         <span>核心指标</span>
                         <Tag color="blue" style={{ marginLeft: 8, fontSize: '10px' }}>实时</Tag>
                     </div>
-                } 
-                bordered={false} 
+                }
+                bordered={false}
                 className="mobile-core-card"
-                extra={<EyeOutlined onClick={() => navigate('/positions')} style={{color:'#1d39c4'}} />}
+                extra={<EyeOutlined onClick={() => navigate('/positions')} style={{ color: '#1d39c4' }} />}
             >
-                {stats && (
+                {aggregatedStats && (
                     <Row gutter={[8, 8]}>
                         <Col xs={12}>
                             <Card size="small" className="mobile-metric-card">
                                 <Statistic
-                                    title={<span style={{color:'#1890ff'}}>总市值</span>}
-                                    value={safeNumber(stats.total_value)}
+                                    title={<span style={{ color: '#1890ff' }}>总市值</span>}
+                                    value={safeNumber(aggregatedStats.total_value)}
                                     precision={0}
                                     valueStyle={{
                                         color: '#1890ff',
@@ -255,76 +251,44 @@ const MobileDashboard: React.FC = () => {
                                     }}
                                     prefix="¥"
                                     formatter={(value) => (
-                                        <CountUp 
-                                            end={value as number} 
+                                        <CountUp
+                                            end={value as number}
                                             duration={2}
                                             separator=","
                                         />
                                     )}
                                 />
                                 <Space style={{ marginTop: 4 }}>
-                                    {safeNumber(stats.total_profit) >= 0 ? (
-                                        <ArrowUpOutlined style={{ color: '#3f8600' }} />
-                                    ) : (
-                                        <ArrowDownOutlined style={{ color: '#cf1322' }} />
-                                    )}
-                                    <Text style={{ 
-                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
-                                        fontSize: '11px'
-                                    }}>
-                                        {formatPercent(stats.total_profit_rate)}
+                                    <Text style={{ fontSize: '11px', color: '#666' }}>
+                                        资产数量: {aggregatedStats.asset_count}
                                     </Text>
                                 </Space>
-                                <Progress 
-                                    percent={Math.min(Math.abs(safeNumber(stats.total_profit_rate) * 100), 100)} 
-                                    showInfo={false} 
-                                    size="small"
-                                    style={{ marginTop: 4 }}
-                                    strokeColor={safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322'}
-                                />
                             </Card>
                         </Col>
                         <Col xs={12}>
                             <Card size="small" className="mobile-metric-card">
                                 <Statistic
-                                    title={<span style={{color:safeNumber(stats.total_profit)>=0?'#3f8600':'#cf1322'}}>总收益</span>}
-                                    value={Math.abs(safeNumber(stats.total_profit))}
-                                    precision={0}
+                                    title={<span style={{ color: '#52c41a' }}>平台数量</span>}
+                                    value={aggregatedStats.platform_count}
                                     valueStyle={{
-                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
+                                        color: '#52c41a',
                                         fontSize: '16px',
                                         fontWeight: 'bold',
                                         letterSpacing: 1
                                     }}
-                                    prefix={safeNumber(stats.total_profit) >= 0 ? '+¥' : '-¥'}
+                                    prefix=""
                                     formatter={(value) => (
-                                        <CountUp 
-                                            end={value as number} 
+                                        <CountUp
+                                            end={value as number}
                                             duration={2}
-                                            separator=","
                                         />
                                     )}
                                 />
                                 <Space style={{ marginTop: 4 }}>
-                                    {safeNumber(stats.total_profit) >= 0 ? (
-                                        <ArrowUpOutlined style={{ color: '#3f8600' }} />
-                                    ) : (
-                                        <ArrowDownOutlined style={{ color: '#cf1322' }} />
-                                    )}
-                                    <Text style={{ 
-                                        color: safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322',
-                                        fontSize: '11px'
-                                    }}>
-                                        {formatPercent(stats.total_profit_rate)}
+                                    <Text style={{ fontSize: '11px', color: '#666' }}>
+                                        资产类型: {aggregatedStats.asset_type_count}
                                     </Text>
                                 </Space>
-                                <Progress 
-                                    percent={Math.min(Math.abs(safeNumber(stats.total_profit_rate) * 100), 100)} 
-                                    showInfo={false} 
-                                    size="small"
-                                    style={{ marginTop: 4 }}
-                                    strokeColor={safeNumber(stats.total_profit) >= 0 ? '#3f8600' : '#cf1322'}
-                                />
                             </Card>
                         </Col>
                     </Row>
@@ -332,10 +296,11 @@ const MobileDashboard: React.FC = () => {
             </Card>
 
             {/* 投资概览 */}
-            {stats && (
-                <Card 
-                    title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>投资概览</span>} 
-                    bordered={false} 
+            {aggregatedStats && (
+                <Card
+                    title={<span style={{ color: '#1d39c4', fontWeight: 600, fontSize: 14 }}>资产概览</span>}
+                    bordered={false}
+                    size="small"
                     className="mobile-overview-card"
                 >
                     <Row gutter={[8, 8]}>
@@ -343,13 +308,13 @@ const MobileDashboard: React.FC = () => {
                             <div className="mobile-overview-block mobile-overview-block-blue">
                                 <DollarOutlined style={{ color: '#1890ff', fontSize: '14px', marginBottom: '2px' }} />
                                 <Text type="secondary" style={{ fontSize: '11px' }}>
-                                    累计投入
+                                    总资产
                                 </Text>
                                 <div className="mobile-overview-amount">
-                                    ¥{formatAmount(stats.total_invested)}
+                                    ¥{formatAmount(aggregatedStats.total_value)}
                                 </div>
                                 <Text style={{ color: '#1890ff', fontSize: '11px' }}>
-                                    本金
+                                    市值
                                 </Text>
                             </div>
                         </Col>
@@ -357,13 +322,13 @@ const MobileDashboard: React.FC = () => {
                             <div className="mobile-overview-block mobile-overview-block-purple">
                                 <BankOutlined style={{ color: '#722ed1', fontSize: '14px', marginBottom: '2px' }} />
                                 <Text type="secondary" style={{ fontSize: '11px' }}>
-                                    持仓数量
+                                    资产数量
                                 </Text>
                                 <div className="mobile-overview-amount">
-                                    {stats.asset_count || 0}
+                                    {aggregatedStats.asset_count || 0}
                                 </div>
                                 <Text style={{ color: '#722ed1', fontSize: '11px' }}>
-                                    个基金
+                                    个资产
                                 </Text>
                             </div>
                         </Col>
@@ -387,11 +352,9 @@ const MobileDashboard: React.FC = () => {
                 <Col span={12}>
                     <Card bordered={false} style={{ background: '#f6ffed' }}>
                         <Statistic
-                            title="24h涨跌"
-                            value={change24h}
-                            precision={2}
+                            title="资产数量"
+                            value={assetTypesCount}
                             valueStyle={{ color: '#52c41a', fontWeight: 'bold', fontSize: 18 }}
-                            suffix="%"
                         />
                     </Card>
                 </Col>
@@ -400,8 +363,8 @@ const MobileDashboard: React.FC = () => {
                 <Col span={12}>
                     <Card bordered={false} style={{ background: '#fffbe6' }}>
                         <Statistic
-                            title="资产种类"
-                            value={assetTypesCount}
+                            title="平台数量"
+                            value={platformCount}
                             valueStyle={{ color: '#faad14', fontWeight: 'bold', fontSize: 18 }}
                         />
                     </Card>
@@ -426,17 +389,17 @@ const MobileDashboard: React.FC = () => {
                 </Tabs.TabPane>
                 <Tabs.TabPane tab="主要资产" key="table">
                     <Card bordered={false} style={{ margin: 0, padding: 0 }}>
-                        {mockAssets.map(item => (
-                            <div key={item.asset} style={{
+                        {aggregatedStats?.asset_type_stats && Object.entries(aggregatedStats.asset_type_stats).map(([type, value]) => (
+                            <div key={type} style={{
                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                 padding: '12px 0', borderBottom: '1px solid #f0f0f0'
                             }}>
-                                <span style={{ fontWeight: 600 }}>{item.asset}</span>
-                                <span>{item.amount}</span>
-                                <span style={{ color: '#1890ff' }}>￥{item.cny.toLocaleString()}</span>
-                                <span style={{ color: '#52c41a' }}>${item.usd.toLocaleString()}</span>
-                                <span style={{ color: item.change >= 0 ? '#3f8600' : '#cf1322' }}>
-                                    {item.change >= 0 ? '+' : ''}{item.change}%
+                                <span style={{ fontWeight: 600 }}>{type}</span>
+                                <span>{value}</span>
+                                <span style={{ color: '#1890ff' }}>￥{safeNumber(value).toLocaleString()}</span>
+                                <span style={{ color: '#52c41a' }}>${safeNumber(value).toLocaleString()}</span>
+                                <span style={{ color: '#666' }}>
+                                    {aggregatedStats.has_default_rates ? '（默认）' : ''}
                                 </span>
                             </div>
                         ))}
@@ -445,8 +408,8 @@ const MobileDashboard: React.FC = () => {
             </Tabs>
 
             {/* 热门基金和最近操作合并 */}
-            <Card 
-                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>热门基金 & 最近操作</span>} 
+            <Card
+                title={<span style={{ color: '#1d39c4', fontWeight: 600, fontSize: 14 }}>热门基金 & 最近操作</span>}
                 bordered={false}
                 className="mobile-hot-funds-card"
             >
@@ -465,7 +428,7 @@ const MobileDashboard: React.FC = () => {
                                         <div className="mobile-hot-fund-code">{item.code}</div>
                                     </div>
                                     <div className="mobile-hot-fund-rate">
-                                        <Text style={{ 
+                                        <Text style={{
                                             color: item.trend === 'up' ? '#3f8600' : '#cf1322',
                                             fontWeight: 'bold',
                                             fontSize: '11px'
@@ -513,89 +476,58 @@ const MobileDashboard: React.FC = () => {
             </Card>
 
             {/* 快速操作 */}
-            <Card 
-                title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>快速操作</span>} 
+            <Card
+                title={<span style={{ color: '#1d39c4', fontWeight: 600, fontSize: 14 }}>快速操作</span>}
                 bordered={false}
                 className="mobile-action-card"
             >
                 <Row gutter={[8, 8]}>
-                    {quickActions.map((action) => {
-                        const IconComponent = action.icon
-                        return (
-                            <Col xs={12} key={action.title}>
-                                <Card
-                                    size="small"
-                                    hoverable
-                                    className="mobile-action-item"
-                                    onClick={() => navigate(action.path)}
-                                >
-                                    <div className="mobile-action-item-inner">
-                                        <Space>
-                                            <div className="mobile-action-icon" style={{ background: action.color }}>
-                                                <IconComponent style={{ color: 'white', fontSize: '14px' }} />
+                    {quickActions.map((action) => (
+                        <Col xs={12} key={action.title}>
+                            <Card
+                                size="small"
+                                hoverable
+                                className="mobile-action-item"
+                                onClick={action.action}
+                            >
+                                <div className="mobile-action-item-inner">
+                                    <Space>
+                                        <div className="mobile-action-icon" style={{ background: action.color }}>
+                                            {action.icon}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', marginBottom: '1px', fontSize: '12px' }}>
+                                                {action.title}
                                             </div>
-                                            <div>
-                                                <div style={{ fontWeight: 'bold', marginBottom: '1px', fontSize: '12px' }}>
-                                                    {action.title}
-                                                    {action.badge && (
-                                                        <Tag color="red" style={{ marginLeft: 4, fontSize: '9px' }}>
-                                                            {action.badge}
-                                                        </Tag>
-                                                    )}
-                                                </div>
-                                                <Text type="secondary" style={{ fontSize: '10px' }}>
-                                                    {action.description}
-                                                </Text>
-                                            </div>
-                                        </Space>
-                                        <RightOutlined style={{ color: '#999', fontSize: '10px' }} />
-                                    </div>
-                                </Card>
-                            </Col>
-                        )
-                    })}
+                                        </div>
+                                    </Space>
+                                    <RightOutlined style={{ color: '#999', fontSize: '10px' }} />
+                                </div>
+                            </Card>
+                        </Col>
+                    ))}
                 </Row>
             </Card>
 
-            {/* 基金分布 */}
-            {stats && (
-                <Card 
-                    title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:14}}>基金分布</span>} 
+            {/* 平台分布 */}
+            {aggregatedStats && (
+                <Card
+                    title={<span style={{ color: '#1d39c4', fontWeight: 600, fontSize: 14 }}>平台分布</span>}
                     bordered={false}
                     size="small"
                     className="mobile-fund-card"
                 >
                     <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                        <div className="mobile-fund-row">
-                            <Text type="secondary">总基金数</Text>
-                            <Text style={{ fontWeight: 'bold' }}>{stats.asset_count} 个</Text>
-                        </div>
-                        <div className="mobile-fund-row">
-                            <Text type="secondary">盈利基金</Text>
-                            <Text style={{ color: '#3f8600', fontWeight: 'bold' }}>{stats.profitable_count} 个</Text>
-                        </div>
-                        <div className="mobile-fund-row">
-                            <Text type="secondary">亏损基金</Text>
-                            <Text style={{ color: '#cf1322', fontWeight: 'bold' }}>{stats.loss_count} 个</Text>
-                        </div>
-                        {stats.asset_count > 0 && (
-                            <div style={{ marginTop: 8 }}>
-                                <Progress 
-                                    percent={(stats.profitable_count / stats.asset_count) * 100}
-                                    showInfo={false}
-                                    strokeColor="#3f8600"
-                                    trailColor="#cf1322"
-                                />
-                                <div className="mobile-fund-progress-labels">
-                                    <Text style={{ color: '#3f8600' }}>
-                                        盈利 {((stats.profitable_count / stats.asset_count) * 100).toFixed(1)}%
-                                    </Text>
-                                    <Text style={{ color: '#cf1322' }}>
-                                        亏损 {((stats.loss_count / stats.asset_count) * 100).toFixed(1)}%
-                                    </Text>
-                                </div>
+                        {Object.entries(aggregatedStats.platform_stats).map(([platform, value]) => (
+                            <div key={platform} className="mobile-fund-row">
+                                <Text type="secondary">{platform}</Text>
+                                <Text style={{ fontWeight: 'bold' }}>¥{safeNumber(value).toLocaleString()}</Text>
                             </div>
-                        )}
+                        ))}
+                        <div className="mobile-fund-row">
+                            <Text type="secondary">总平台数</Text>
+                            <Text style={{ fontWeight: 'bold' }}>{aggregatedStats.platform_count} 个</Text>
+                        </div>
                     </Space>
                 </Card>
             )}
