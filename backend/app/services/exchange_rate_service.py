@@ -277,7 +277,7 @@ class ExchangeRateService:
                                     created_at=datetime.utcnow()
                                 ).on_conflict_do_update(
                                     index_elements=['source_currency', 'target_currency', 'time'],
-                                    set_=dict(rate=rate, updated_at=datetime.utcnow())
+                                    set_=dict(rate=rate)
                                 )
                                 
                                 result = db.execute(stmt)
