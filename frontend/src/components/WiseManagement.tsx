@@ -184,22 +184,22 @@ const WiseManagement: React.FC = () => {
                     const from = dateRange[0].format('YYYY-MM-DD');
                     const to = dateRange[1].format('YYYY-MM-DD');
 
-                    // 尝试从数据库获取数据
-                    api.get('/wise/exchange-rates/history', {
+                    // 使用智能同步API获取数据
+                    api.post('/wise/exchange-rates/smart-sync', null, {
                         params: {
                             source: tempSelectedPair.source,
                             target: tempSelectedPair.target,
-                            from_time: from,
-                            to_time: to,
+                            from_date: from,
+                            to_date: to,
                             group: 'day',
                         },
                     }).then(res => {
-                        if (res.data.data && res.data.data.length > 0) {
+                        if (res.data.success && res.data.data && res.data.data.length > 0) {
                             setRateHistory(res.data.data);
                             setLatestRate(res.data.data[res.data.data.length - 1].rate);
                         }
                     }).catch(() => {
-                        // 如果数据库没有数据，静默失败，用户可以通过按钮手动获取
+                        // 如果智能同步失败，静默失败，用户可以通过按钮手动获取
                     });
                 }
             }, 100);
@@ -213,46 +213,33 @@ const WiseManagement: React.FC = () => {
         const from = dateRange[0].format('YYYY-MM-DD');
         const to = dateRange[1].format('YYYY-MM-DD');
         try {
-            // 优先从数据库获取汇率历史数据
-            const res = await api.get('/wise/exchange-rates/history', {
+            // 使用智能同步API获取汇率历史数据
+            const res = await api.post('/wise/exchange-rates/smart-sync', null, {
                 params: {
                     source: selectedPair.source,
                     target: selectedPair.target,
-                    from_time: from,
-                    to_time: to,
+                    from_date: from,
+                    to_date: to,
                     group: 'day',
                 },
             });
-            setRateHistory(res.data.data || []);
-            if (res.data.data && res.data.data.length > 0) {
-                setLatestRate(res.data.data[res.data.data.length - 1].rate);
-            } else {
-                setLatestRate(null);
-            }
-        } catch (e) {
-            console.log('从数据库获取汇率历史失败，尝试从API获取:', e);
-            // 如果数据库没有数据，尝试从API获取
-            try {
-                const res = await api.get('/wise/historical-rates', {
-                    params: {
-                        source: selectedPair.source,
-                        target: selectedPair.target,
-                        from_date: from,
-                        to_date: to,
-                        interval: 24,
-                    },
-                });
+            
+            if (res.data.success) {
                 setRateHistory(res.data.data || []);
                 if (res.data.data && res.data.data.length > 0) {
                     setLatestRate(res.data.data[res.data.data.length - 1].rate);
                 } else {
                     setLatestRate(null);
                 }
-            } catch (apiError) {
-                console.error('从API获取汇率历史也失败:', apiError);
+            } else {
+                console.log('智能同步失败:', res.data.message);
                 setRateHistory([]);
                 setLatestRate(null);
             }
+        } catch (e) {
+            console.log('智能同步获取汇率历史失败:', e);
+            setRateHistory([]);
+            setLatestRate(null);
         }
         setRateLoading(false);
     };
@@ -276,31 +263,25 @@ const WiseManagement: React.FC = () => {
         const to = dateRange[1].format('YYYY-MM-DD');
         console.log('请求参数:', { from, to, source: selectedPair.source, target: selectedPair.target });
         try {
-            // 首先尝试从数据库获取数据
-            console.log('正在从数据库获取历史汇率数据...');
-            const dbRes = await api.get('/wise/exchange-rates/history', {
+            // 调用智能同步API
+            console.log('正在调用智能同步API...');
+            const smartSyncRes = await api.post('/wise/exchange-rates/smart-sync', null, {
                 params: {
                     source: selectedPair.source,
                     target: selectedPair.target,
-                    from_time: from,
-                    to_time: to,
+                    from_date: from,
+                    to_date: to,
                     group: 'day',
                 },
             });
-            console.log('数据库响应:', dbRes.data);
-            console.log('dbRes.data类型:', typeof dbRes.data, '是否为数组:', Array.isArray(dbRes.data));
-            console.log('dbRes.data.data:', dbRes.data.data, '类型:', typeof dbRes.data.data, '是否为数组:', Array.isArray(dbRes.data.data));
-            console.log('dbRes.data.data长度:', dbRes.data.data?.length);
-            // 修正数据访问路径：直接使用 dbRes.data 而不是 dbRes.data.data
-            const dbData = Array.isArray(dbRes.data) ? dbRes.data : (dbRes.data?.data || []);
-            console.log('修正后的数据库数据:', dbData, '长度:', dbData.length);
+            console.log('智能同步API响应:', smartSyncRes.data);
 
-            if (dbData && dbData.length > 0) {
-                // 数据库有数据，直接显示
-                console.log('数据库有数据，设置rateHistory:', dbData);
+            if (smartSyncRes.data.success) {
+                const syncData = smartSyncRes.data.data || [];
+                console.log('智能同步获取的数据:', syncData, '长度:', syncData.length);
 
                 // 数据清理：过滤掉无效的汇率数据
-                const validData = dbData.filter((item: any) =>
+                const validData = syncData.filter((item: any) =>
                     item &&
                     typeof item.rate === 'number' &&
                     !isNaN(item.rate) &&
@@ -308,74 +289,35 @@ const WiseManagement: React.FC = () => {
                     item.time
                 );
 
-                console.log('数据清理后有效数据条数:', validData.length, '原始数据条数:', dbData.length);
-                if (validData.length < dbData.length) {
-                    console.log('过滤掉的无效数据:', dbData.filter((item: any) =>
-                        !item ||
-                        typeof item.rate !== 'number' ||
-                        isNaN(item.rate) ||
-                        item.rate <= 0 ||
-                        !item.time
-                    ));
-                }
+                console.log('数据清理后有效数据条数:', validData.length, '原始数据条数:', syncData.length);
 
                 setRateHistory(validData);
                 if (validData.length > 0) {
                     setLatestRate(validData[validData.length - 1].rate);
                 }
-                message.success(`从数据库获取到 ${validData.length} 条有效历史汇率数据`);
-            } else {
-                // 数据库没有数据，从API获取
-                console.log('数据库无数据，从API获取...');
-                message.info('数据库中无数据，正在从API获取...');
-                const apiRes = await api.get('/wise/historical-rates', {
-                    params: {
-                        source: selectedPair.source,
-                        target: selectedPair.target,
-                        from_date: from,
-                        to_date: to,
-                        interval: 24,
-                    },
-                });
-                console.log('API响应:', apiRes.data);
 
-                // 修正API数据访问路径
-                const apiData = Array.isArray(apiRes.data) ? apiRes.data : (apiRes.data?.data || []);
-                console.log('修正后的API数据:', apiData, '长度:', apiData.length);
-
-                if (apiData && apiData.length > 0) {
-                    console.log('API有数据，设置rateHistory:', apiData);
-
-                    // 数据清理：过滤掉无效的汇率数据
-                    const validApiData = apiData.filter((item: any) =>
-                        item &&
-                        typeof item.rate === 'number' &&
-                        !isNaN(item.rate) &&
-                        item.rate > 0 &&
-                        item.time
-                    );
-
-                    console.log('API数据清理后有效数据条数:', validApiData.length, '原始数据条数:', apiData.length);
-
-                    setRateHistory(validApiData);
-                    setLatestRate(validApiData[validApiData.length - 1].rate);
-                    message.success(`从API获取到 ${validApiData.length} 条有效历史汇率数据`);
+                // 显示同步结果信息
+                const syncInfo = smartSyncRes.data;
+                if (syncInfo.synced_from_api) {
+                    message.success(`智能同步完成！从API获取了 ${syncInfo.missing_dates_count} 天的缺失数据，共 ${validData.length} 条有效汇率数据`);
                 } else {
-                    console.log('API也无数据，设置空数组');
-                    setRateHistory([]);
-                    setLatestRate(null);
-                    message.info('API中也没有找到汇率历史数据');
+                    message.success(`从数据库获取到 ${validData.length} 条有效历史汇率数据`);
                 }
-
+            } else {
+                console.log('智能同步失败:', smartSyncRes.data.message);
+                message.error(`智能同步失败: ${smartSyncRes.data.message}`);
+                setRateHistory([]);
+                setLatestRate(null);
             }
+
             // 再查数据库最新数据
             const res = await api.get('/wise/stored-balances');
             setBalances(res.data?.data || res.data || []);
             setBalanceLoadTime(Date.now() - start);
             message.success(`同步并获取到 ${res.data.count || 0} 条余额记录`);
         } catch (e: any) {
-            console.error('获取汇率历史失败:', e);
-            message.error(`获取汇率历史失败: ${e.response?.data?.detail || e.message}`);
+            console.error('智能获取汇率历史失败:', e);
+            message.error(`智能获取汇率历史失败: ${e.response?.data?.detail || e.message}`);
             setRateHistory([]);
             setLatestRate(null);
         } finally {
