@@ -105,6 +105,10 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
   // 限制最大点数
   if (chartData.length > 90) chartData = chartData.slice(-90);
 
+  // 处理单数据点情况
+  const isSingleDataPoint = chartData.length === 1;
+  const currentValue = chartData.length > 0 ? chartData[0].value : 0;
+
   const config = {
     data: chartData,
     xField: 'date',
@@ -132,7 +136,33 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
           <Radio.Button value="BOTH">双基准</Radio.Button>
         </Radio.Group>
       </Space>
-      {chartData.length === 0 ? <Empty description="暂无趋势数据" /> : <Line {...config} />}
+      
+      {chartData.length === 0 ? (
+        <Empty description="暂无趋势数据" />
+      ) : isSingleDataPoint ? (
+        <div style={{ 
+          height: 280, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          background: '#fafafa',
+          border: '1px solid #d9d9d9',
+          borderRadius: '6px'
+        }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1890ff', marginBottom: '8px' }}>
+            {currencyMode === 'CNY' ? '¥' : '$'}{currentValue.toLocaleString()}
+          </div>
+          <div style={{ fontSize: '14px', color: '#666' }}>
+            当前资产总值 ({currencyMode})
+          </div>
+          <div style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
+            数据点不足，无法显示趋势线
+          </div>
+        </div>
+      ) : (
+        <Line {...config} />
+      )}
     </Spin>
   );
 };
