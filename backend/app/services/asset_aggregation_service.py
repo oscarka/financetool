@@ -120,6 +120,11 @@ def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_poin
             ('USDC', 'CNY'): Decimal('7.2'),
             ('ETH', 'CNY'): Decimal('15000'),  # 估算汇率
             ('BTC', 'CNY'): Decimal('450000'),  # 估算汇率
+            ('POL', 'CNY'): Decimal('0.1'),     # 估算汇率
+            ('SOL', 'CNY'): Decimal('800'),     # 估算汇率
+            ('RIO', 'CNY'): Decimal('0.01'),    # 估算汇率
+            ('MXC', 'CNY'): Decimal('0.001'),   # 估算汇率
+            ('TRUMP', 'CNY'): Decimal('0.1'),   # 估算汇率
         }
         
         default_rate = default_rates.get((from_currency, to_currency))
