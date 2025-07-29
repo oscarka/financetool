@@ -204,22 +204,184 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查"""
-    # 检查数据库文件状态
-    db_path = get_database_path()
-    db_exists = os.path.exists(db_path)
-    db_size = os.path.getsize(db_path) if db_exists else 0
+    import os
+    from sqlalchemy import create_engine, text
+    
+    # 检查数据库连接
+    database_url = os.getenv("DATABASE_URL")
+    db_info = {}
+    
+    if database_url and database_url.startswith("postgresql://"):
+        # PostgreSQL数据库
+        try:
+            engine = create_engine(database_url, echo=False)
+            with engine.connect() as conn:
+                # 检查数据库连接
+                result = conn.execute(text("SELECT 1"))
+                result.scalar()
+                
+                # 检查表数量
+                result = conn.execute(text("""
+                    SELECT COUNT(*) 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public'
+                """))
+                table_count = result.scalar()
+                
+                # 检查alembic版本
+                try:
+                    result = conn.execute(text("SELECT version_num FROM alembic_version"))
+                    alembic_version = result.scalar()
+                except:
+                    alembic_version = "unknown"
+                
+                db_info = {
+                    "type": "postgresql",
+                    "connected": True,
+                    "table_count": table_count,
+                    "alembic_version": alembic_version,
+                    "url": database_url.split("@")[0] + "@***" if "@" in database_url else "***"
+                }
+        except Exception as e:
+            db_info = {
+                "type": "postgresql",
+                "connected": False,
+                "error": str(e)[:100],
+                "url": database_url.split("@")[0] + "@***" if "@" in database_url else "***"
+            }
+    else:
+        # SQLite数据库
+        db_path = get_database_path()
+        db_exists = os.path.exists(db_path)
+        db_size = os.path.getsize(db_path) if db_exists else 0
+        
+        db_info = {
+            "type": "sqlite",
+            "path": db_path,
+            "exists": db_exists,
+            "size_bytes": db_size
+        }
     
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "version": settings.app_version,
         "environment": "production" if not settings.debug else "development",
-        "database": {
-            "path": db_path,
-            "exists": db_exists,
-            "size_bytes": db_size
-        }
+        "database": db_info
     }
+
+@app.get("/health/data")
+async def health_data_check():
+    """数据健康检查"""
+    import os
+    from sqlalchemy import create_engine, text
+    
+    database_url = os.getenv("DATABASE_URL")
+    
+    if not database_url or not database_url.startswith("postgresql://"):
+        return {
+            "status": "unhealthy",
+            "error": "PostgreSQL数据库未配置",
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    try:
+        engine = create_engine(database_url, echo=False)
+        with engine.connect() as conn:
+            # 检查关键表的数据
+            data_integrity = {}
+            
+            # 检查用户操作表
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM user_operations"))
+                data_integrity["user_operations"] = result.scalar()
+            except:
+                data_integrity["user_operations"] = 0
+            
+            # 检查资产持仓表
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM asset_positions"))
+                data_integrity["asset_positions"] = result.scalar()
+            except:
+                data_integrity["asset_positions"] = 0
+            
+            # 检查IBKR相关表
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM ibkr_accounts"))
+                data_integrity["ibkr_accounts"] = result.scalar()
+            except:
+                data_integrity["ibkr_accounts"] = 0
+            
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM ibkr_balances"))
+                data_integrity["ibkr_balances"] = result.scalar()
+            except:
+                data_integrity["ibkr_balances"] = 0
+            
+            # 检查Wise相关表
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM wise_transactions"))
+                data_integrity["wise_transactions"] = result.scalar()
+            except:
+                data_integrity["wise_transactions"] = 0
+            
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM wise_balances"))
+                data_integrity["wise_balances"] = result.scalar()
+            except:
+                data_integrity["wise_balances"] = 0
+            
+            # 检查OKX相关表
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM okx_transactions"))
+                data_integrity["okx_transactions"] = result.scalar()
+            except:
+                data_integrity["okx_transactions"] = 0
+            
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM okx_balances"))
+                data_integrity["okx_balances"] = result.scalar()
+            except:
+                data_integrity["okx_balances"] = 0
+            
+            # 检查基金相关表
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM fund_info"))
+                data_integrity["fund_info"] = result.scalar()
+            except:
+                data_integrity["fund_info"] = 0
+            
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM fund_nav"))
+                data_integrity["fund_nav"] = result.scalar()
+            except:
+                data_integrity["fund_nav"] = 0
+            
+            # 检查资产快照表
+            try:
+                result = conn.execute(text("SELECT COUNT(*) FROM asset_snapshot"))
+                data_integrity["asset_snapshot"] = result.scalar()
+            except:
+                data_integrity["asset_snapshot"] = 0
+            
+            # 计算总数据量
+            total_records = sum(data_integrity.values())
+            has_data = total_records > 0
+            
+            return {
+                "status": "healthy",
+                "timestamp": datetime.now().isoformat(),
+                "data_integrity": data_integrity,
+                "total_records": total_records,
+                "has_data": has_data
+            }
+            
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e)[:200],
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.get("/debug")
 async def debug_info():
