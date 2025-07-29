@@ -264,20 +264,26 @@ class ExchangeRateService:
                             total_updated += 1
                             logger.debug(f"[Wise汇率] 更新汇率: {source_currency}->{target_currency} {time_dt}")
                         else:
-                            # 新增记录
-                            new_rate = WiseExchangeRate(
-                                source_currency=source_currency,
-                                target_currency=target_currency,
-                                rate=rate,
-                                time=time_dt,
-                                created_at=datetime.utcnow()  # 显式设置created_at，保持风格一致
-                            )
-                            db.add(new_rate)
-                            total_inserted += 1
-                            logger.debug(f"[Wise汇率] 新增汇率: {source_currency}->{target_currency} {time_dt}")
+                            # 新增记录 - 使用更安全的方式
+                            try:
+                                new_rate = WiseExchangeRate(
+                                    source_currency=source_currency,
+                                    target_currency=target_currency,
+                                    rate=rate,
+                                    time=time_dt,
+                                    created_at=datetime.utcnow()  # 显式设置created_at，保持风格一致
+                                )
+                                db.add(new_rate)
+                                # 立即提交单条记录，避免批量插入的主键冲突
+                                db.commit()
+                                total_inserted += 1
+                                logger.debug(f"[Wise汇率] 新增汇率: {source_currency}->{target_currency} {time_dt}")
+                            except Exception as e:
+                                logger.error(f"[Wise汇率] 插入汇率失败: {source_currency}->{target_currency} {time_dt}, 错误: {e}")
+                                db.rollback()
+                                continue
                     
-                    # 提交当前币种对的数据
-                    db.commit()
+                    # 币种对处理完成
                     logger.info(f"[Wise汇率] 币种对 {source_currency} -> {target_currency} 处理完成")
                     
                 except Exception as e:
