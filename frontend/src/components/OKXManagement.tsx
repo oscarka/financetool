@@ -95,6 +95,9 @@ export const OKXManagement: React.FC = () => {
     // 小额币种隐藏开关
     const [hideSmall, setHideSmall] = useState(true);
 
+    // 数字精度开关
+    const [showPreciseNumbers, setShowPreciseNumbers] = useState(true);
+
     // 概览/汇总独立加载
     useEffect(() => {
         okxAPI.getSummary()
@@ -569,6 +572,21 @@ export const OKXManagement: React.FC = () => {
             const bVal = calculateUSDTValue(b.currency, Number(b.total_balance));
             return bVal - aVal;
         });
+    };
+
+    // 数字格式化函数
+    const formatNumber = (val: any) => {
+        if (val === undefined || val === null) return '-';
+
+        if (showPreciseNumbers) {
+            // 开启时：保留8位小数，只显示有效数字
+            const num = Number(val).toFixed(8).replace(/\.?0+$/, '');
+            return num;
+        } else {
+            // 关闭时：显示所有位数
+            const num = Number(val).toFixed(20).replace(/\.?0+$/, '');
+            return num;
+        }
     };
 
     const renderConfigCard = () => (
@@ -1103,7 +1121,7 @@ export const OKXManagement: React.FC = () => {
                         {web3Transactions.length > 0 && renderWeb3TransactionsTable()}
                     </TabPane> */}
 
-                    <TabPane tab="持仓数据" key="8">
+                    {/* <TabPane tab="持仓数据" key="8">
                         <Space style={{ marginBottom: 16 }}>
                             <Button type="primary" onClick={fetchPositionsData} loading={positionsLoading}>
                                 从数据库获取
@@ -1132,7 +1150,7 @@ export const OKXManagement: React.FC = () => {
                                 size="small"
                             />
                         )}
-                    </TabPane>
+                    </TabPane> */}
 
                     <TabPane tab="交易记录" key="9">
                         <Space style={{ marginBottom: 16 }}>
@@ -1143,20 +1161,46 @@ export const OKXManagement: React.FC = () => {
                                 从API同步并获取
                             </Button>
                         </Space>
+                        <div style={{ marginBottom: 16 }}>
+                            <Switch
+                                checked={showPreciseNumbers}
+                                onChange={setShowPreciseNumbers}
+                                checkedChildren="8位小数"
+                                unCheckedChildren="全部位数"
+                            />
+                            <span style={{ marginLeft: 8 }}>数字精度</span>
+                        </div>
                         {transactionsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {transactionsError}</div>}
                         {transactionsLoadTime && <div style={{ color: 'green', marginBottom: 16 }}>加载时间: {transactionsLoadTime}ms</div>}
                         {transactionsData.length > 0 && (
                             <Table
                                 columns={[
-                                    { title: '交易对', dataIndex: 'instId', key: 'instId' },
-                                    { title: '交易方向', dataIndex: 'side', key: 'side' },
-                                    { title: '交易数量', dataIndex: 'sz', key: 'sz' },
-                                    { title: '交易价格', dataIndex: 'px', key: 'px' },
-                                    { title: '手续费', dataIndex: 'fee', key: 'fee' },
-                                    { title: '交易时间', dataIndex: 'ts', key: 'ts', render: (val: string) => val ? new Date(Number(val)).toLocaleString() : '-' },
+                                    { title: '账单类型', dataIndex: 'type_desc', key: 'type_desc' },
+                                    { title: '子类型', dataIndex: 'sub_type_desc', key: 'sub_type_desc' },
+                                    { title: '交易对', dataIndex: 'inst_id', key: 'inst_id' },
+                                    {
+                                        title: '交易数量', dataIndex: 'quantity', key: 'quantity', render: formatNumber
+                                    },
+                                    {
+                                        title: '交易价格', dataIndex: 'price', key: 'price', render: formatNumber
+                                    },
+                                    {
+                                        title: '手续费', dataIndex: 'fee', key: 'fee', render: formatNumber
+                                    },
+                                    {
+                                        title: '余额', dataIndex: 'bal', key: 'bal', render: formatNumber
+                                    },
+                                    {
+                                        title: '余额变化', dataIndex: 'bal_chg', key: 'bal_chg', render: formatNumber
+                                    },
+                                    { title: '货币', dataIndex: 'currency', key: 'currency' },
+                                    {
+                                        title: '持仓余额', dataIndex: 'pos_bal', key: 'pos_bal', render: formatNumber
+                                    },
+                                    { title: '交易时间', dataIndex: 'timestamp', key: 'timestamp', render: (val: string) => val ? new Date(val).toLocaleString() : '-' },
                                 ]}
                                 dataSource={transactionsData}
-                                rowKey={(row) => row.tradeId || row.ts + Math.random()}
+                                rowKey="transaction_id"
                                 pagination={false}
                                 size="small"
                             />
@@ -1195,7 +1239,7 @@ export const OKXManagement: React.FC = () => {
                         )}
                     </TabPane>
 
-                    <TabPane tab="账单流水" key="12">
+                    {/* <TabPane tab="账单流水" key="12">
                         <Space style={{ marginBottom: 16 }}>
                             <Button type="primary" onClick={fetchBills} loading={billsLoading}>
                                 获取账单流水
@@ -1203,7 +1247,7 @@ export const OKXManagement: React.FC = () => {
                         </Space>
                         {billsError && <div style={{ color: 'red', marginBottom: 16 }}>错误: {billsError}</div>}
                         {billsData && renderBillsTable()}
-                    </TabPane>
+                    </TabPane> */}
                 </Tabs>
             </Card>
         </div>
