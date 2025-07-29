@@ -1120,13 +1120,14 @@ export const OKXManagement: React.FC = () => {
                                     { title: '交易对', dataIndex: 'instId', key: 'instId' },
                                     { title: '持仓方向', dataIndex: 'posSide', key: 'posSide' },
                                     { title: '持仓数量', dataIndex: 'pos', key: 'pos' },
-                                    { title: '可用数量', dataIndex: 'availPos', key: 'availPos' },
-                                    { title: '平均价格', dataIndex: 'avgPx', key: 'avgPx' },
+                                    { title: '开仓均价', dataIndex: 'avgPx', key: 'avgPx' },
                                     { title: '未实现盈亏', dataIndex: 'upl', key: 'upl' },
+                                    { title: '杠杆倍数', dataIndex: 'lever', key: 'lever' },
+                                    { title: '保证金模式', dataIndex: 'mgnMode', key: 'mgnMode' },
                                     { title: '更新时间', dataIndex: 'uTime', key: 'uTime', render: (val: string) => val ? new Date(Number(val)).toLocaleString() : '-' },
                                 ]}
                                 dataSource={positionsData}
-                                rowKey={(row) => row.instId + row.posSide}
+                                rowKey="posId"
                                 pagination={false}
                                 size="small"
                             />
