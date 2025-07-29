@@ -148,6 +148,11 @@ class BaseConfig(BaseSettings):
         import json
         value = self.cors_origins
         print("settings.cors_origins 原始内容：", repr(value))  # 这行是调试用的，可以看到实际内容
+        
+        # 处理可能的语法错误（分号替换为逗号）
+        if isinstance(value, str):
+            value = value.replace(';', ',')
+        
         # 兼容多层字符串（比如被多包一层引号的情况）
         for _ in range(2):
             if isinstance(value, str):

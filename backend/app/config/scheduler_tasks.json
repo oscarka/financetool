@@ -80,6 +80,15 @@
         "enabled": true
     },
     {
+        "id": "okx_transaction_sync",
+        "name": "OKX交易流水同步",
+        "cron": "0 3 * * *",
+        "plugin": "financial_operations.tasks.okx_transaction_sync",
+        "args": {
+            "days": 30
+        }
+    },
+    {
         "id": "crypto_exchange_rate_cache",
         "name": "数字货币汇率缓存",
         "cron": "*/5 * * * *",
