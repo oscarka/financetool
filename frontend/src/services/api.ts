@@ -506,4 +506,27 @@ export const snapshotAPI = {
         api.get('/snapshot/exchange-rates', { params }),
 }
 
+// 聚合数据相关API
+export const aggregationAPI = {
+    // 获取聚合统计数据
+    getStats: (baseCurrency: string = 'CNY'): Promise<APIResponse> =>
+        api.get(`/aggregation/stats?base_currency=${baseCurrency}`),
+
+    // 获取资产趋势数据
+    getTrend: (days: number = 30, baseCurrency: string = 'CNY'): Promise<APIResponse> =>
+        api.get(`/aggregation/trend?days=${days}&base_currency=${baseCurrency}`),
+
+    // 获取资产类型分布数据
+    getAssetTypeDistribution: (baseCurrency: string = 'CNY'): Promise<APIResponse> =>
+        api.get(`/aggregation/distribution/asset-type?base_currency=${baseCurrency}`),
+
+    // 获取平台分布数据
+    getPlatformDistribution: (baseCurrency: string = 'CNY'): Promise<APIResponse> =>
+        api.get(`/aggregation/distribution/platform?base_currency=${baseCurrency}`),
+
+    // 获取仪表板完整数据
+    getDashboardData: (baseCurrency: string = 'CNY', days: number = 30): Promise<APIResponse> =>
+        api.get(`/aggregation/dashboard?base_currency=${baseCurrency}&days=${days}`),
+}
+
 export default api 

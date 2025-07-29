@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input, Affix, Divider, Statistic, Progress, Tag, Alert, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
-import { snapshotAPI } from '../services/api';
+import { snapshotAPI, aggregationAPI } from '../services/api';
 import AssetTrendChart from './AssetTrendChart';
 import AssetBarChart from './AssetBarChart';
 import './AssetSnapshotOverview.css';
@@ -46,6 +46,10 @@ const AssetSnapshotOverview: React.FC = () => {
   const [currency, setCurrency] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
   
+  // 聚合统计数据
+  const [aggregatedStats, setAggregatedStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  
   // 从数据中提取可用的筛选选项
   const platforms = Array.from(new Set(assetData.map(item => item.platform))).sort();
   const assetTypes = Array.from(new Set(assetData.map(item => item.asset_type))).sort();
@@ -59,49 +63,23 @@ const AssetSnapshotOverview: React.FC = () => {
   const change24h = 0; // TODO: 可根据趋势数据计算
   const accountCount = platformCount;
 
-  const columns: ColumnsType<AssetSnapshot> = [
-    { title: '平台', dataIndex: 'platform', key: 'platform', width: 100 },
-    { title: '资产类型', dataIndex: 'asset_type', key: 'asset_type', width: 120 },
-    { title: '资产代码', dataIndex: 'asset_code', key: 'asset_code', width: 150 },
-    { title: '币种', dataIndex: 'currency', key: 'currency', width: 80 },
-    {
-      title: `${baseCurrency}金额`,
-      dataIndex: 'base_value',
-      key: 'base_value',
-      width: 120,
-      render: (val: number) =>
-        val == null ? '-' : val.toLocaleString('zh-CN', { style: 'currency', currency: baseCurrency }),
-    },
-    { 
-      title: '快照时间', 
-      dataIndex: 'snapshot_time', 
-      key: 'snapshot_time',
-      width: 180,
-      render: (val: string) => dayjs(val).format('YYYY-MM-DD HH:mm:ss')
-    },
-  ];
+  // 加载聚合统计数据
+  const loadAggregatedStats = async () => {
+    setStatsLoading(true);
+    try {
+      const response = await aggregationAPI.getStats(baseCurrency);
+      if (response.success && response.data) {
+        setAggregatedStats(response.data);
+      }
+    } catch (error) {
+      console.error('获取聚合统计数据失败:', error);
+      message.error('获取聚合统计数据失败');
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
-  // 优化表头icon显示，避免TS类型错误
-  const columnsWithIcon = columns.map(col => {
-    let baseTitle = col.title;
-    if (typeof baseTitle === 'function') baseTitle = '';
-    return {
-      ...col,
-      title: (
-        <span>
-          {col.key === 'platform' && '🏦'}
-          {col.key === 'asset_type' && '📦'}
-          {col.key === 'asset_code' && '🔢'}
-          {col.key === 'currency' && '💱'}
-          {col.key === 'base_value' && '💰'}
-          {col.key === 'snapshot_time' && '⏰'}
-          {baseTitle}
-        </span>
-      ),
-      ellipsis: true,
-    };
-  });
-
+  // 加载资产快照数据
   const loadData = async () => {
     setLoading(true);
     let params: any = {};
@@ -159,6 +137,7 @@ const AssetSnapshotOverview: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    loadAggregatedStats();
     // eslint-disable-next-line
   }, [baseCurrency, dateRange, platform, assetType, currency]);
 
@@ -175,6 +154,7 @@ const AssetSnapshotOverview: React.FC = () => {
       if (response.success) {
         message.success(response.message || '快照成功');
         await loadData();
+        await loadAggregatedStats(); // 重新加载聚合数据
       } else {
         message.error(response.message || '快照失败');
       }
@@ -235,6 +215,28 @@ const AssetSnapshotOverview: React.FC = () => {
   };
   
   const stats = calculateStats();
+
+  // 使用聚合统计数据
+  const useAggregatedStats = aggregatedStats && !statsLoading;
+  const displayStats = useAggregatedStats ? {
+    totalValue: aggregatedStats.total_value,
+    topPlatforms: Object.entries(aggregatedStats.platform_stats || {})
+      .sort(([,a], [,b]) => (b as number) - (a as number))
+      .slice(0, 5)
+      .map(([platform, value]) => ({ 
+        platform, 
+        value: value as number, 
+        percentage: ((value as number) / aggregatedStats.total_value * 100).toFixed(1) 
+      })),
+    topAssetTypes: Object.entries(aggregatedStats.asset_type_stats || {})
+      .sort(([,a], [,b]) => (b as number) - (a as number))
+      .slice(0, 5)
+      .map(([type, value]) => ({ 
+        type, 
+        value: value as number, 
+        percentage: ((value as number) / aggregatedStats.total_value * 100).toFixed(1) 
+      }))
+  } : stats;
 
   return (
     <Card title="资产快照多基准货币展示" style={{ margin: 24 }}>
@@ -313,14 +315,22 @@ const AssetSnapshotOverview: React.FC = () => {
                 ))}
               </Select>
             </Col>
-            <Col xs={24} sm={12} md={12}>
+            <Col xs={24} sm={12} md={6}>
               <RangePicker
                 value={dateRange}
                 onChange={handleRangeChange}
-                allowClear
                 style={{ width: '100%', transition: 'all 0.2s' }}
+                format="YYYY-MM-DD"
                 placeholder={['开始日期', '结束日期']}
-                popupStyle={{ borderRadius: 8 }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Search
+                placeholder="搜索资产..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                style={{ transition: 'all 0.2s' }}
+                allowClear
               />
             </Col>
             <Col xs={24} sm={12} md={6}>
@@ -329,264 +339,56 @@ const AssetSnapshotOverview: React.FC = () => {
               </Button>
             </Col>
           </Row>
-          <Row style={{ marginTop: 8 }}>
-            <Col span={24}>
-              <Search
-                placeholder="搜索平台、资产类型、代码、币种等..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                allowClear
-                style={{ width: '100%', transition: 'all 0.2s' }}
-              />
-            </Col>
-          </Row>
         </Card>
       </Affix>
 
-      {/* Summary 卡片区 */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
+      {/* 统计卡片区域 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} md={6}>
-          <Card bordered={false} style={{ background: '#f0f5ff' }}>
+          <Card bordered={false} className="stat-card">
             <Statistic
-              title="总资产"
-              value={totalAsset}
+              title="总资产价值"
+              value={useAggregatedStats ? aggregatedStats.total_value : totalAsset}
               precision={2}
-              prefix={<DollarOutlined style={{ color: '#1890ff' }} />}
-              valueStyle={{ color: '#1890ff', fontWeight: 'bold', fontSize: 22 }}
+              valueStyle={{ color: '#3f8600' }}
+              prefix={<DollarOutlined />}
               suffix={baseCurrency}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card bordered={false} style={{ background: '#f6ffed' }}>
+          <Card bordered={false} className="stat-card">
             <Statistic
-              title="24h涨跌"
-              value={change24h}
-              precision={2}
-              prefix={<RiseOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#52c41a', fontWeight: 'bold', fontSize: 22 }}
-              suffix="%"
+              title="资产类型数"
+              value={useAggregatedStats ? aggregatedStats.asset_type_count : assetTypesCount}
+              valueStyle={{ color: '#1890ff' }}
+              prefix={<AppstoreOutlined />}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card bordered={false} style={{ background: '#fffbe6' }}>
+          <Card bordered={false} className="stat-card">
             <Statistic
-              title="资产种类"
-              value={assetTypesCount}
-              prefix={<AppstoreOutlined style={{ color: '#faad14' }} />}
-              valueStyle={{ color: '#faad14', fontWeight: 'bold', fontSize: 22 }}
+              title="平台数量"
+              value={useAggregatedStats ? aggregatedStats.platform_count : platformCount}
+              valueStyle={{ color: '#722ed1' }}
+              prefix={<BankOutlined />}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card bordered={false} style={{ background: '#fff0f6' }}>
+          <Card bordered={false} className="stat-card">
             <Statistic
-              title="账户数"
-              value={accountCount}
-              prefix={<UserOutlined style={{ color: '#eb2f96' }} />}
-              valueStyle={{ color: '#eb2f96', fontWeight: 'bold', fontSize: 22 }}
+              title="资产数量"
+              value={useAggregatedStats ? aggregatedStats.asset_count : filteredData.length}
+              valueStyle={{ color: '#eb2f96' }}
+              prefix={<UserOutlined />}
             />
           </Card>
         </Col>
       </Row>
-      {/* 快捷时间筛选按钮 */}
-      <Row gutter={8} style={{ marginBottom: 8 }}>
-        <Col>
-          <Button size="small" onClick={() => setDateRange([dayjs().startOf('week'), dayjs().endOf('week')])}>本周</Button>
-        </Col>
-        <Col>
-          <Button size="small" onClick={() => setDateRange([dayjs().startOf('month'), dayjs().endOf('month')])}>本月</Button>
-        </Col>
-        <Col>
-          <Button size="small" onClick={() => setDateRange([dayjs().subtract(3, 'month'), dayjs()])}>近三月</Button>
-        </Col>
-        <Col>
-          <Button size="small" onClick={() => setDateRange([dayjs().startOf('year'), dayjs()])}>今年</Button>
-        </Col>
-      </Row>
-      {/* 筛选器区域 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} md={6}>
-          <Button type="primary" onClick={handleExtractSnapshot} block>
-            主动快照
-          </Button>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select 
-            value={baseCurrency} 
-            onChange={setBaseCurrency} 
-            style={{ width: '100%' }}
-            placeholder="基准货币"
-          >
-            {baseCurrencies.map((c) => (
-              <Option key={c} value={c}>{c}</Option>
-            ))}
-          </Select>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select 
-            value={platform} 
-            onChange={setPlatform} 
-            style={{ width: '100%' }}
-            placeholder="选择平台"
-            allowClear
-          >
-            {platforms.map((p) => (
-              <Option key={p} value={p}>{p}</Option>
-            ))}
-          </Select>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Select 
-            value={assetType} 
-            onChange={setAssetType} 
-            style={{ width: '100%' }}
-            placeholder="资产类型"
-            allowClear
-          >
-            {assetTypes.map((t) => (
-              <Option key={t} value={t}>{t}</Option>
-            ))}
-          </Select>
-        </Col>
-      </Row>
-      
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} md={6}>
-          <Select 
-            value={currency} 
-            onChange={setCurrency} 
-            style={{ width: '100%' }}
-            placeholder="选择币种"
-            allowClear
-          >
-            {currencies.map((c) => (
-              <Option key={c} value={c}>{c}</Option>
-            ))}
-          </Select>
-        </Col>
-        <Col xs={24} sm={12} md={12}>
-          <RangePicker
-            value={dateRange}
-            onChange={handleRangeChange}
-            allowClear
-            style={{ width: '100%' }}
-            placeholder={['开始日期', '结束日期']}
-          />
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Button onClick={clearFilters} block>
-            清空筛选
-          </Button>
-        </Col>
-      </Row>
 
-      {/* 搜索框 */}
-      <Row style={{ marginBottom: 16 }}>
-        <Col span={24}>
-          <Search
-            placeholder="搜索平台、资产类型、代码、币种等..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-            style={{ width: '100%' }}
-          />
-        </Col>
-      </Row>
-
-      {/* 数据统计 */}
-      <Row style={{ marginBottom: 16 }}>
-        <Col span={24}>
-          <div style={{ 
-            padding: '12px 24px', 
-            background: 'linear-gradient(90deg, #e0e7ff 0%, #f0f5ff 100%)',
-            borderRadius: '8px',
-            fontSize: '16px',
-            marginBottom: 8,
-            boxShadow: '0 1px 8px #f0f1f2',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            fontWeight: 500,
-            color: '#1d39c4',
-            letterSpacing: 1
-          }}>
-            <span style={{ fontWeight: 700, color: '#1890ff', fontSize: 22, marginRight: 8 }}>📊</span>
-            <span>共找到 <CountUp end={filteredData.length} duration={0.8} /> 条记录</span>
-            {platform && <span>| 平台: <b>{platform}</b></span>}
-            {assetType && <span>| 类型: <b>{assetType}</b></span>}
-            {currency && <span>| 币种: <b>{currency}</b></span>}
-            {searchText && <span>| 搜索: <b>"{searchText}"</b></span>}
-          </div>
-        </Col>
-      </Row>
-
-      {/* 资产总览卡片 */}
-      {stats && (
-        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-          <Col xs={24} sm={12} md={6}>
-            <Card className="overview-stat-card" bordered={false}>
-              <Statistic
-                title={<span style={{color:'#1890ff',fontSize:14}}>总资产价值</span>}
-                value={stats.totalValue}
-                precision={0}
-                valueStyle={{ color: '#1890ff', fontSize: 24, fontWeight: 'bold' }}
-                prefix={<DollarOutlined />}
-                suffix={baseCurrency}
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: '#52c41a' }}>
-                <ArrowUpOutlined /> +2.5% 较昨日
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card className="overview-stat-card" bordered={false}>
-              <Statistic
-                title={<span style={{color:'#52c41a',fontSize:14}}>资产数量</span>}
-                value={filteredData.length}
-                valueStyle={{ color: '#52c41a', fontSize: 24, fontWeight: 'bold' }}
-                prefix={<BankOutlined />}
-                suffix="个"
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: '#722ed1' }}>
-                <TrophyOutlined /> 分布 {stats.topPlatforms.length} 个平台
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card className="overview-stat-card" bordered={false}>
-              <Statistic
-                title={<span style={{color:'#faad14',fontSize:14}}>平均价值</span>}
-                value={stats.totalValue / filteredData.length}
-                precision={0}
-                valueStyle={{ color: '#faad14', fontSize: 24, fontWeight: 'bold' }}
-                prefix={<RiseOutlined />}
-                suffix={baseCurrency}
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: '#1890ff' }}>
-                单资产平均
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card className="overview-stat-card" bordered={false}>
-              <Statistic
-                title={<span style={{color:'#722ed1',fontSize:14}}>资产类型</span>}
-                value={new Set(filteredData.map(item => item.asset_type)).size}
-                valueStyle={{ color: '#722ed1', fontSize: 24, fontWeight: 'bold' }}
-                prefix={<TrophyOutlined />}
-                suffix="种"
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: '#52c41a' }}>
-                多样化配置
-              </div>
-            </Card>
-          </Col>
-        </Row>
-      )}
-
-      {/* 资产分布与趋势（饼图+折线图） */}
+      {/* 图表区域 */}
       <Row gutter={24} style={{ marginBottom: 32 }}>
         <Col xs={24} md={12}>
           <Card 
@@ -622,36 +424,45 @@ const AssetSnapshotOverview: React.FC = () => {
 
       {/* 快捷操作 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col span={24}>
-          <Card title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>🚀 快捷操作</span>} bordered={false} className="quick-action-card">
-            <Row gutter={[12, 12]}>
-              <Col xs={12} sm={6} md={3}>
-                <Button type="primary" icon={<PlusOutlined />} block className="quick-action-btn">
-                  添加资产
-                </Button>
-              </Col>
-              <Col xs={12} sm={6} md={3}>
-                <Button icon={<DownloadOutlined />} block className="quick-action-btn">
-                  导出报表
-                </Button>
-              </Col>
-              <Col xs={12} sm={6} md={3}>
-                <Button icon={<ReloadOutlined />} block className="quick-action-btn" onClick={handleExtractSnapshot}>
-                  刷新数据
-                </Button>
-              </Col>
-              <Col xs={12} sm={6} md={3}>
-                <Button icon={<RiseOutlined />} block className="quick-action-btn">
-                  收益分析
-                </Button>
-              </Col>
-            </Row>
-          </Card>
+        <Col xs={24} sm={8}>
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            block 
+            size="large"
+            style={{ height: 48, borderRadius: 8 }}
+          >
+            添加资产
+          </Button>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Button 
+            icon={<DownloadOutlined />} 
+            block 
+            size="large"
+            style={{ height: 48, borderRadius: 8 }}
+          >
+            导出数据
+          </Button>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Button 
+            icon={<ReloadOutlined />} 
+            block 
+            size="large"
+            onClick={() => {
+              loadData();
+              loadAggregatedStats();
+            }}
+            style={{ height: 48, borderRadius: 8 }}
+          >
+            刷新数据
+          </Button>
         </Col>
       </Row>
 
-      {/* 资产分布Top5 */}
-      {stats && (
+      {/* 分布统计 */}
+      {displayStats && (
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           <Col xs={24} md={12}>
             <Card 
@@ -660,7 +471,7 @@ const AssetSnapshotOverview: React.FC = () => {
               className="top-distribution-card"
             >
               <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                {stats.topPlatforms.map((item, index) => (
+                {displayStats.topPlatforms.map((item, index) => (
                   <div key={item.platform} className="top-item">
                     <div className="top-rank">#{index + 1}</div>
                     <div className="top-content">
@@ -685,12 +496,12 @@ const AssetSnapshotOverview: React.FC = () => {
           </Col>
           <Col xs={24} md={12}>
             <Card 
-              title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>📊 资产类型 Top5</span>} 
+              title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>📊 资产类型分布 Top5</span>} 
               bordered={false}
               className="top-distribution-card"
             >
               <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                {stats.topAssetTypes.map((item, index) => (
+                {displayStats.topAssetTypes.map((item, index) => (
                   <div key={item.type} className="top-item">
                     <div className="top-rank">#{index + 1}</div>
                     <div className="top-content">
@@ -716,82 +527,82 @@ const AssetSnapshotOverview: React.FC = () => {
         </Row>
       )}
 
-      {/* 风险提示 */}
-      <Row style={{ marginBottom: 24 }}>
-        <Col span={24}>
-          <Alert
-            message="💡 投资提示"
-            description="当前资产配置较为分散，建议关注汇率波动对资产价值的影响。定期检查资产分布，保持合理的风险收益比。"
-            type="info"
-            showIcon
-            icon={<ExclamationCircleOutlined />}
-            className="risk-alert"
-          />
-        </Col>
-      </Row>
-
-      {/* 最近变动 */}
-      {filteredData.length > 0 && (
-        <Row style={{ marginBottom: 24 }}>
-          <Col span={24}>
-            <Card 
-              title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>📈 最近变动</span>} 
-              bordered={false}
-              className="recent-changes-card"
-            >
-              <Row gutter={[16, 16]}>
-                {filteredData.slice(0, 4).map((item, index) => (
-                  <Col xs={12} sm={6} key={item.id}>
-                    <div className="recent-item">
-                      <div className="recent-platform">
-                        <Tag color={['blue', 'green', 'orange', 'purple'][index % 4]}>
-                          {item.platform}
-                        </Tag>
-                      </div>
-                      <div className="recent-name">{item.asset_code}</div>
-                      <div className="recent-value">
-                        {(item.base_value || 0).toLocaleString()} {baseCurrency}
-                      </div>
-                      <div className="recent-time">
-                        {dayjs(item.snapshot_time).format('MM-DD HH:mm')}
-                      </div>
-                    </div>
-                  </Col>
-                ))}
-              </Row>
-            </Card>
-          </Col>
-        </Row>
-      )}
-
-      {/* 表格卡片化+极致体验 */}
-      <Card
+      {/* 数据表格 */}
+      <Card 
+        title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>📋 资产快照明细</span>} 
         bordered={false}
-        style={{ marginBottom: 24, borderRadius: 10, boxShadow: '0 2px 8px #f0f1f2' }}
-        bodyStyle={{ padding: 0 }}
+        style={{ 
+          background: 'linear-gradient(135deg, #fafcff 0%, #f0f5ff 100%)',
+          borderRadius: 12,
+          boxShadow: '0 2px 8px #f0f1f2'
+        }}
+        bodyStyle={{ padding: 16 }}
       >
-        <Spin spinning={loading} tip="数据加载中..." size="large">
-          <Table
-            columns={columnsWithIcon}
-            dataSource={filteredData}
-            rowKey="id"
-            pagination={{ 
-              pageSize: 20,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
-            }}
-            scroll={{ x: 900 }}
-            size="middle"
-            bordered
-            sticky
-            rowClassName={(_, idx) => idx % 2 === 0 ? 'zebra-row' : ''}
-            locale={{
-              emptyText: <div style={{ padding: 32, color: '#999', fontSize: 16 }}>暂无数据，试试调整筛选条件或主动快照</div>
-            }}
-            style={{ minHeight: 320 }}
-          />
-        </Spin>
+        <Table
+          columns={[
+            {
+              title: '平台',
+              dataIndex: 'platform',
+              key: 'platform',
+              render: (text: string) => <Tag color="blue">{text}</Tag>,
+            },
+            {
+              title: '资产类型',
+              dataIndex: 'asset_type',
+              key: 'asset_type',
+              render: (text: string) => <Tag color="green">{text}</Tag>,
+            },
+            {
+              title: '资产代码',
+              dataIndex: 'asset_code',
+              key: 'asset_code',
+            },
+            {
+              title: '资产名称',
+              dataIndex: 'asset_name',
+              key: 'asset_name',
+              ellipsis: true,
+            },
+            {
+              title: '币种',
+              dataIndex: 'currency',
+              key: 'currency',
+              render: (text: string) => <Tag color="orange">{text}</Tag>,
+            },
+            {
+              title: '余额',
+              dataIndex: 'balance',
+              key: 'balance',
+              render: (value: number) => value.toLocaleString(),
+            },
+            {
+              title: '基准价值',
+              dataIndex: 'base_value',
+              key: 'base_value',
+              render: (value: number) => (
+                <span style={{ color: '#3f8600', fontWeight: 600 }}>
+                  {value?.toLocaleString()} {baseCurrency}
+                </span>
+              ),
+            },
+            {
+              title: '快照时间',
+              dataIndex: 'snapshot_time',
+              key: 'snapshot_time',
+              render: (text: string) => new Date(text).toLocaleString(),
+            },
+          ]}
+          dataSource={filteredData}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 条记录`,
+            pageSize: 10,
+          }}
+          scroll={{ x: 1200 }}
+        />
       </Card>
     </Card>
   );

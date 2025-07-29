@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.settings import settings
 from app.utils.database import init_database, get_data_directory, get_database_path
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx, aggregation
 from app.api import asset_snapshot
 from app.services.extensible_scheduler_service import ExtensibleSchedulerService
 from app.utils.middleware import RequestLoggingMiddleware
@@ -188,6 +188,13 @@ app.include_router(
     asset_snapshot.router,
     prefix=f"{settings.api_v1_prefix}",
     tags=["资产快照"]
+)
+
+# 注册聚合数据接口
+app.include_router(
+    aggregation.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["数据聚合"]
 )
 
 
