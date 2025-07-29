@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Select, DatePicker, Button, Spin, message, Row, Col, Input, Affix, Divider, Statistic, Progress, Tag, Alert, Space } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import { Card, Table, Select, DatePicker, Button, message, Row, Col, Input, Affix, Divider, Statistic, Progress, Tag, Space } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI, aggregationAPI } from '../services/api';
 import AssetTrendChart from './AssetTrendChart';
 import AssetBarChart from './AssetBarChart';
 import './AssetSnapshotOverview.css';
-import CountUp from 'react-countup';
-import { ArrowUpOutlined, PlusOutlined, DownloadOutlined, ReloadOutlined, ExclamationCircleOutlined, TrophyOutlined, RiseOutlined, DollarOutlined, BankOutlined, AppstoreOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, DownloadOutlined, ReloadOutlined, DollarOutlined, BankOutlined, AppstoreOutlined, UserOutlined } from '@ant-design/icons';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -59,9 +57,6 @@ const AssetSnapshotOverview: React.FC = () => {
   const totalAsset = assetData.reduce((sum, item) => sum + (item.base_value || 0), 0);
   const assetTypesCount = new Set(assetData.map(item => item.asset_type)).size;
   const platformCount = new Set(assetData.map(item => item.platform)).size;
-  // 这里24h涨跌和账户数可根据实际数据补充
-  const change24h = 0; // TODO: 可根据趋势数据计算
-  const accountCount = platformCount;
 
   // 加载聚合统计数据
   const loadAggregatedStats = async () => {
