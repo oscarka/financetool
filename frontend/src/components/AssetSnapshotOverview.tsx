@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Select, DatePicker, Button, message, Row, Col, Input, Affix, Divider, Statistic, Progress, Tag, Space } from 'antd';
+import { Card, Table, Select, DatePicker, Button, message, Row, Col, Input, Affix, Divider, Statistic, Progress, Tag, Space, Alert } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import { snapshotAPI, aggregationAPI } from '../services/api';
 import AssetTrendChart from './AssetTrendChart';
@@ -37,17 +37,18 @@ const AssetSnapshotOverview: React.FC = () => {
   ]);
   const [assetData, setAssetData] = useState<AssetSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
-  
+
   // 新增筛选器状态
   const [platform, setPlatform] = useState<string>('');
   const [assetType, setAssetType] = useState<string>('');
   const [currency, setCurrency] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
-  
+
   // 聚合统计数据
   const [aggregatedStats, setAggregatedStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  
+  const [hasDefaultRates, setHasDefaultRates] = useState(false);
+
   // 从数据中提取可用的筛选选项
   const platforms = Array.from(new Set(assetData.map(item => item.platform))).sort();
   const assetTypes = Array.from(new Set(assetData.map(item => item.asset_type))).sort();
@@ -65,6 +66,13 @@ const AssetSnapshotOverview: React.FC = () => {
       const response = await aggregationAPI.getStats(baseCurrency);
       if (response.success && response.data) {
         setAggregatedStats(response.data);
+        // 检查是否使用了默认汇率
+        if (response.data.has_default_rates) {
+          setHasDefaultRates(true);
+          message.warning('部分汇率数据使用估算值，实际价值可能有所偏差');
+        } else {
+          setHasDefaultRates(false);
+        }
       }
     } catch (error) {
       console.error('获取聚合统计数据失败:', error);
@@ -86,7 +94,7 @@ const AssetSnapshotOverview: React.FC = () => {
     if (platform) params.platform = platform;
     if (assetType) params.asset_type = assetType;
     if (currency) params.currency = currency;
-    
+
     try {
       const response = await snapshotAPI.getAssetSnapshots(params);
       if (response.success) {
@@ -184,31 +192,31 @@ const AssetSnapshotOverview: React.FC = () => {
   // 计算统计数据
   const calculateStats = () => {
     if (!filteredData.length) return null;
-    
+
     const totalValue = filteredData.reduce((sum, item) => sum + (item.base_value || 0), 0);
     const platformStats = filteredData.reduce((acc, item) => {
       acc[item.platform] = (acc[item.platform] || 0) + (item.base_value || 0);
       return acc;
     }, {} as Record<string, number>);
-    
+
     const assetTypeStats = filteredData.reduce((acc, item) => {
       acc[item.asset_type] = (acc[item.asset_type] || 0) + (item.base_value || 0);
       return acc;
     }, {} as Record<string, number>);
-    
+
     const topPlatforms = Object.entries(platformStats)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([platform, value]) => ({ platform, value, percentage: (value / totalValue * 100).toFixed(1) }));
-    
+
     const topAssetTypes = Object.entries(assetTypeStats)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([type, value]) => ({ type, value, percentage: (value / totalValue * 100).toFixed(1) }));
-    
+
     return { totalValue, topPlatforms, topAssetTypes };
   };
-  
+
   const stats = calculateStats();
 
   // 使用聚合统计数据
@@ -216,25 +224,41 @@ const AssetSnapshotOverview: React.FC = () => {
   const displayStats = useAggregatedStats ? {
     totalValue: aggregatedStats.total_value,
     topPlatforms: Object.entries(aggregatedStats.platform_stats || {})
-      .sort(([,a], [,b]) => (b as number) - (a as number))
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5)
-      .map(([platform, value]) => ({ 
-        platform, 
-        value: value as number, 
-        percentage: ((value as number) / aggregatedStats.total_value * 100).toFixed(1) 
+      .map(([platform, value]) => ({
+        platform,
+        value: value as number,
+        percentage: ((value as number) / aggregatedStats.total_value * 100).toFixed(1)
       })),
     topAssetTypes: Object.entries(aggregatedStats.asset_type_stats || {})
-      .sort(([,a], [,b]) => (b as number) - (a as number))
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5)
-      .map(([type, value]) => ({ 
-        type, 
-        value: value as number, 
-        percentage: ((value as number) / aggregatedStats.total_value * 100).toFixed(1) 
+      .map(([type, value]) => ({
+        type,
+        value: value as number,
+        percentage: ((value as number) / aggregatedStats.total_value * 100).toFixed(1)
       }))
   } : stats;
 
   return (
     <Card title="资产快照多基准货币展示" style={{ margin: 24 }}>
+      {/* 默认汇率提示 */}
+      {hasDefaultRates && (
+        <Alert
+          message="汇率提示"
+          description="部分外币和数字货币使用了估算汇率，实际价值可能与显示金额有所偏差。建议配置实时汇率数据以获得更准确的统计。"
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          action={
+            <Button size="small" type="link" onClick={() => setHasDefaultRates(false)}>
+              我知道了
+            </Button>
+          }
+        />
+      )}
+
       {/* 筛选器区域 - 卡片分组+吸顶+分隔线+紧凑间距+动效+高亮 */}
       <Affix offsetTop={0}>
         <Card
@@ -386,10 +410,10 @@ const AssetSnapshotOverview: React.FC = () => {
       {/* 图表区域 */}
       <Row gutter={24} style={{ marginBottom: 32 }}>
         <Col xs={24} md={12}>
-          <Card 
-            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产类型分布条形图 📊</span>} 
+          <Card
+            title={<span style={{ fontWeight: 600, color: '#1d39c4', fontSize: 16 }}>资产类型分布条形图 📊</span>}
             bordered={false}
-            style={{ 
+            style={{
               background: 'linear-gradient(135deg, #f0f5ff 0%, #e0e7ff 100%)',
               borderRadius: 12,
               boxShadow: '0 2px 8px #f0f1f2',
@@ -401,10 +425,10 @@ const AssetSnapshotOverview: React.FC = () => {
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card 
-            title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>资产趋势折线图 📈</span>} 
+          <Card
+            title={<span style={{ fontWeight: 600, color: '#1d39c4', fontSize: 16 }}>资产趋势折线图 📈</span>}
             bordered={false}
-            style={{ 
+            style={{
               background: 'linear-gradient(135deg, #e0e7ff 0%, #f0f5ff 100%)',
               borderRadius: 12,
               boxShadow: '0 2px 8px #f0f1f2',
@@ -420,10 +444,10 @@ const AssetSnapshotOverview: React.FC = () => {
       {/* 快捷操作 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={8}>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            block 
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            block
             size="large"
             style={{ height: 48, borderRadius: 8 }}
           >
@@ -431,9 +455,9 @@ const AssetSnapshotOverview: React.FC = () => {
           </Button>
         </Col>
         <Col xs={24} sm={8}>
-          <Button 
-            icon={<DownloadOutlined />} 
-            block 
+          <Button
+            icon={<DownloadOutlined />}
+            block
             size="large"
             style={{ height: 48, borderRadius: 8 }}
           >
@@ -441,9 +465,9 @@ const AssetSnapshotOverview: React.FC = () => {
           </Button>
         </Col>
         <Col xs={24} sm={8}>
-          <Button 
-            icon={<ReloadOutlined />} 
-            block 
+          <Button
+            icon={<ReloadOutlined />}
+            block
             size="large"
             onClick={() => {
               loadData();
@@ -460,8 +484,8 @@ const AssetSnapshotOverview: React.FC = () => {
       {displayStats && (
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           <Col xs={24} md={12}>
-            <Card 
-              title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>🏆 平台分布 Top5</span>} 
+            <Card
+              title={<span style={{ color: '#1d39c4', fontWeight: 600, fontSize: 16 }}>🏆 平台分布 Top5</span>}
               bordered={false}
               className="top-distribution-card"
             >
@@ -476,9 +500,9 @@ const AssetSnapshotOverview: React.FC = () => {
                       </div>
                     </div>
                     <div className="top-percentage">
-                      <Progress 
-                        percent={parseFloat(item.percentage)} 
-                        size="small" 
+                      <Progress
+                        percent={parseFloat(item.percentage)}
+                        size="small"
                         showInfo={false}
                         strokeColor={['#1890ff', '#52c41a', '#faad14', '#722ed1', '#eb2f96'][index]}
                       />
@@ -490,8 +514,8 @@ const AssetSnapshotOverview: React.FC = () => {
             </Card>
           </Col>
           <Col xs={24} md={12}>
-            <Card 
-              title={<span style={{color:'#1d39c4',fontWeight:600,fontSize:16}}>📊 资产类型分布 Top5</span>} 
+            <Card
+              title={<span style={{ color: '#1d39c4', fontWeight: 600, fontSize: 16 }}>📊 资产类型分布 Top5</span>}
               bordered={false}
               className="top-distribution-card"
             >
@@ -506,9 +530,9 @@ const AssetSnapshotOverview: React.FC = () => {
                       </div>
                     </div>
                     <div className="top-percentage">
-                      <Progress 
-                        percent={parseFloat(item.percentage)} 
-                        size="small" 
+                      <Progress
+                        percent={parseFloat(item.percentage)}
+                        size="small"
                         showInfo={false}
                         strokeColor={['#1890ff', '#52c41a', '#faad14', '#722ed1', '#eb2f96'][index]}
                       />
@@ -523,10 +547,10 @@ const AssetSnapshotOverview: React.FC = () => {
       )}
 
       {/* 数据表格 */}
-      <Card 
-        title={<span style={{fontWeight:600, color:'#1d39c4', fontSize:16}}>📋 资产快照明细</span>} 
+      <Card
+        title={<span style={{ fontWeight: 600, color: '#1d39c4', fontSize: 16 }}>📋 资产快照明细</span>}
         bordered={false}
-        style={{ 
+        style={{
           background: 'linear-gradient(135deg, #fafcff 0%, #f0f5ff 100%)',
           borderRadius: 12,
           boxShadow: '0 2px 8px #f0f1f2'

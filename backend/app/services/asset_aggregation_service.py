@@ -109,7 +109,26 @@ def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_poin
             update_cache_rate(from_currency, to_currency, rate)
             return rate
         
+        # 如果都没有找到，使用默认汇率（仅用于常见货币对）
+        default_rates = {
+            ('USD', 'CNY'): Decimal('7.2'),
+            ('EUR', 'CNY'): Decimal('7.8'),
+            ('JPY', 'CNY'): Decimal('0.048'),
+            ('AUD', 'CNY'): Decimal('4.8'),
+            ('HKD', 'CNY'): Decimal('0.92'),
+            ('USDT', 'CNY'): Decimal('7.2'),
+            ('USDC', 'CNY'): Decimal('7.2'),
+            ('ETH', 'CNY'): Decimal('15000'),  # 估算汇率
+            ('BTC', 'CNY'): Decimal('450000'),  # 估算汇率
+        }
+        
+        default_rate = default_rates.get((from_currency, to_currency))
+        if default_rate:
+            logging.warning(f"使用默认汇率: {from_currency} -> {to_currency} = {default_rate}")
+            return default_rate
+        
         # 如果都没有找到，返回None
+        logging.warning(f"无法获取汇率: {from_currency} -> {to_currency}")
         return None
         
     except Exception as e:
@@ -120,9 +139,13 @@ def aggregate_asset_data(db: Session, base_currency: str = 'CNY'):
     """聚合所有平台的资产数据"""
     all_assets = []
     
+    logging.info(f"[aggregate_asset_data] 开始聚合资产数据，基准货币: {base_currency}")
+    
     # 1. 聚合基金资产 (AssetPosition)
-    for p in db.query(AssetPosition).all():
-        all_assets.append({
+    asset_positions = db.query(AssetPosition).all()
+    logging.info(f"[aggregate_asset_data] 找到 {len(asset_positions)} 条基金资产")
+    for p in asset_positions:
+        asset_info = {
             'user_id': None,
             'platform': p.platform,
             'asset_type': p.asset_type,
@@ -130,11 +153,15 @@ def aggregate_asset_data(db: Session, base_currency: str = 'CNY'):
             'asset_name': p.asset_name,
             'currency': p.currency,
             'balance': p.current_value
-        })
+        }
+        all_assets.append(asset_info)
+        logging.info(f"[aggregate_asset_data] 基金资产: {p.platform} - {p.asset_type} - {p.asset_name} - {p.current_value} {p.currency}")
     
     # 2. 聚合Wise外汇资产
-    for w in db.query(WiseBalance).all():
-        all_assets.append({
+    wise_balances = db.query(WiseBalance).all()
+    logging.info(f"[aggregate_asset_data] 找到 {len(wise_balances)} 条Wise外汇资产")
+    for w in wise_balances:
+        asset_info = {
             'user_id': None,
             'platform': 'Wise',
             'asset_type': '外汇',
@@ -142,11 +169,15 @@ def aggregate_asset_data(db: Session, base_currency: str = 'CNY'):
             'asset_name': '',
             'currency': w.currency,
             'balance': w.available_balance
-        })
+        }
+        all_assets.append(asset_info)
+        logging.info(f"[aggregate_asset_data] Wise资产: {w.account_id} - {w.available_balance} {w.currency}")
     
     # 3. 聚合IBKR证券资产
-    for i in db.query(IBKRBalance).all():
-        all_assets.append({
+    ibkr_balances = db.query(IBKRBalance).all()
+    logging.info(f"[aggregate_asset_data] 找到 {len(ibkr_balances)} 条IBKR证券资产")
+    for i in ibkr_balances:
+        asset_info = {
             'user_id': None,
             'platform': 'IBKR',
             'asset_type': '证券',
@@ -154,11 +185,15 @@ def aggregate_asset_data(db: Session, base_currency: str = 'CNY'):
             'asset_name': '',
             'currency': i.currency,
             'balance': i.net_liquidation
-        })
+        }
+        all_assets.append(asset_info)
+        logging.info(f"[aggregate_asset_data] IBKR资产: {i.account_id} - {i.net_liquidation} {i.currency}")
     
     # 4. 聚合OKX数字货币资产
-    for o in db.query(OKXBalance).all():
-        all_assets.append({
+    okx_balances = db.query(OKXBalance).all()
+    logging.info(f"[aggregate_asset_data] 找到 {len(okx_balances)} 条OKX数字货币资产")
+    for o in okx_balances:
+        asset_info = {
             'user_id': None,
             'platform': 'OKX',
             'asset_type': '数字货币',
@@ -166,9 +201,11 @@ def aggregate_asset_data(db: Session, base_currency: str = 'CNY'):
             'asset_name': '',
             'currency': o.currency,
             'balance': o.total_balance
-        })
+        }
+        all_assets.append(asset_info)
+        logging.info(f"[aggregate_asset_data] OKX资产: {o.account_id} - {o.total_balance} {o.currency}")
     
-    logging.info(f"[aggregate_asset_data] 聚合了 {len(all_assets)} 条资产数据")
+    logging.info(f"[aggregate_asset_data] 聚合完成，总共 {len(all_assets)} 条资产数据")
     return all_assets
 
 def calculate_aggregated_stats(db: Session, base_currency: str = 'CNY'):
@@ -177,10 +214,28 @@ def calculate_aggregated_stats(db: Session, base_currency: str = 'CNY'):
     
     # 汇率缓存
     rate_cache = {}
+    used_default_rates = False
+    
     def get_rate(from_cur, to_cur):
         key = (from_cur, to_cur)
         if key not in rate_cache:
             rate_cache[key] = get_latest_rate(db, from_cur, to_cur)
+            # 检查是否使用了默认汇率
+            if rate_cache[key] and from_cur != to_cur:
+                # 检查是否是默认汇率
+                default_rates = {
+                    ('USD', 'CNY'): Decimal('7.2'),
+                    ('EUR', 'CNY'): Decimal('7.8'),
+                    ('JPY', 'CNY'): Decimal('0.048'),
+                    ('AUD', 'CNY'): Decimal('4.8'),
+                    ('HKD', 'CNY'): Decimal('0.92'),
+                    ('USDT', 'CNY'): Decimal('7.2'),
+                    ('USDC', 'CNY'): Decimal('7.2'),
+                    ('ETH', 'CNY'): Decimal('15000'),
+                    ('BTC', 'CNY'): Decimal('450000'),
+                }
+                if (from_cur, to_cur) in default_rates and rate_cache[key] == default_rates[(from_cur, to_cur)]:
+                    used_default_rates = True
         return rate_cache[key]
     
     # 计算统计数据
@@ -189,11 +244,17 @@ def calculate_aggregated_stats(db: Session, base_currency: str = 'CNY'):
     asset_type_stats = {}
     currency_stats = {}
     
-    for asset in all_assets:
+    # 添加详细调试日志
+    logging.info(f"[calculate_aggregated_stats] 开始计算聚合统计，基准货币: {base_currency}")
+    logging.info(f"[calculate_aggregated_stats] 总资产数量: {len(all_assets)}")
+    
+    for i, asset in enumerate(all_assets):
         # 获取汇率
         base_rate = get_rate(asset['currency'], base_currency)
+        original_value = Decimal(str(asset['balance']))
+        
         if base_rate:
-            base_value = Decimal(str(asset['balance'])) * base_rate
+            base_value = original_value * base_rate
             total_value += base_value
             
             # 按平台统计
@@ -213,6 +274,17 @@ def calculate_aggregated_stats(db: Session, base_currency: str = 'CNY'):
             if currency not in currency_stats:
                 currency_stats[currency] = Decimal('0')
             currency_stats[currency] += base_value
+            
+            # 详细日志
+            logging.info(f"[calculate_aggregated_stats] 资产 {i+1}: {asset['platform']} - {asset['asset_type']} - {asset['asset_name']} - {original_value} {asset['currency']} (汇率: {base_rate}) = {base_value} {base_currency}")
+        else:
+            logging.warning(f"[calculate_aggregated_stats] 资产 {i+1}: {asset['platform']} - {asset['asset_type']} - {asset['asset_name']} - {original_value} {asset['currency']} (无法获取汇率)")
+    
+    logging.info(f"[calculate_aggregated_stats] 最终统计结果:")
+    logging.info(f"[calculate_aggregated_stats] 总价值: {total_value} {base_currency}")
+    logging.info(f"[calculate_aggregated_stats] 平台分布: {dict(platform_stats)}")
+    logging.info(f"[calculate_aggregated_stats] 资产类型分布: {dict(asset_type_stats)}")
+    logging.info(f"[calculate_aggregated_stats] 币种分布: {dict(currency_stats)}")
     
     # 转换为前端需要的格式
     result = {
@@ -223,7 +295,8 @@ def calculate_aggregated_stats(db: Session, base_currency: str = 'CNY'):
         'asset_count': len(all_assets),
         'platform_count': len(platform_stats),
         'asset_type_count': len(asset_type_stats),
-        'currency_count': len(currency_stats)
+        'currency_count': len(currency_stats),
+        'has_default_rates': used_default_rates
     }
     
     return result
