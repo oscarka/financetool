@@ -23,7 +23,12 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
       setLoading(true);
       try {
         // 尝试获取真实数据
+        console.log('🔄 [AssetTrendChart] 开始获取趋势数据...');
+        console.log('  - 天数:', days);
+        console.log('  - 货币模式:', currencyMode);
         const response = await aggregationAPI.getTrend(days, currencyMode === 'BOTH' ? 'CNY' : currencyMode);
+        console.log('📊 [AssetTrendChart] API原始响应:', response);
+
         if (response.success && response.data) {
           // 转换数据格式
           const formattedData = response.data.map((item: any) => ({
@@ -31,8 +36,15 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
             total_cny: item.total,
             total_usd: item.total / 7.2 // 简单转换，实际应该从API获取USD数据
           }));
+          console.log('🔄 [AssetTrendChart] 数据转换过程:');
+          console.log('  - 原始数据:', response.data);
+          console.log('  - 转换后数据:', formattedData);
+          console.log('  - 数据点数量:', formattedData.length);
+          console.log('  - 最新值:', formattedData[formattedData.length - 1]);
+          console.log('  - 最早值:', formattedData[0]);
           setTrendData(formattedData);
         } else {
+          console.warn('⚠️ [AssetTrendChart] API返回失败，使用模拟数据');
           // 如果API失败，使用mock数据
           const mockData: any[] = [];
           const baseValue = 1000000;
@@ -40,18 +52,19 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
             const date = dayjs().subtract(days - 1 - i, 'day').format('YYYY-MM-DD');
             const randomChange = (Math.random() - 0.5) * 0.1;
             const value = baseValue * (1 + randomChange + i * 0.02);
-            mockData.push({ 
-              date, 
-              total_cny: value, 
-              total_usd: value / 7.2 
+            mockData.push({
+              date,
+              total_cny: value,
+              total_usd: value / 7.2
             });
           }
+          console.log('📊 [AssetTrendChart] 使用模拟数据:', mockData);
           setTrendData(mockData);
         }
       } catch (error) {
-        console.error('获取趋势数据失败:', error);
+        console.error('❌ [AssetTrendChart] 获取趋势数据失败:', error);
         message.error('获取趋势数据失败，使用模拟数据');
-        
+
         // 使用mock数据作为fallback
         const mockData: any[] = [];
         const baseValue = 1000000;
@@ -59,12 +72,13 @@ const AssetTrendChart: React.FC<AssetTrendChartProps> = ({ baseCurrency, days = 
           const date = dayjs().subtract(days - 1 - i, 'day').format('YYYY-MM-DD');
           const randomChange = (Math.random() - 0.5) * 0.1;
           const value = baseValue * (1 + randomChange + i * 0.02);
-          mockData.push({ 
-            date, 
-            total_cny: value, 
-            total_usd: value / 7.2 
+          mockData.push({
+            date,
+            total_cny: value,
+            total_usd: value / 7.2
           });
         }
+        console.log('📊 [AssetTrendChart] 使用fallback模拟数据:', mockData);
         setTrendData(mockData);
       } finally {
         setLoading(false);

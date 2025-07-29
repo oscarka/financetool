@@ -21,7 +21,10 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
       setLoading(true);
       try {
         // 尝试获取真实数据
+        console.log('🔄 [AssetPieChart] 开始获取资产类型分布数据...');
         const response = await aggregationAPI.getAssetTypeDistribution(currencyMode === 'BOTH' ? 'CNY' : currencyMode);
+        console.log('📊 [AssetPieChart] API原始响应:', response);
+        
         if (response.success && response.data) {
           // 转换数据格式
           const formattedData = response.data.map((item: any) => ({
@@ -29,28 +32,38 @@ const AssetPieChart: React.FC<AssetPieChartProps> = ({ baseCurrency }) => {
             total_cny: item.value,
             total_usd: item.value / 7.2 // 简单转换，实际应该从API获取USD数据
           }));
+          console.log('🔄 [AssetPieChart] 数据转换过程:');
+          console.log('  - 原始数据:', response.data);
+          console.log('  - 转换后数据:', formattedData);
+          console.log('  - CNY总计:', formattedData.reduce((sum, item) => sum + item.total_cny, 0));
+          console.log('  - USD总计:', formattedData.reduce((sum, item) => sum + item.total_usd, 0));
           setPieData(formattedData);
         } else {
+          console.warn('⚠️ [AssetPieChart] API返回失败，使用模拟数据');
           // 如果API失败，使用mock数据
           setTimeout(() => {
-            setPieData([
+            const mockData = [
               { asset_type: 'BTC', total_cny: 5000, total_usd: 700 },
               { asset_type: 'ETH', total_cny: 3000, total_usd: 420 },
               { asset_type: 'USDT', total_cny: 2000, total_usd: 280 },
-            ]);
+            ];
+            console.log('📊 [AssetPieChart] 使用模拟数据:', mockData);
+            setPieData(mockData);
           }, 300);
         }
       } catch (error) {
-        console.error('获取分布数据失败:', error);
+        console.error('❌ [AssetPieChart] 获取分布数据失败:', error);
         message.error('获取分布数据失败，使用模拟数据');
         
         // 使用mock数据作为fallback
         setTimeout(() => {
-          setPieData([
+          const mockData = [
             { asset_type: 'BTC', total_cny: 5000, total_usd: 700 },
             { asset_type: 'ETH', total_cny: 3000, total_usd: 420 },
             { asset_type: 'USDT', total_cny: 2000, total_usd: 280 },
-          ]);
+          ];
+          console.log('📊 [AssetPieChart] 使用fallback模拟数据:', mockData);
+          setPieData(mockData);
         }, 300);
       } finally {
         setLoading(false);

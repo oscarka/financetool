@@ -63,8 +63,23 @@ const AssetSnapshotOverview: React.FC = () => {
   const loadAggregatedStats = async () => {
     setStatsLoading(true);
     try {
+      console.log('🔄 [AssetSnapshotOverview] 开始获取聚合统计数据...');
+      console.log('  - 基准货币:', baseCurrency);
       const response = await aggregationAPI.getStats(baseCurrency);
+      console.log('📊 [AssetSnapshotOverview] 聚合统计API响应:', response);
+
       if (response.success && response.data) {
+        console.log('🔄 [AssetSnapshotOverview] 处理聚合统计数据:');
+        console.log('  - 总资产价值:', response.data.total_value);
+        console.log('  - 平台统计:', response.data.platform_stats);
+        console.log('  - 资产类型统计:', response.data.asset_type_stats);
+        console.log('  - 货币统计:', response.data.currency_stats);
+        console.log('  - 资产数量:', response.data.asset_count);
+        console.log('  - 平台数量:', response.data.platform_count);
+        console.log('  - 资产类型数量:', response.data.asset_type_count);
+        console.log('  - 货币数量:', response.data.currency_count);
+        console.log('  - 使用默认汇率:', response.data.has_default_rates);
+
         setAggregatedStats(response.data);
         // 检查是否使用了默认汇率
         if (response.data.has_default_rates) {
@@ -73,9 +88,11 @@ const AssetSnapshotOverview: React.FC = () => {
         } else {
           setHasDefaultRates(false);
         }
+      } else {
+        console.warn('⚠️ [AssetSnapshotOverview] 聚合统计API返回失败');
       }
     } catch (error) {
-      console.error('获取聚合统计数据失败:', error);
+      console.error('❌ [AssetSnapshotOverview] 获取聚合统计数据失败:', error);
       message.error('获取聚合统计数据失败');
     } finally {
       setStatsLoading(false);
