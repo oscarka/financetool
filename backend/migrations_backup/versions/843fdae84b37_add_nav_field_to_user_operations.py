@@ -1,7 +1,7 @@
 """add_nav_field_to_user_operations
 
 Revision ID: 843fdae84b37
-Revises: 849be9e8b559
+Revises: a75b8ab8d7ec
 Create Date: 2025-07-03 10:06:23.279341
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '843fdae84b37'
-down_revision: Union[str, Sequence[str], None] = '849be9e8b559'
+down_revision: Union[str, Sequence[str], None] = 'a75b8ab8d7ec'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

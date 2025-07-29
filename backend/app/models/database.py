@@ -418,6 +418,30 @@ class OKXTransaction(Base):
     timestamp = Column(DateTime, nullable=False, index=True)
     created_at = Column(DateTime, default=func.now())
     
+    # 新增字段：OKX账单归档字段
+    bal = Column(String(32), nullable=True)
+    bal_chg = Column(String(32), nullable=True)
+    ccy = Column(String(10), nullable=True)
+    cl_ord_id = Column(String(64), nullable=True)
+    exec_type = Column(String(16), nullable=True)
+    fill_fwd_px = Column(String(32), nullable=True)
+    fill_idx_px = Column(String(32), nullable=True)
+    fill_mark_px = Column(String(32), nullable=True)
+    fill_mark_vol = Column(String(32), nullable=True)
+    fill_px_usd = Column(String(32), nullable=True)
+    fill_px_vol = Column(String(32), nullable=True)
+    fill_time = Column(String(32), nullable=True)
+    from_addr = Column(String(64), nullable=True)
+    interest = Column(String(32), nullable=True)
+    mgn_mode = Column(String(16), nullable=True)
+    notes = Column(Text, nullable=True)
+    pnl = Column(String(32), nullable=True)
+    pos_bal = Column(String(32), nullable=True)
+    pos_bal_chg = Column(String(32), nullable=True)
+    sub_type = Column(String(16), nullable=True)
+    tag = Column(String(32), nullable=True)
+    to_addr = Column(String(64), nullable=True)
+    
     __table_args__ = (
         UniqueConstraint('transaction_id', name='uq_okx_transaction'),
         Index('idx_okx_transaction_timestamp', 'timestamp'),
