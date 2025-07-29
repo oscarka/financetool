@@ -223,7 +223,7 @@ const WiseManagement: React.FC = () => {
                     group: 'day',
                 },
             });
-            
+
             if (res.data.success) {
                 setRateHistory(res.data.data || []);
                 if (res.data.data && res.data.data.length > 0) {

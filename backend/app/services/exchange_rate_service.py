@@ -266,21 +266,16 @@ class ExchangeRateService:
                             total_updated += 1
                             logger.debug(f"[Wise汇率] 更新汇率: {source_currency}->{target_currency} {time_dt}")
                         else:
-                            # 新增记录 - 使用更安全的方式
+                            # 新增记录 - 使用简单的INSERT语句
                             try:
-                                # 使用UPSERT方式避免主键冲突
-                                stmt = insert(WiseExchangeRate).values(
+                                new_rate = WiseExchangeRate(
                                     source_currency=source_currency,
                                     target_currency=target_currency,
                                     rate=rate,
                                     time=time_dt,
                                     created_at=datetime.utcnow()
-                                ).on_conflict_do_update(
-                                    index_elements=['source_currency', 'target_currency', 'time'],
-                                    set_=dict(rate=rate)
                                 )
-                                
-                                result = db.execute(stmt)
+                                db.add(new_rate)
                                 db.commit()
                                 total_inserted += 1
                                 logger.debug(f"[Wise汇率] 新增汇率: {source_currency}->{target_currency} {time_dt}")
@@ -288,14 +283,32 @@ class ExchangeRateService:
                                 logger.error(f"[Wise汇率] 插入汇率失败: {source_currency}->{target_currency} {time_dt}, 错误: {e}")
                                 db.rollback()
                                 
-                                # 如果还是失败，尝试重置序列
-                                try:
-                                    logger.warning(f"[Wise汇率] 尝试重置序列...")
-                                    db.execute(text("SELECT setval('wise_exchange_rates_id_seq', (SELECT MAX(id) FROM wise_exchange_rates))"))
-                                    db.commit()
-                                    logger.info(f"[Wise汇率] 序列重置成功")
-                                except Exception as seq_error:
-                                    logger.error(f"[Wise汇率] 序列重置失败: {seq_error}")
+                                # 如果是主键冲突，尝试重置序列
+                                if "duplicate key value violates unique constraint" in str(e) or "UniqueViolation" in str(e):
+                                    try:
+                                        logger.warning(f"[Wise汇率] 检测到主键冲突，尝试重置序列...")
+                                        db.execute(text("SELECT setval('wise_exchange_rates_id_seq', (SELECT COALESCE(MAX(id), 0) FROM wise_exchange_rates))"))
+                                        db.commit()
+                                        logger.info(f"[Wise汇率] 序列重置成功")
+                                        
+                                        # 再次尝试插入
+                                        try:
+                                            new_rate = WiseExchangeRate(
+                                                source_currency=source_currency,
+                                                target_currency=target_currency,
+                                                rate=rate,
+                                                time=time_dt,
+                                                created_at=datetime.utcnow()
+                                            )
+                                            db.add(new_rate)
+                                            db.commit()
+                                            total_inserted += 1
+                                            logger.debug(f"[Wise汇率] 重置序列后新增汇率成功: {source_currency}->{target_currency} {time_dt}")
+                                        except Exception as retry_error:
+                                            logger.error(f"[Wise汇率] 重置序列后仍然插入失败: {retry_error}")
+                                            db.rollback()
+                                    except Exception as seq_error:
+                                        logger.error(f"[Wise汇率] 序列重置失败: {seq_error}")
                                 
                                 continue
                     
