@@ -677,3 +677,120 @@ async def get_exchange_rate_history(
     ]
     db.close()
     return {"success": True, "data": data} 
+
+
+@router.post("/exchange-rates/smart-sync")
+async def smart_sync_exchange_rates(
+    source: str = Query(..., description="源货币"),
+    target: str = Query(..., description="目标货币"),
+    from_date: str = Query(..., description="开始日期 (YYYY-MM-DD)"),
+    to_date: str = Query(..., description="结束日期 (YYYY-MM-DD)"),
+    group: str = Query('day', description="数据分组")
+):
+    """
+    智能同步汇率数据
+    1. 检查数据库中指定时间范围的数据
+    2. 如果数据不完整，从API获取缺失的数据并保存到数据库
+    3. 返回完整的数据库数据
+    """
+    try:
+        logger.info(f"开始智能同步汇率: {source}->{target}, 时间范围: {from_date} 到 {to_date}")
+        
+        # 1. 检查数据库中的现有数据
+        db = SessionLocal()
+        try:
+            # 转换日期格式
+            from_dt = datetime.strptime(from_date, '%Y-%m-%d')
+            to_dt = datetime.strptime(to_date, '%Y-%m-%d')
+            
+            # 查询数据库中的现有数据
+            existing_records = db.query(WiseExchangeRate).filter(
+                WiseExchangeRate.source_currency == source,
+                WiseExchangeRate.target_currency == target,
+                WiseExchangeRate.time >= from_dt,
+                WiseExchangeRate.time <= to_dt
+            ).order_by(WiseExchangeRate.time).all()
+            
+            # 获取现有数据的日期集合
+            existing_dates = set()
+            for record in existing_records:
+                existing_dates.add(record.time.date())
+            
+            # 计算需要的日期范围
+            required_dates = set()
+            current_date = from_dt.date()
+            while current_date <= to_dt.date():
+                required_dates.add(current_date)
+                current_date += timedelta(days=1)
+            
+            # 找出缺失的日期
+            missing_dates = required_dates - existing_dates
+            
+            logger.info(f"数据库现有数据: {len(existing_records)} 条")
+            logger.info(f"需要的数据日期: {len(required_dates)} 天")
+            logger.info(f"缺失的日期: {len(missing_dates)} 天")
+            
+            # 2. 如果有缺失数据，从API获取
+            if missing_dates:
+                logger.info(f"发现缺失数据，从API获取: {missing_dates}")
+                
+                # 初始化汇率服务
+                exchange_service = ExchangeRateService(wise_service.api_token)
+                
+                # 计算缺失数据的时间范围
+                missing_from = min(missing_dates)
+                missing_to = max(missing_dates)
+                
+                # 从API获取缺失的数据
+                sync_result = await exchange_service.fetch_and_store_history(
+                    currencies=[source, target],
+                    days=(missing_to - missing_from).days + 1,
+                    group=group
+                )
+                
+                if not sync_result.get('success', False):
+                    logger.error(f"API同步失败: {sync_result.get('message', '未知错误')}")
+                    raise HTTPException(
+                        status_code=500, 
+                        detail=f"API同步失败: {sync_result.get('message', '未知错误')}"
+                    )
+                
+                logger.info(f"API同步成功: 新增 {sync_result.get('total_inserted', 0)} 条，更新 {sync_result.get('total_updated', 0)} 条")
+                
+                # 重新查询数据库获取完整数据
+                existing_records = db.query(WiseExchangeRate).filter(
+                    WiseExchangeRate.source_currency == source,
+                    WiseExchangeRate.target_currency == target,
+                    WiseExchangeRate.time >= from_dt,
+                    WiseExchangeRate.time <= to_dt
+                ).order_by(WiseExchangeRate.time).all()
+            else:
+                logger.info("数据库数据完整，无需从API获取")
+            
+            # 3. 返回完整的数据
+            result_data = []
+            for record in existing_records:
+                result_data.append({
+                    "time": record.time.isoformat(),
+                    "rate": record.rate,
+                    "source_currency": record.source_currency,
+                    "target_currency": record.target_currency
+                })
+            
+            return {
+                "success": True,
+                "message": f"智能同步完成，共获取 {len(result_data)} 条汇率数据",
+                "data": result_data,
+                "total_records": len(result_data),
+                "missing_dates_count": len(missing_dates) if 'missing_dates' in locals() else 0,
+                "synced_from_api": len(missing_dates) > 0 if 'missing_dates' in locals() else False
+            }
+            
+        finally:
+            db.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"智能同步汇率失败: {e}")
+        raise HTTPException(status_code=500, detail=f"智能同步失败: {str(e)}") 
