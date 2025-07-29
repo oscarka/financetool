@@ -269,7 +269,8 @@ class ExchangeRateService:
                                 source_currency=source_currency,
                                 target_currency=target_currency,
                                 rate=rate,
-                                time=time_dt
+                                time=time_dt,
+                                created_at=datetime.utcnow()  # 显式设置created_at，保持风格一致
                             )
                             db.add(new_rate)
                             total_inserted += 1
@@ -388,8 +389,9 @@ class ExchangeRateService:
                             new_rate = WiseExchangeRate(
                                 source_currency=source_currency,
                                 target_currency=target_currency,
-                            rate=rate,
-                            time=time_dt
+                                rate=rate,
+                                time=time_dt,
+                                created_at=datetime.utcnow()  # 显式设置created_at，保持风格一致
                             )
                             db.add(new_rate)
                             total_inserted += 1
