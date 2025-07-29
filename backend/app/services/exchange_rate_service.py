@@ -12,6 +12,8 @@ from sqlalchemy import and_
 from app.utils.auto_logger import auto_log
 import re
 from dateutil import parser
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import text
 
 WISE_API_BASE = "https://api.transferwise.com"
 
@@ -266,21 +268,35 @@ class ExchangeRateService:
                         else:
                             # 新增记录 - 使用更安全的方式
                             try:
-                                new_rate = WiseExchangeRate(
+                                # 使用UPSERT方式避免主键冲突
+                                stmt = insert(WiseExchangeRate).values(
                                     source_currency=source_currency,
                                     target_currency=target_currency,
                                     rate=rate,
                                     time=time_dt,
-                                    created_at=datetime.utcnow()  # 显式设置created_at，保持风格一致
+                                    created_at=datetime.utcnow()
+                                ).on_conflict_do_update(
+                                    index_elements=['source_currency', 'target_currency', 'time'],
+                                    set_=dict(rate=rate, updated_at=datetime.utcnow())
                                 )
-                                db.add(new_rate)
-                                # 立即提交单条记录，避免批量插入的主键冲突
+                                
+                                result = db.execute(stmt)
                                 db.commit()
                                 total_inserted += 1
                                 logger.debug(f"[Wise汇率] 新增汇率: {source_currency}->{target_currency} {time_dt}")
                             except Exception as e:
                                 logger.error(f"[Wise汇率] 插入汇率失败: {source_currency}->{target_currency} {time_dt}, 错误: {e}")
                                 db.rollback()
+                                
+                                # 如果还是失败，尝试重置序列
+                                try:
+                                    logger.warning(f"[Wise汇率] 尝试重置序列...")
+                                    db.execute(text("SELECT setval('wise_exchange_rates_id_seq', (SELECT MAX(id) FROM wise_exchange_rates))"))
+                                    db.commit()
+                                    logger.info(f"[Wise汇率] 序列重置成功")
+                                except Exception as seq_error:
+                                    logger.error(f"[Wise汇率] 序列重置失败: {seq_error}")
+                                
                                 continue
                     
                     # 币种对处理完成
