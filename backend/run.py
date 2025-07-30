@@ -903,14 +903,7 @@ if __name__ == "__main__":
     if not duplicate_clean_success:
         print("⚠️  重复记录清理失败，但继续启动服务")
     
-    # 测试模式：模拟Railway环境
-    if os.getenv("TEST_RAILWAY_MIGRATION", "false").lower() == "true":
-        print("🧪 测试模式：模拟Railway环境迁移...")
-        os.environ["RAILWAY_ENVIRONMENT"] = "test"
-        migration_success = safe_railway_migration()
-        if not migration_success:
-            print("❌ 测试迁移失败")
-            sys.exit(1)
+
     
     port = int(os.environ.get("PORT", 8000))
     debug = os.environ.get("DEBUG", "False").lower() == "true"
