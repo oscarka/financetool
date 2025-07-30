@@ -1,431 +1,246 @@
-# AI分析师API集成方案
+# AI分析师数据API项目
 
-## 项目概述
+## 概述
 
-本项目为外部AI分析师提供了一套完整的资产数据查询和分析API接口，基于现有的个人投资管理系统构建。通过这套API，AI分析师可以获取全面的资产快照、投资历史、绩效分析、风险评估等数据，为用户提供智能化的投资建议。
+本项目为外部AI分析师提供**原始资产数据和基础计算结果**，专注于数据提供而非分析结论。AI分析师可以基于这些高质量的数据进行独立分析和决策。
 
-## 核心特性
+## 🎯 核心特点
 
-### 📊 数据获取能力
-- **资产总览**: 实时资产分布、平台配置、持仓概况
-- **投资历史**: 详细操作记录、资金流分析、月度统计
-- **绩效分析**: 收益率计算、趋势分析、资产表现
-- **风险评估**: 波动率分析、最大回撤、风险指标
-- **汇率数据**: 多货币支持、实时汇率、历史趋势
+- **数据优先**: 提供原始数据，不做主观分析
+- **多维度**: 支持资产、交易、历史、市场、定投等多类数据
+- **实时性**: 基于最新快照的准确数据
+- **完整性**: 跨平台、多币种、多资产类型整合
+- **简洁API**: 内部使用，接口设计简化实用
 
-### 🔐 安全机制
-- **API密钥认证**: 支持多密钥管理和权限控制
-- **请求限流**: 防止API滥用，保护系统稳定性
-- **数据权限**: 细粒度的数据访问控制
-- **审计日志**: 完整的API调用记录和监控
+## 🚀 快速开始
 
-### 📈 高级分析
-- **投资组合分析**: 集中度风险、分散化评分、再平衡建议
-- **定投计划分析**: 执行统计、成本平均效应
-- **市场数据**: 基金净值、市场概况信息
+### 1. 启动服务
+```bash
+cd backend
+python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-## 项目结构
+### 2. 访问测试页面
+打开浏览器访问：
+```
+http://localhost:8000/api/v1/ai-analyst/playground
+```
 
+这个内置的测试页面提供了：
+- 🎮 **可视化测试界面**: 直观的API测试工具
+- 📊 **实时数据预览**: 立即查看API返回的数据结构
+- 🔧 **参数调整**: 简单修改API参数进行测试
+- 📋 **一键复制**: 快速获取API调用示例
+
+### 3. API认证
+使用内置测试密钥：
+- `ai_analyst_key_2024` (主要测试密钥)
+- `demo_key_12345` (备用密钥)
+
+## 📡 API接口概览
+
+### 核心数据接口
+
+| 接口 | 描述 | 用途 |
+|------|------|------|
+| `/asset-data` | 当前资产持仓快照 | 投资组合分析、配置评估 |
+| `/transaction-data` | 交易历史记录 | 行为分析、策略识别 |
+| `/historical-data` | 历史价值数据 | 绩效计算、趋势分析 |
+| `/market-data` | 市场环境数据 | 汇率影响、基准对比 |
+| `/dca-data` | 定投计划数据 | 成本平均效应分析 |
+| `/health` | 服务健康检查 | 系统状态监控 |
+
+### 内置工具
+
+| 路径 | 描述 |
+|------|------|
+| `/playground` | 🎮 **API测试页面** - 可视化测试工具 |
+| `/docs` | 📚 自动生成的OpenAPI文档 |
+
+## 🔍 数据结构示例
+
+### 资产数据 (`/asset-data`)
+```json
+{
+  "current_holdings": [
+    {
+      "platform": "支付宝基金",
+      "asset_code": "000001",
+      "asset_name": "华夏成长混合",
+      "balance_cny": 25000.00,
+      "balance_usd": 3571.43,
+      "extra_data": {
+        "fund_type": "混合型",
+        "risk_level": "中高风险"
+      }
+    }
+  ],
+  "platform_summary": [...],
+  "asset_type_summary": [...]
+}
+```
+
+### 交易数据 (`/transaction-data`)
+```json
+{
+  "transactions": [
+    {
+      "date": "2024-01-15T09:30:00",
+      "operation_type": "buy",
+      "amount": 1000.00,
+      "emotion_score": 7,
+      "strategy": "定投计划"
+    }
+  ],
+  "summary_stats": {...},
+  "time_series_data": [...]
+}
+```
+
+## 🤖 AI分析师使用指南
+
+### 1. **投资组合分析**
+```python
+# 获取资产数据
+asset_data = api_client.get('/asset-data')
+
+# 计算集中度风险 (HHI指数)
+holdings = asset_data['current_holdings'] 
+total_value = sum(h['base_currency_value'] for h in holdings)
+weights = [h['base_currency_value'] / total_value for h in holdings]
+hhi = sum(w**2 for w in weights) * 10000
+
+# 评估分散化程度
+platform_count = len(asset_data['platform_summary'])
+risk_level = "低" if hhi < 1500 else "中" if hhi < 2500 else "高"
+```
+
+### 2. **行为模式分析**
+```python
+# 获取交易数据
+tx_data = api_client.get('/transaction-data')
+
+# 分析投资纪律性
+buy_ops = [t for t in tx_data['transactions'] if t['operation_type'] == 'buy']
+amounts = [t['amount'] for t in buy_ops]
+consistency = 1 - (std(amounts) / mean(amounts))
+
+# 情绪趋势分析
+emotions = [t['emotion_score'] for t in tx_data['transactions']]
+emotion_trend = analyze_linear_trend(emotions)
+```
+
+### 3. **绩效计算**
+```python
+# 获取历史数据
+hist_data = api_client.get('/historical-data?days=90')
+
+# 计算收益率和波动率
+values = [d['base_value'] for d in hist_data['asset_values']]
+total_return = (values[-1] - values[0]) / values[0]
+daily_returns = calculate_daily_returns(values)
+volatility = std(daily_returns) * sqrt(252)
+```
+
+## 🛠️ 开发和部署
+
+### 项目结构
 ```
 backend/
 ├── app/
 │   ├── api/v1/
-│   │   └── ai_analyst.py          # 主API接口模块
-│   ├── config/
-│   │   └── ai_analyst_config.py   # 配置管理
-│   └── models/
-│       ├── database.py            # 数据库模型
-│       └── asset_snapshot.py      # 快照模型
+│   │   └── ai_analyst.py      # 核心API接口
+│   ├── models/
+│   │   ├── database.py        # 数据库模型
+│   │   └── asset_snapshot.py  # 快照模型
+│   └── main.py               # FastAPI应用
 ├── examples/
-│   └── ai_analyst_client.py       # Python客户端示例
+│   ├── ai_analyst_client.py  # Python客户端示例
+│   └── ai_analyst_client.js  # JavaScript客户端示例
 └── docs/
-    ├── ai_analyst_api_documentation.md   # 详细API文档
-    └── ai_analyst_api_readme.md          # 项目说明
+    ├── ai_analyst_api_documentation.md  # 详细API文档
+    └── ai_analyst_api_readme.md         # 项目说明
 ```
 
-## 快速开始
+### 技术栈
+- **后端**: FastAPI + SQLAlchemy + Pydantic
+- **数据库**: PostgreSQL (推荐) / MySQL / SQLite
+- **认证**: API Key (Header: X-API-Key)
+- **文档**: 自动生成OpenAPI文档
 
-### 1. 环境要求
-
-- Python 3.9+
-- FastAPI
-- SQLAlchemy
-- PostgreSQL/SQLite
-- 现有的个人投资管理系统
-
-### 2. 安装和配置
-
-#### 第一步：激活API模块
-
-确保在 `backend/app/main.py` 中已正确注册AI分析师路由：
-
-```python
-from app.api.v1 import ai_analyst
-
-# 注册AI分析师接口
-app.include_router(
-    ai_analyst.router,
-    prefix=f"{settings.api_v1_prefix}",
-    tags=["AI分析师"]
-)
-```
-
-#### 第二步：配置API密钥
-
-设置环境变量或修改配置文件：
-
+### 环境要求
 ```bash
-# 环境变量方式
-export AI_ANALYST_API_KEYS='["your_production_key", "your_test_key"]'
-export AI_ANALYST_RATE_LIMIT_REQUESTS=60
-export AI_ANALYST_MAX_HISTORY_DAYS=365
+pip install fastapi uvicorn sqlalchemy pydantic-settings
 ```
 
-或修改 `backend/app/config/ai_analyst_config.py`：
+## 🔒 安全考虑
 
-```python
-ai_analyst_config = AIAnalystConfig(
-    api_keys=["your_production_key", "your_test_key"],
-    rate_limit_requests=60,
-    max_history_days=365
-)
-```
+### API Key管理
+- 内部使用，密钥相对简单
+- 生产环境请更换为复杂密钥
+- 考虑添加IP白名单限制
 
-#### 第三步：启动服务
+### 数据访问
+- 当前无用户隔离，返回所有数据
+- 生产环境可根据需要添加用户权限控制
+- 敏感数据可在extra_data中控制返回
 
-```bash
-cd backend
-python run.py
-```
+## 📈 数据质量
 
-### 3. API测试
+### 数据来源
+- **资产快照**: 每日自动抓取各平台数据
+- **交易记录**: 用户手动输入 + 部分自动同步  
+- **净值数据**: 第三方API实时获取
+- **汇率数据**: akshare等数据源，15分钟更新
 
-```bash
-# 健康检查
-curl -X GET "http://localhost:8000/api/v1/ai-analyst/health" \
-     -H "X-API-Key: your_api_key"
+### 数据完整性
+- 所有货币金额精确到2位小数
+- 数量/份额精确到8位小数
+- 时间戳使用ISO 8601格式
+- 缺失数据标记为`null`
 
-# 获取资产总览
-curl -X GET "http://localhost:8000/api/v1/ai-analyst/asset-summary?base_currency=CNY" \
-     -H "X-API-Key: your_api_key"
-```
-
-## API接口清单
-
-### 核心数据接口
-| 接口 | 方法 | 路径 | 描述 |
-|------|------|------|------|
-| 资产总览 | GET | `/asset-summary` | 获取最新资产分布和持仓概况 |
-| 投资历史 | GET | `/investment-history` | 获取投资操作历史和资金流 |
-| 绩效分析 | GET | `/performance-analysis` | 获取收益率和趋势分析 |
-| 汇率数据 | GET | `/exchange-rates` | 获取汇率信息和货币支持 |
-| 市场数据 | GET | `/market-data` | 获取基金净值等市场数据 |
-
-### 高级分析接口
-| 接口 | 方法 | 路径 | 描述 |
-|------|------|------|------|
-| 投资组合分析 | GET | `/portfolio-analysis` | 集中度风险和分散化分析 |
-| 定投计划分析 | GET | `/dca-analysis` | 定投执行情况和效果分析 |
-| 风险评估 | GET | `/risk-assessment` | 波动率、回撤等风险指标 |
-| 健康检查 | GET | `/health` | API服务状态检查 |
-
-## 使用示例
-
-### Python客户端
-
-```python
-from examples.ai_analyst_client import AIAnalystClient
-
-# 初始化客户端
-client = AIAnalystClient(
-    base_url="http://localhost:8000/api/v1/ai-analyst",
-    api_key="your_api_key"
-)
-
-# 获取资产总览
-summary = client.get_asset_summary(base_currency="CNY")
-print(f"总资产: {summary['total_assets']}")
-
-# 获取投资组合分析
-portfolio = client.get_portfolio_analysis()
-print(f"分散化评分: {portfolio['diversification_score']}%")
-```
-
-### JavaScript/Node.js
-
-```javascript
-const axios = require('axios');
-
-const client = axios.create({
-  baseURL: 'http://localhost:8000/api/v1/ai-analyst',
-  headers: { 'X-API-Key': 'your_api_key' }
-});
-
-// 获取绩效分析
-const performance = await client.get('/performance-analysis?days=30');
-console.log('30天收益率:', performance.data.overall_return);
-```
-
-### cURL命令行
-
-```bash
-# 获取风险评估
-curl -X GET "http://localhost:8000/api/v1/ai-analyst/risk-assessment?days=90" \
-     -H "X-API-Key: your_api_key" \
-     -H "Content-Type: application/json"
-```
-
-## 数据结构说明
-
-### 关键数据模型
-
-#### 资产快照 (AssetSnapshot)
-- `platform`: 平台标识（支付宝基金、IBKR、OKX等）
-- `asset_type`: 资产类型（基金、股票、现金等）
-- `balance_cny/usd/eur`: 多币种余额
-- `snapshot_time`: 快照时间
-
-#### 用户操作 (UserOperation)
-- `operation_type`: 操作类型（buy、sell、dividend）
-- `amount`: 操作金额
-- `nav`: 净值/价格
-- `emotion_score`: 情绪评分
-
-#### 定投计划 (DCAPlan)
-- `frequency`: 定投频率
-- `smart_dca`: 智能定投标识
-- `execution_count`: 执行次数
-
-### 数据逻辑说明
-
-#### 1. 资产聚合逻辑
-- 按最新快照时间聚合所有平台资产
-- 支持多基准货币（CNY/USD/EUR）显示
-- 自动过滤小额资产（<0.01）
-
-#### 2. 收益率计算
-- 基于历史快照数据计算时间段收益
-- 支持日收益率、累计收益率
-- 考虑分红和操作影响
-
-#### 3. 风险指标计算
-- 年化波动率 = 日波动率 × √252
-- 最大回撤基于历史净值峰谷计算
-- 夏普比率假设无风险利率2%
-
-#### 4. 投资组合分析
-- 赫芬达尔指数(HHI)衡量集中度
-- 分散化评分综合考虑平台和资产类型
-- 再平衡建议基于权重阈值触发
-
-## 部署和监控
-
-### 生产环境部署
-
-#### 1. 环境变量配置
-
-```bash
-# 生产环境API密钥
-AI_ANALYST_API_KEYS='["prod_key_xxx", "backup_key_yyy"]'
-
-# 严格的限流设置
-AI_ANALYST_RATE_LIMIT_REQUESTS=30
-AI_ANALYST_RATE_LIMIT_WINDOW=60
-
-# 数据访问限制
-AI_ANALYST_MAX_HISTORY_DAYS=180
-AI_ANALYST_MAX_RECORDS_PER_REQUEST=500
-
-# 安全设置
-AI_ANALYST_ENABLE_IP_WHITELIST=true
-AI_ANALYST_IP_WHITELIST='["192.168.1.0/24", "10.0.0.0/8"]'
-```
-
-#### 2. 缓存配置
-
-为提高性能，建议配置Redis缓存：
-
-```python
-# 缓存设置
-AI_ANALYST_CACHE_TTL_ASSET_SUMMARY=1800  # 30分钟
-AI_ANALYST_CACHE_TTL_EXCHANGE_RATES=900   # 15分钟
-AI_ANALYST_CACHE_TTL_MARKET_DATA=3600     # 1小时
-```
-
-#### 3. 监控指标
-
-建议监控以下关键指标：
-- API请求量和响应时间
-- 错误率和状态码分布
-- 数据库查询性能
-- 缓存命中率
-- API密钥使用情况
-
-### 日志和审计
-
-系统提供完整的审计日志：
-
-```json
-{
-  "timestamp": "2024-01-20T15:30:00Z",
-  "api_key": "masked_key_xxx",
-  "endpoint": "/asset-summary",
-  "parameters": {"base_currency": "CNY"},
-  "response_time_ms": 245,
-  "status_code": 200,
-  "client_ip": "192.168.1.100"
-}
-```
-
-## 安全考虑
-
-### 1. 认证授权
-- 使用强API密钥（至少32字符）
-- 定期轮换API密钥
-- 为不同客户分配不同密钥
-
-### 2. 数据保护
-- 敏感数据脱敏处理
-- 不在日志中记录完整请求/响应
-- 支持数据访问权限控制
-
-### 3. 网络安全
-- 建议使用HTTPS传输
-- 配置IP白名单限制访问
-- 实施请求限流防止滥用
-
-### 4. 数据备份
-- 定期备份数据库
-- 保留历史快照数据
-- 建立数据恢复流程
-
-## 故障排除
+## 🔧 故障排除
 
 ### 常见问题
 
-#### 1. API密钥无效
-```
-Error: 401 Unauthorized - 无效的API密钥
-```
-**解决方案**: 检查 `X-API-Key` 请求头和配置文件中的密钥设置
+**1. API返回404错误**
+- 检查数据库中是否有AssetSnapshot数据
+- 确认数据库连接配置正确
 
-#### 2. 请求频率超限
-```
-Error: 429 Too Many Requests
-```
-**解决方案**: 降低请求频率或联系管理员提高限额
+**2. 空数据返回**
+- 检查时间范围参数是否合理
+- 确认筛选条件不会过度限制结果
 
-#### 3. 数据不存在
-```
-Error: 404 Not Found - 没有找到资产快照数据
-```
-**解决方案**: 确保数据库中有资产快照数据，检查数据同步服务
+**3. 性能问题**
+- 适当使用limit参数限制返回数据量
+- 考虑为大表添加索引
 
-#### 4. 查询超时
-```
-Error: 请求超时
-```
-**解决方案**: 减少查询时间范围，优化数据库索引，检查服务器性能
-
-### 调试工具
-
-#### 1. 健康检查
-```bash
-curl -X GET "http://localhost:8000/api/v1/ai-analyst/health" \
-     -H "X-API-Key: your_api_key"
-```
-
-#### 2. 数据库连接测试
+### 日志监控
 ```python
-from app.utils.database import get_db
-from app.models.asset_snapshot import AssetSnapshot
-
-# 测试数据库连接
-db = next(get_db())
-count = db.query(AssetSnapshot).count()
-print(f"资产快照总数: {count}")
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 ```
 
-#### 3. 配置检查
-```python
-from app.config.ai_analyst_config import ai_analyst_config
-print(f"配置: {ai_analyst_config.dict()}")
-```
+## 🚀 使用建议
 
-## 性能优化
+### 最佳实践
+1. **测试优先**: 使用`/playground`页面快速验证接口
+2. **参数优化**: 根据需要调整`days`、`limit`等参数
+3. **错误处理**: 实现重试机制和降级策略
+4. **数据缓存**: 对不经常变化的数据进行本地缓存
 
-### 1. 数据库优化
-- 为常用查询字段添加索引
-- 使用连接池管理数据库连接
-- 定期清理历史数据
+### 性能优化
+- 使用合理的时间范围查询
+- 批量处理多个资产的数据请求
+- 考虑异步调用提高效率
 
-### 2. 缓存策略
-- 对频繁访问的数据启用缓存
-- 使用Redis集群提高缓存性能
-- 合理设置缓存过期时间
+## 📞 技术支持
 
-### 3. API优化
-- 使用分页减少单次数据量
-- 异步处理复杂计算
-- 压缩响应数据
-
-## 扩展开发
-
-### 1. 添加新接口
-
-在 `backend/app/api/v1/ai_analyst.py` 中添加新的路由：
-
-```python
-@router.get("/new-analysis", response_model=NewAnalysisResponse)
-def get_new_analysis(
-    param1: str = Query(..., description="参数1"),
-    api_key: str = Depends(verify_api_key),
-    db: Session = Depends(get_db)
-):
-    """新的分析接口"""
-    # 实现分析逻辑
-    return result
-```
-
-### 2. 自定义数据格式
-
-创建新的Pydantic模型：
-
-```python
-class CustomAnalysisResponse(BaseModel):
-    """自定义分析响应模型"""
-    metric1: float = Field(..., description="指标1")
-    metric2: List[Dict] = Field(..., description="指标2")
-    recommendations: List[str] = Field(..., description="建议")
-```
-
-### 3. 集成外部数据
-
-```python
-async def fetch_external_data():
-    """获取外部数据源"""
-    # 集成股票API、基金API等
-    pass
-```
-
-## 许可和支持
-
-### 开源许可
-本项目基于现有的个人投资管理系统开发，遵循相同的开源许可协议。
-
-### 技术支持
-- 技术文档: 见 `docs/ai_analyst_api_documentation.md`
-- 示例代码: 见 `examples/` 目录
-- 问题反馈: 通过GitHub Issues或邮件联系
-
-### 贡献指南
-欢迎提交Pull Request和Issue，请确保：
-- 代码符合项目规范
-- 添加适当的测试用例
-- 更新相关文档
+- **API测试**: 访问 `/playground` 页面
+- **API文档**: 访问 `/docs` 查看详细接口文档
+- **示例代码**: 参考 `examples/` 目录下的客户端实现
 
 ---
 
-**最后更新**: 2024年1月20日  
-**API版本**: v1.0.0  
-**文档版本**: 1.0
+**重要提醒**: 本API专注于数据提供，不包含投资建议。AI分析师应基于自身算法和模型对数据进行分析，为用户提供个性化服务。

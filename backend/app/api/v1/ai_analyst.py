@@ -4,6 +4,7 @@ AI分析师数据API接口
 """
 
 from fastapi import APIRouter, Depends, Query, HTTPException, Header
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, and_, or_
 from datetime import datetime, timedelta, date
@@ -70,6 +71,313 @@ def verify_api_key(x_api_key: str = Header(None)):
         raise HTTPException(status_code=401, detail="无效的API密钥")
     
     return x_api_key
+
+@router.get("/playground", response_class=HTMLResponse)
+def api_playground():
+    """
+    AI分析师API测试页面
+    内部使用的简单测试界面
+    """
+    html_content = """
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI分析师API测试</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5; 
+        }
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 20px; 
+        }
+        .api-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 20px; 
+        }
+        .api-card { 
+            background: white; 
+            border-radius: 10px; 
+            padding: 20px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+        }
+        .api-card h3 { 
+            margin-top: 0; 
+            color: #333; 
+            border-bottom: 2px solid #eee; 
+            padding-bottom: 10px; 
+        }
+        .test-btn { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 5px; 
+            font-size: 14px; 
+        }
+        .test-btn:hover { background: #45a049; }
+        .response { 
+            background: #f8f9fa; 
+            border: 1px solid #e9ecef; 
+            border-radius: 5px; 
+            padding: 15px; 
+            margin-top: 10px; 
+            max-height: 300px; 
+            overflow-y: auto; 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px; 
+        }
+        .loading { 
+            color: #666; 
+            font-style: italic; 
+        }
+        .error { 
+            color: #dc3545; 
+            background: #f8d7da; 
+            border-color: #f5c6cb; 
+        }
+        .params { 
+            margin: 10px 0; 
+        }
+        .params input, .params select { 
+            margin: 2px 5px; 
+            padding: 5px; 
+            border: 1px solid #ddd; 
+            border-radius: 3px; 
+        }
+        .api-key { 
+            background: #fff3cd; 
+            border: 1px solid #ffeaa7; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin-bottom: 20px; 
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 AI分析师数据API测试</h1>
+        <p>内部测试工具 - 快速验证API接口和数据结构</p>
+    </div>
+
+    <div class="api-key">
+        <strong>API Key:</strong> 
+        <input type="text" id="apiKey" value="ai_analyst_key_2024" style="width: 200px;">
+        <small>测试用: ai_analyst_key_2024 或 demo_key_12345</small>
+    </div>
+
+    <div class="api-grid">
+        <!-- 资产数据 -->
+        <div class="api-card">
+            <h3>📊 资产数据</h3>
+            <p>获取当前持仓快照和汇总信息</p>
+            <div class="params">
+                基准货币: 
+                <select id="baseCurrency">
+                    <option value="CNY">CNY</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                </select>
+                <br>
+                <label>
+                    <input type="checkbox" id="includeSmall"> 包含小额资产
+                </label>
+            </div>
+            <button class="test-btn" onclick="testAssetData()">测试接口</button>
+            <div id="assetResponse" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- 交易数据 -->
+        <div class="api-card">
+            <h3>💰 交易数据</h3>
+            <p>获取交易历史记录和统计</p>
+            <div class="params">
+                开始日期: <input type="date" id="startDate" value="">
+                结束日期: <input type="date" id="endDate" value="">
+                <br>
+                平台: <input type="text" id="platform" placeholder="支付宝基金">
+                限制: <input type="number" id="limit" value="50" style="width: 60px;">
+            </div>
+            <button class="test-btn" onclick="testTransactionData()">测试接口</button>
+            <div id="transactionResponse" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- 历史数据 -->
+        <div class="api-card">
+            <h3>📈 历史数据</h3>
+            <p>获取资产价值和净值历史</p>
+            <div class="params">
+                天数: <input type="number" id="days" value="30" style="width: 60px;">
+                <br>
+                资产代码: <input type="text" id="assetCodes" placeholder="000001,110022">
+            </div>
+            <button class="test-btn" onclick="testHistoricalData()">测试接口</button>
+            <div id="historicalResponse" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- 市场数据 -->
+        <div class="api-card">
+            <h3>🌍 市场数据</h3>
+            <p>获取汇率和市场环境信息</p>
+            <button class="test-btn" onclick="testMarketData()">测试接口</button>
+            <div id="marketResponse" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- 定投数据 -->
+        <div class="api-card">
+            <h3>🔄 定投数据</h3>
+            <p>获取定投计划和执行历史</p>
+            <button class="test-btn" onclick="testDCAData()">测试接口</button>
+            <div id="dcaResponse" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- 健康检查 -->
+        <div class="api-card">
+            <h3>🏥 健康检查</h3>
+            <p>验证API服务状态</p>
+            <button class="test-btn" onclick="testHealth()">测试接口</button>
+            <div id="healthResponse" class="response" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 设置默认日期
+        document.getElementById('startDate').value = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+        document.getElementById('endDate').value = new Date().toISOString().split('T')[0];
+
+        async function apiCall(endpoint, params = {}) {
+            const apiKey = document.getElementById('apiKey').value;
+            const url = new URL(window.location.origin + '/api/v1/ai-analyst' + endpoint);
+            
+            Object.keys(params).forEach(key => {
+                if (params[key] !== '' && params[key] !== null) {
+                    url.searchParams.append(key, params[key]);
+                }
+            });
+
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'X-API-Key': apiKey,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                return { success: response.ok, data, status: response.status };
+            } catch (error) {
+                return { success: false, data: { error: error.message }, status: 0 };
+            }
+        }
+
+        function displayResponse(elementId, result) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            
+            if (result.success) {
+                element.className = 'response';
+                element.innerHTML = '<strong>✅ 成功 (Status: ' + result.status + ')</strong><br><pre>' + 
+                    JSON.stringify(result.data, null, 2) + '</pre>';
+            } else {
+                element.className = 'response error';
+                element.innerHTML = '<strong>❌ 错误 (Status: ' + result.status + ')</strong><br><pre>' + 
+                    JSON.stringify(result.data, null, 2) + '</pre>';
+            }
+        }
+
+        async function testAssetData() {
+            const element = document.getElementById('assetResponse');
+            element.style.display = 'block';
+            element.className = 'response loading';
+            element.innerHTML = '⏳ 加载中...';
+
+            const params = {
+                base_currency: document.getElementById('baseCurrency').value,
+                include_small_amounts: document.getElementById('includeSmall').checked
+            };
+
+            const result = await apiCall('/asset-data', params);
+            displayResponse('assetResponse', result);
+        }
+
+        async function testTransactionData() {
+            const element = document.getElementById('transactionResponse');
+            element.style.display = 'block';
+            element.className = 'response loading';
+            element.innerHTML = '⏳ 加载中...';
+
+            const params = {
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value,
+                platform: document.getElementById('platform').value,
+                limit: document.getElementById('limit').value
+            };
+
+            const result = await apiCall('/transaction-data', params);
+            displayResponse('transactionResponse', result);
+        }
+
+        async function testHistoricalData() {
+            const element = document.getElementById('historicalResponse');
+            element.style.display = 'block';
+            element.className = 'response loading';
+            element.innerHTML = '⏳ 加载中...';
+
+            const params = {
+                days: document.getElementById('days').value,
+                asset_codes: document.getElementById('assetCodes').value
+            };
+
+            const result = await apiCall('/historical-data', params);
+            displayResponse('historicalResponse', result);
+        }
+
+        async function testMarketData() {
+            const element = document.getElementById('marketResponse');
+            element.style.display = 'block';
+            element.className = 'response loading';
+            element.innerHTML = '⏳ 加载中...';
+
+            const result = await apiCall('/market-data');
+            displayResponse('marketResponse', result);
+        }
+
+        async function testDCAData() {
+            const element = document.getElementById('dcaResponse');
+            element.style.display = 'block';
+            element.className = 'response loading';
+            element.innerHTML = '⏳ 加载中...';
+
+            const result = await apiCall('/dca-data');
+            displayResponse('dcaResponse', result);
+        }
+
+        async function testHealth() {
+            const element = document.getElementById('healthResponse');
+            element.style.display = 'block';
+            element.className = 'response loading';
+            element.innerHTML = '⏳ 加载中...';
+
+            const result = await apiCall('/health');
+            displayResponse('healthResponse', result);
+        }
+    </script>
+</body>
+</html>
+    """
+    return HTMLResponse(content=html_content)
 
 @router.get("/asset-data", response_model=AssetDataResponse)
 def get_asset_data(
