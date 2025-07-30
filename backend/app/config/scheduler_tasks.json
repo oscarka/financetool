@@ -91,7 +91,7 @@
     {
         "id": "crypto_exchange_rate_cache",
         "name": "数字货币汇率缓存",
-        "cron": "*/5 * * * *",
+        "cron": "0 */4 * * *",
         "plugin": "financial_operations.tasks.crypto_exchange_rate_cache",
         "args": {},
         "enabled": true
