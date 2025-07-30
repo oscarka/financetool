@@ -37,7 +37,7 @@ class FundNavUpdateTask(BaseTask):
                 if update_all:
                     # 获取所有持仓的基金代码
                     positions = FundOperationService.get_fund_positions(db)
-                    fund_codes = list(set([pos.fund_code for pos in positions if pos.fund_code]))
+                    fund_codes = list(set([pos.asset_code for pos in positions if pos.asset_code]))
                     context.log(f"获取到 {len(fund_codes)} 个持仓基金")
                 else:
                     context.log(f"更新指定基金: {fund_codes}")
