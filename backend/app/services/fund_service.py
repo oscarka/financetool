@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc, func
+from sqlalchemy import and_, or_, desc, func, text
 from typing import List, Optional, Tuple
 from datetime import datetime, date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -824,6 +824,27 @@ class FundNavService:
             return existing
         else:
             print(f"[调试] 创建新记录")
+            
+            # PostgreSQL序列修复：检查并重置序列
+            try:
+                # 获取表中最大ID
+                max_id_result = db.execute(text("SELECT MAX(id) FROM fund_nav"))
+                max_id = max_id_result.scalar()
+                
+                if max_id is not None:
+                    # 获取当前序列值
+                    seq_result = db.execute(text("SELECT last_value FROM fund_nav_id_seq"))
+                    current_seq = seq_result.scalar()
+                    
+                    # 如果序列值小于最大ID，重置序列
+                    if current_seq < max_id:
+                        print(f"[调试] 重置序列: 当前={current_seq}, 最大ID={max_id}")
+                        db.execute(text(f"SELECT setval('fund_nav_id_seq', {max_id})"))
+                        db.commit()  # 提交序列重置
+                        print(f"[调试] 序列重置完成")
+            except Exception as e:
+                print(f"[调试] 序列检查失败: {e}")
+            
             # 创建新记录
             nav_record = FundNav(
                 fund_code=fund_code,
