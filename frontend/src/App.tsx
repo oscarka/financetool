@@ -18,6 +18,7 @@ import PayPalManagementPage from './pages/PayPalManagement'
 import IBKRManagementPage from './pages/IBKRManagement'
 import ConfigManagementPage from './pages/ConfigManagement'
 import SchedulerManagementPage from './pages/SchedulerManagementPage'
+import AIAnalystTest from './pages/AIAnalystTest'
 import React from 'react'
 
 function App() {
@@ -88,6 +89,7 @@ function App() {
                     <Route path="/ibkr" element={<IBKRManagementPage />} />
                     <Route path="/config" element={<ConfigManagementPage />} />
                     <Route path="/scheduler" element={<SchedulerManagementPage />} />
+                    <Route path="/ai-analyst-test" element={<AIAnalystTest />} />
                 </Routes>
             </LayoutComponent>
         </Router>
