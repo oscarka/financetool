@@ -773,105 +773,15 @@ def auto_alembic_upgrade():
     except Exception as e:
         print(f"[ALEMBIC] 执行迁移命令出错: {e}")
 
-def fix_wise_exchange_rates_sequence():
-    """修复wise_exchange_rates表的序列问题"""
-    print("🔧 开始修复wise_exchange_rates序列...")
-    
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url or not database_url.startswith("postgresql://"):
-        print("⚠️  未配置PostgreSQL数据库，跳过序列修复")
-        return True
-    
+def run_wise_data_maintenance():
+    """运行Wise数据维护"""
     try:
-        from sqlalchemy import create_engine, text
-        from app.utils.database import SessionLocal
-        
-        # 创建数据库引擎
-        engine = create_engine(database_url, echo=False)
-        
-        with engine.connect() as conn:
-            # 1. 检查当前序列值
-            result = conn.execute(text("SELECT last_value, is_called FROM wise_exchange_rates_id_seq"))
-            current_seq = result.fetchone()
-            print(f"📊 当前序列状态: last_value={current_seq[0]}, is_called={current_seq[1]}")
-            
-            # 2. 获取表中最大ID
-            result = conn.execute(text("SELECT MAX(id) FROM wise_exchange_rates"))
-            max_id = result.scalar()
-            print(f"📊 表中最大ID: {max_id}")
-            
-            if max_id is None:
-                print("ℹ️  表中没有数据，无需修复序列")
-                return True
-            
-            # 3. 重置序列到最大ID
-            conn.execute(text(f"SELECT setval('wise_exchange_rates_id_seq', {max_id})"))
-            conn.commit()
-            
-            # 4. 验证修复结果
-            result = conn.execute(text("SELECT last_value, is_called FROM wise_exchange_rates_id_seq"))
-            new_seq = result.fetchone()
-            print(f"✅ 序列修复完成: last_value={new_seq[0]}, is_called={new_seq[1]}")
-            
-            return True
-            
+        from app.utils.wise_data_manager import WiseDataManager
+        manager = WiseDataManager()
+        result = manager.run_maintenance()
+        return result['sequence_fixed'] and result['duplicates_cleaned']
     except Exception as e:
-        print(f"❌ 修复序列失败: {e}")
-        return False
-
-def check_and_clean_duplicates():
-    """检查并清理重复记录"""
-    print("🔍 检查重复记录...")
-    
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url or not database_url.startswith("postgresql://"):
-        print("⚠️  未配置PostgreSQL数据库，跳过重复记录检查")
-        return True
-    
-    try:
-        from sqlalchemy import create_engine, text
-        
-        # 创建数据库引擎
-        engine = create_engine(database_url, echo=False)
-        
-        with engine.connect() as conn:
-            # 检查重复的币种对和时间
-            result = conn.execute(text("""
-                SELECT source_currency, target_currency, time, COUNT(*) as count
-                FROM wise_exchange_rates
-                GROUP BY source_currency, target_currency, time
-                HAVING COUNT(*) > 1
-                ORDER BY count DESC
-                LIMIT 10
-            """))
-            
-            duplicates = result.fetchall()
-            if duplicates:
-                print(f"⚠️  发现 {len(duplicates)} 组重复记录:")
-                for dup in duplicates:
-                    print(f"   {dup[0]}->{dup[1]} {dup[2]}: {dup[3]} 条")
-                
-                # 清理重复记录，保留ID最小的
-                print("🧹 清理重复记录...")
-                result = conn.execute(text("""
-                    DELETE FROM wise_exchange_rates
-                    WHERE id NOT IN (
-                        SELECT MIN(id)
-                        FROM wise_exchange_rates
-                        GROUP BY source_currency, target_currency, time
-                    )
-                """))
-                
-                deleted_count = result.rowcount
-                conn.commit()
-                print(f"✅ 清理完成，删除了 {deleted_count} 条重复记录")
-            else:
-                print("✅ 没有发现重复记录")
-                
-            return True
-            
-    except Exception as e:
-        print(f"❌ 检查重复记录失败: {e}")
+        print(f"❌ Wise数据维护失败: {e}")
         return False
 
 if __name__ == "__main__":
@@ -891,17 +801,14 @@ if __name__ == "__main__":
         print("🏠 本地环境，执行标准数据库设置...")
         auto_alembic_upgrade()
     
-    # 修复wise_exchange_rates序列问题
-    print("🔧 执行wise_exchange_rates序列修复...")
-    sequence_fix_success = fix_wise_exchange_rates_sequence()
-    if not sequence_fix_success:
-        print("⚠️  序列修复失败，但继续启动服务")
-    
-    # 检查并清理重复记录
-    print("🧹 检查并清理重复记录...")
-    duplicate_clean_success = check_and_clean_duplicates()
-    if not duplicate_clean_success:
-        print("⚠️  重复记录清理失败，但继续启动服务")
+    # 运行Wise数据维护（可选，只在需要时执行）
+    if os.getenv("RUN_WISE_MAINTENANCE", "false").lower() == "true":
+        print("🔧 执行Wise数据维护...")
+        maintenance_success = run_wise_data_maintenance()
+        if not maintenance_success:
+            print("⚠️  Wise数据维护失败，但继续启动服务")
+    else:
+        print("ℹ️  跳过Wise数据维护（设置RUN_WISE_MAINTENANCE=true可启用）")
     
 
     
