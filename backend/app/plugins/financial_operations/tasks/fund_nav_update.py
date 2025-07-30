@@ -115,6 +115,15 @@ class FundNavUpdateTask(BaseTask):
                 
                 context.log(f"基金净值更新任务完成，成功更新 {updated_count}/{len(fund_codes)} 个基金")
                 
+                # 提交数据库事务
+                try:
+                    db.commit()
+                    context.log("✅ 数据库事务提交成功")
+                except Exception as e:
+                    db.rollback()
+                    context.log(f"❌ 数据库事务提交失败: {e}", "ERROR")
+                    return TaskResult(success=False, error=f"数据库提交失败: {e}")
+                
                 # 发布事件
                 if context.event_bus:
                     await context.event_bus.publish('fund.nav.updated', result_data)
