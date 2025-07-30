@@ -19,6 +19,7 @@ import IBKRManagementPage from './pages/IBKRManagement'
 import ConfigManagementPage from './pages/ConfigManagement'
 import SchedulerManagementPage from './pages/SchedulerManagementPage'
 import AIAnalystTest from './pages/AIAnalystTest'
+import MobileAIAnalystTest from './pages/MobileAIAnalystTest'
 import React from 'react'
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
     const OperationsComponent = deviceInfo.isMobile ? MobileOperations : Operations
     const PositionsComponent = deviceInfo.isMobile ? MobilePositions : Positions
     const FundsComponent = deviceInfo.isMobile ? MobileFunds : Funds
+    const AIAnalystComponent = deviceInfo.isMobile ? MobileAIAnalystTest : AIAnalystTest
 
 
 
@@ -89,7 +91,7 @@ function App() {
                     <Route path="/ibkr" element={<IBKRManagementPage />} />
                     <Route path="/config" element={<ConfigManagementPage />} />
                     <Route path="/scheduler" element={<SchedulerManagementPage />} />
-                    <Route path="/ai-analyst-test" element={<AIAnalystTest />} />
+                    <Route path="/ai-analyst-test" element={<AIAnalystComponent />} />
                 </Routes>
             </LayoutComponent>
         </Router>
