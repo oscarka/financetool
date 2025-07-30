@@ -61,7 +61,7 @@ class FundOperationService:
         return operation
     
     @staticmethod
-    def _calculate_buy_shares(db: Session, operation: UserOperation):
+    def _calculate_buy_shares(db: Session, operation: UserOperation, update_position: bool = True):
         """计算买入份额，支持手续费fee，并自动同步最新净值到数据库"""
         print(f"[调试] _calculate_buy_shares 开始: operation_id={operation.id}, asset_code={operation.asset_code}")
         print(f"[调试] 当前操作数据: amount={operation.amount}, fee={operation.fee}, nav={operation.nav}, quantity={operation.quantity}")
@@ -137,17 +137,20 @@ class FundOperationService:
             except Exception as e:
                 print(f"[调试] 同步最新净值时出错: {e}")
             
-            # 更新持仓
-            print(f"[调试] 准备调用_update_position...")
-            try:
-                FundOperationService._update_position(db, operation)
-                print(f"[调试] _update_position调用成功")
-            except Exception as e:
-                print(f"[调试] _update_position调用失败: {e}")
-                print(f"[调试] 错误类型: {type(e)}")
-                import traceback
-                print(f"[调试] 错误堆栈: {traceback.format_exc()}")
-                raise e
+            # 更新持仓（如果需要）
+            if update_position:
+                print(f"[调试] 准备调用_update_position...")
+                try:
+                    FundOperationService._update_position(db, operation)
+                    print(f"[调试] _update_position调用成功")
+                except Exception as e:
+                    print(f"[调试] _update_position调用失败: {e}")
+                    print(f"[调试] 错误类型: {type(e)}")
+                    import traceback
+                    print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+                    raise e
+            else:
+                print(f"[调试] 跳过_update_position调用")
         else:
             print(f"[调试] 跳过份额计算: nav_value={nav_value}")
         
@@ -472,7 +475,7 @@ class FundOperationService:
             try:
                 if operation.operation_type == 'buy':
                     print(f"[调试] 调用_calculate_buy_shares...")
-                    # 先清空现有持仓，避免重复累加
+                    # 先清空现有持仓，避免重复累加，但使用flush()而不是commit()
                     existing_position = db.query(AssetPosition).filter(
                         and_(
                             AssetPosition.platform == operation.platform,
@@ -481,11 +484,11 @@ class FundOperationService:
                         )
                     ).first()
                     if existing_position:
-                        print(f"[调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
+                        print(f"[调试] 临时删除现有持仓，避免重复计算: id={existing_position.id}")
                         db.delete(existing_position)
-                        db.commit()
+                        db.flush()  # 使用flush而不是commit，这样不会立即提交到数据库
                     
-                    FundOperationService._calculate_buy_shares(db, operation)
+                    FundOperationService._calculate_buy_shares(db, operation, update_position=True)
                     print(f"[调试] _calculate_buy_shares调用完成")
                 elif operation.operation_type == 'sell':
                     print(f"[调试] 调用_calculate_sell_shares...")
@@ -666,6 +669,51 @@ class FundOperationService:
             print(f"[调试] 异常堆栈: {traceback.format_exc()}")
             raise e
     
+    @staticmethod
+    def _recalculate_position_for_asset(db: Session, platform: str, asset_code: str, currency: str, exclude_operation_id: int = None):
+        """重新计算特定资产的持仓（基于所有已确认的操作记录）"""
+        print(f"[调试] 开始重新计算资产持仓: platform={platform}, asset_code={asset_code}, currency={currency}, exclude_id={exclude_operation_id}")
+        
+        # 删除现有持仓记录
+        existing_position = db.query(AssetPosition).filter(
+            and_(
+                AssetPosition.platform == platform,
+                AssetPosition.asset_code == asset_code,
+                AssetPosition.currency == currency
+            )
+        ).first()
+        
+        if existing_position:
+            print(f"[调试] 删除现有持仓记录: id={existing_position.id}")
+            db.delete(existing_position)
+            db.commit()
+        
+        # 获取该资产的所有已确认操作记录，按时间排序
+        query = db.query(UserOperation).filter(
+            and_(
+                UserOperation.platform == platform,
+                UserOperation.asset_code == asset_code,
+                UserOperation.currency == currency,
+                UserOperation.status == "confirmed"
+            )
+        )
+        
+        # 如果指定了要排除的操作ID，则排除它
+        if exclude_operation_id:
+            query = query.filter(UserOperation.id != exclude_operation_id)
+        
+        operations = query.order_by(UserOperation.operation_date).all()
+        
+        print(f"[调试] 找到 {len(operations)} 条该资产的已确认操作记录")
+        
+        # 重新应用所有操作记录
+        for op in operations:
+            if op.operation_type in ["buy", "sell"]:
+                print(f"[调试] 重新应用操作: id={op.id}, type={op.operation_type}, quantity={op.quantity}")
+                # 注意：这里不调用_calculate_buy_shares，直接调用_update_position
+                # 因为_calculate_buy_shares会重复调用_update_position
+                FundOperationService._update_position(db, op)
+
     @staticmethod
     def recalculate_all_positions(db: Session) -> dict:
         """重新计算所有持仓（基于所有已确认的操作记录）"""
