@@ -75,7 +75,7 @@ const WiseManagement: React.FC = () => {
             setBalances(res.data?.data || res.data || []);
             setBalanceLoadTime(Date.now() - start);
         } catch (e: any) {
-            setBalancesError(e.response?.data?.detail || '获取余额失败');
+            setBalancesError(e.response?.data?.detail || e.response?.data?.message || '获取余额失败');
         } finally {
             setBalancesLoading(false);
         }
@@ -100,7 +100,7 @@ const WiseManagement: React.FC = () => {
             setTransactions(res.data?.data || res.data || []);
             setTransactionsLoadTime(Date.now() - start);
         } catch (e: any) {
-            setTransactionsError(e.response?.data?.detail || '获取交易失败');
+            setTransactionsError(e.response?.data?.detail || e.response?.data?.message || '获取交易失败');
         } finally {
             setTransactionsLoading(false);
         }
@@ -109,17 +109,15 @@ const WiseManagement: React.FC = () => {
 
     // 汇率区块独立加载
     const fetchExchangeRate = async () => {
-        console.log('fetchExchangeRate被调用');
         setExchangeRatesLoading(true);
         setExchangeRatesError(null);
         const start = Date.now();
         try {
             const response = await api.get(`/wise/exchange-rates?source=${sourceCurrency}&target=${targetCurrency}`);
-            console.log('API响应:', response.data);
             setExchangeRates(response.data);
             setExchangeRatesLoadTime(Date.now() - start);
         } catch (err: any) {
-            setExchangeRatesError(err.response?.data?.detail || '获取汇率失败');
+            setExchangeRatesError(err.response?.data?.detail || err.response?.data?.message || '获取汇率失败');
         } finally {
             setExchangeRatesLoading(false);
         }
@@ -133,7 +131,7 @@ const WiseManagement: React.FC = () => {
         setSummaryError(null);
         api.get('/wise/summary')
             .then(res => setSummary(res.data?.data || res.data))
-            .catch(e => setSummaryError(e.response?.data?.detail || '账户汇总获取失败'))
+            .catch(e => setSummaryError(e.response?.data?.detail || e.response?.data?.message || '账户汇总获取失败'))
             .finally(() => setSummaryLoading(false));
     }, []);
     // API配置独立加载
@@ -142,7 +140,7 @@ const WiseManagement: React.FC = () => {
         setConfigError(null);
         api.get('/wise/config')
             .then(res => setConfig(res.data?.data || res.data))
-            .catch(e => setConfigError(e.response?.data?.detail || 'API配置获取失败'))
+            .catch(e => setConfigError(e.response?.data?.detail || e.response?.data?.message || 'API配置获取失败'))
             .finally(() => setConfigLoading(false));
     }, []);
     // 连接状态独立加载
@@ -151,18 +149,14 @@ const WiseManagement: React.FC = () => {
         setTestError(null);
         api.get('/wise/test')
             .then(res => setConnectionStatus(res.data?.data || res.data))
-            .catch(e => setTestError(e.response?.data?.detail || '连接状态获取失败'))
+            .catch(e => setTestError(e.response?.data?.detail || e.response?.data?.message || '连接状态获取失败'))
             .finally(() => setTestLoading(false));
     }, []);
 
     // 自动识别持有币种组合
     useEffect(() => {
-        console.log('summary状态:', summary);
-        console.log('summary.balance_by_currency:', summary?.balance_by_currency);
-
         if (summary && summary.balance_by_currency) {
             const currencies = Object.keys(summary.balance_by_currency);
-            console.log('识别到的币种:', currencies);
 
             const pairs: { source: string, target: string }[] = [];
             for (let i = 0; i < currencies.length; i++) {
@@ -170,11 +164,9 @@ const WiseManagement: React.FC = () => {
                     if (i !== j) pairs.push({ source: currencies[i], target: currencies[j] });
                 }
             }
-            console.log('生成的币种对:', pairs);
 
             setRatePairs(pairs);
             if (!selectedPair && pairs.length > 0) {
-                console.log('设置selectedPair为:', pairs[0]);
                 setSelectedPair(pairs[0]);
             }
             // 立即加载第一个币种对的历史汇率数据
@@ -194,9 +186,17 @@ const WiseManagement: React.FC = () => {
                             group: 'day',
                         },
                     }).then(res => {
-                        if (res.data.success && res.data.data && res.data.data.length > 0) {
-                            setRateHistory(res.data.data);
-                            setLatestRate(res.data.data[res.data.data.length - 1].rate);
+                        // 判断响应格式：如果success字段存在且为true，或者data是数组且success字段不存在，都认为是成功
+                        const isSuccess = res.data.success === true ||
+                            (Array.isArray(res.data) && res.data.length > 0);
+
+                        if (isSuccess) {
+                            // 如果响应直接是数组，使用响应本身；否则使用data字段
+                            const rateData = Array.isArray(res.data) ? res.data : (res.data.data || []);
+                            if (rateData && rateData.length > 0) {
+                                setRateHistory(rateData);
+                                setLatestRate(rateData[rateData.length - 1].rate);
+                            }
                         }
                     }).catch(() => {
                         // 如果智能同步失败，静默失败，用户可以通过按钮手动获取
@@ -224,20 +224,28 @@ const WiseManagement: React.FC = () => {
                 },
             });
 
-            if (res.data.success) {
-                setRateHistory(res.data.data || []);
-                if (res.data.data && res.data.data.length > 0) {
-                    setLatestRate(res.data.data[res.data.data.length - 1].rate);
+            // 判断响应格式：如果success字段存在且为true，或者data是数组且success字段不存在，都认为是成功
+            const isSuccess = res.data.success === true ||
+                (Array.isArray(res.data) && res.data.length > 0);
+
+            if (isSuccess) {
+                // 如果响应直接是数组，使用响应本身；否则使用data字段
+                const rateData = Array.isArray(res.data) ? res.data : (res.data.data || []);
+                setRateHistory(rateData);
+                if (rateData && rateData.length > 0) {
+                    setLatestRate(rateData[rateData.length - 1].rate);
                 } else {
                     setLatestRate(null);
                 }
             } else {
-                console.log('智能同步失败:', res.data.message);
+                const errorMsg = res.data.message || res.data.detail || '未知错误';
+                console.log('智能同步失败:', errorMsg);
                 setRateHistory([]);
                 setLatestRate(null);
             }
-        } catch (e) {
-            console.log('智能同步获取汇率历史失败:', e);
+        } catch (e: any) {
+            const errorMsg = e.response?.data?.detail || e.response?.data?.message || e.message || '未知错误';
+            console.log('智能同步获取汇率历史失败:', errorMsg);
             setRateHistory([]);
             setLatestRate(null);
         }
@@ -251,20 +259,22 @@ const WiseManagement: React.FC = () => {
 
     // 智能获取历史汇率数据
     const fetchHistoryRates = async () => {
-        const start = Date.now();
-        console.log('fetchHistoryRates被调用，selectedPair:', selectedPair);
         if (!selectedPair) {
-            console.log('selectedPair为null，显示警告');
             message.warning('请先选择币种对');
             return;
         }
+
+        // 防止重复调用
+        if (rateLoading) {
+            return;
+        }
+
         setRateLoading(true);
         const from = dateRange[0].format('YYYY-MM-DD');
         const to = dateRange[1].format('YYYY-MM-DD');
-        console.log('请求参数:', { from, to, source: selectedPair.source, target: selectedPair.target });
+
         try {
             // 调用智能同步API
-            console.log('正在调用智能同步API...');
             const smartSyncRes = await api.post('/wise/exchange-rates/smart-sync', null, {
                 params: {
                     source: selectedPair.source,
@@ -274,11 +284,19 @@ const WiseManagement: React.FC = () => {
                     group: 'day',
                 },
             });
-            console.log('智能同步API响应:', smartSyncRes.data);
 
-            if (smartSyncRes.data.success) {
-                const syncData = smartSyncRes.data.data || [];
-                console.log('智能同步获取的数据:', syncData, '长度:', syncData.length);
+            // 检查响应结构
+            if (!smartSyncRes.data) {
+                throw new Error('API响应为空');
+            }
+
+            // 判断响应格式：如果success字段存在且为true，或者data是数组且success字段不存在，都认为是成功
+            const isSuccess = smartSyncRes.data.success === true ||
+                (Array.isArray(smartSyncRes.data) && smartSyncRes.data.length > 0);
+
+            if (isSuccess) {
+                // 如果响应直接是数组，使用响应本身；否则使用data字段
+                const syncData = Array.isArray(smartSyncRes.data) ? smartSyncRes.data : (smartSyncRes.data.data || []);
 
                 // 数据清理：过滤掉无效的汇率数据
                 const validData = syncData.filter((item: any) =>
@@ -289,35 +307,34 @@ const WiseManagement: React.FC = () => {
                     item.time
                 );
 
-                console.log('数据清理后有效数据条数:', validData.length, '原始数据条数:', syncData.length);
+                // 数据格式转换：确保time字段正确
+                const formattedData = validData.map((item: any) => ({
+                    ...item,
+                    time: item.time ? new Date(item.time).toISOString().split('T')[0] : item.time
+                }));
 
-                setRateHistory(validData);
-                if (validData.length > 0) {
-                    setLatestRate(validData[validData.length - 1].rate);
+                setRateHistory(formattedData);
+                if (formattedData.length > 0) {
+                    setLatestRate(formattedData[formattedData.length - 1].rate);
                 }
 
                 // 显示同步结果信息
                 const syncInfo = smartSyncRes.data;
                 if (syncInfo.synced_from_api) {
-                    message.success(`智能同步完成！从API获取了 ${syncInfo.missing_dates_count} 天的缺失数据，共 ${validData.length} 条有效汇率数据`);
+                    message.success(`智能同步完成！从API获取了 ${syncInfo.missing_dates_count} 天的缺失数据，共 ${formattedData.length} 条有效汇率数据`);
                 } else {
-                    message.success(`从数据库获取到 ${validData.length} 条有效历史汇率数据`);
+                    message.success(`从数据库获取到 ${formattedData.length} 条有效历史汇率数据`);
                 }
             } else {
-                console.log('智能同步失败:', smartSyncRes.data.message);
-                message.error(`智能同步失败: ${smartSyncRes.data.message}`);
+                const errorMsg = smartSyncRes.data.message || smartSyncRes.data.detail || '未知错误';
+                message.error(`智能同步失败: ${errorMsg}`);
                 setRateHistory([]);
                 setLatestRate(null);
             }
-
-            // 再查数据库最新数据
-            const res = await api.get('/wise/stored-balances');
-            setBalances(res.data?.data || res.data || []);
-            setBalanceLoadTime(Date.now() - start);
-            message.success(`同步并获取到 ${res.data.count || 0} 条余额记录`);
         } catch (e: any) {
             console.error('智能获取汇率历史失败:', e);
-            message.error(`智能获取汇率历史失败: ${e.response?.data?.detail || e.message}`);
+            const errorMsg = e.response?.data?.detail || e.response?.data?.message || e.message || '未知错误';
+            message.error(`智能获取汇率历史失败: ${errorMsg}`);
             setRateHistory([]);
             setLatestRate(null);
         } finally {
@@ -334,7 +351,8 @@ const WiseManagement: React.FC = () => {
             // 先同步到数据库
             const syncRes = await api.post('/wise/sync-balances');
             if (!syncRes.data.success) {
-                message.error(syncRes.data.message || '同步数据库失败');
+                const errorMsg = syncRes.data.message || syncRes.data.detail || '同步数据库失败';
+                message.error(errorMsg);
                 setBalancesLoading(false);
                 return;
             }
@@ -344,8 +362,8 @@ const WiseManagement: React.FC = () => {
             setBalanceLoadTime(Date.now() - start);
             message.success(`同步并获取到 ${res.data.count || 0} 条余额记录`);
         } catch (e: any) {
-            setBalancesError(e.response?.data?.detail || '获取余额失败');
-            message.error(`同步或获取余额失败: ${e.response?.data?.detail || e.message}`);
+            setBalancesError(e.response?.data?.detail || e.response?.data?.message || '获取余额失败');
+            message.error(`同步或获取余额失败: ${e.response?.data?.detail || e.response?.data?.message || e.message}`);
         } finally {
             setBalancesLoading(false);
         }
@@ -360,7 +378,8 @@ const WiseManagement: React.FC = () => {
             // 先同步到数据库，带上天数参数
             const syncRes = await api.post('/wise/sync-transactions', { days: transactionDays });
             if (!syncRes.data.success) {
-                message.error(syncRes.data.message || '同步交易记录到数据库失败');
+                const errorMsg = syncRes.data.message || syncRes.data.detail || '同步交易记录到数据库失败';
+                message.error(errorMsg);
                 setTransactionsLoading(false);
                 return;
             }
@@ -378,8 +397,8 @@ const WiseManagement: React.FC = () => {
             setTransactionsLoadTime(Date.now() - start);
             message.success(`同步并获取到 ${res.data.count || 0} 条交易记录`);
         } catch (e: any) {
-            setTransactionsError(e.response?.data?.detail || '获取交易记录失败');
-            message.error(`同步或获取交易记录失败: ${e.response?.data?.detail || e.message}`);
+            setTransactionsError(e.response?.data?.detail || e.response?.data?.message || '获取交易记录失败');
+            message.error(`同步或获取交易记录失败: ${e.response?.data?.detail || e.response?.data?.message || e.message}`);
         } finally {
             setTransactionsLoading(false);
         }

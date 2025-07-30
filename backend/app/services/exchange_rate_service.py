@@ -462,11 +462,14 @@ class ExchangeRateService:
     async def _fetch_rates_with_date_range(self, source_currency: str, target_currency: str, start_date: datetime, end_date: datetime, group: str) -> List[Dict]:
         """获取指定日期范围的汇率数据"""
         url = f"{WISE_API_BASE}/v1/rates"
+        
+        # 使用更详细的时间格式，包括时间戳
+        # 根据API文档，支持 YYYY-MM-DDTHH:MM:SS 格式
         params = {
             'source': source_currency,
             'target': target_currency,
-            'from': start_date.strftime('%Y-%m-%d'),
-            'to': end_date.strftime('%Y-%m-%d'),
+            'from': start_date.strftime('%Y-%m-%dT%H:%M:%S'),
+            'to': end_date.strftime('%Y-%m-%dT%H:%M:%S'),
             'group': group
         }
         

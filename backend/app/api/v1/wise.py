@@ -1,13 +1,136 @@
 from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from app.services.wise_api_service import WiseAPIService
 from loguru import logger
 from app.services.exchange_rate_service import ExchangeRateService
 from app.models.database import WiseExchangeRate, WiseBalance, WiseTransaction
 from app.utils.database import SessionLocal
 
-router = APIRouter(prefix="/wise", tags=["Wise API"])
+router = APIRouter(prefix="/wise", tags=["Wise"])
+
+class WiseRouter:
+    def __init__(self):
+        self.wise_service = WiseAPIService()
+    
+    async def _fetch_specific_currency_pair(
+        self, 
+        exchange_service: ExchangeRateService, 
+        source: str, 
+        target: str, 
+        missing_from: date, 
+        missing_to: date, 
+        group: str
+    ) -> Dict[str, Any]:
+        """只获取特定币种对的缺失数据"""
+        from datetime import datetime, timedelta
+        
+        logger.info(f"[智能同步] 获取特定币种对: {source}->{target}, 时间范围: {missing_from} 到 {missing_to}")
+        
+        # 计算查询范围：如果缺失范围很小，扩大查询范围以确保能获取到数据
+        days_diff = (missing_to - missing_from).days
+        
+        if days_diff <= 1:
+            # 如果缺失范围很小（1天或更少），扩大查询范围
+            # 向前扩展3天，向后扩展3天，确保能获取到数据
+            start_date = missing_from - timedelta(days=3)
+            end_date = missing_to + timedelta(days=3)
+            logger.info(f"[智能同步] 扩大查询范围: {start_date} 到 {end_date} (原范围: {missing_from} 到 {missing_to})")
+        else:
+            # 如果缺失范围较大，使用原始范围
+            start_date = missing_from
+            end_date = missing_to
+        
+        # 转换为datetime对象
+        start_datetime = datetime.combine(start_date, datetime.min.time())
+        end_datetime = datetime.combine(end_date, datetime.min.time())
+        
+        # 获取汇率数据
+        rates_data = await exchange_service._fetch_rates_with_date_range(source, target, start_datetime, end_datetime, group)
+        
+        if not rates_data:
+            logger.warning(f"[智能同步] 币种对 {source}->{target} 无数据")
+            return {
+                'success': True,
+                'total_inserted': 0,
+                'total_updated': 0,
+                'message': f'币种对 {source}->{target} 无数据'
+            }
+        
+        logger.info(f"[智能同步] 获取到 {len(rates_data)} 条汇率数据")
+        
+        # 存储到数据库
+        db = SessionLocal()
+        total_inserted = 0
+        total_updated = 0
+        
+        try:
+            for rate_data in rates_data:
+                rate = rate_data.get('rate')
+                time_str = rate_data.get('time')
+                
+                if not rate or not time_str:
+                    logger.warning(f"[智能同步] 跳过无效数据: rate={rate}, time={time_str}")
+                    continue
+                
+                # 解析时间
+                try:
+                    from dateutil import parser
+                    time_dt = parser.parse(time_str.strip())
+                except Exception as e:
+                    logger.error(f"[智能同步] 无法解析时间字符串: '{time_str}', 错误: {e}")
+                    continue
+                
+                # 检查是否已存在
+                existing_rate = db.query(WiseExchangeRate).filter(
+                    WiseExchangeRate.source_currency == source,
+                    WiseExchangeRate.target_currency == target,
+                    WiseExchangeRate.time == time_dt
+                ).first()
+                
+                if existing_rate:
+                    # 更新现有记录
+                    existing_rate.rate = rate
+                    total_updated += 1
+                    logger.debug(f"[智能同步] 更新汇率: {source}->{target} {time_dt}")
+                else:
+                    # 新增记录
+                    try:
+                        new_rate = WiseExchangeRate(
+                            source_currency=source,
+                            target_currency=target,
+                            rate=rate,
+                            time=time_dt,
+                            created_at=datetime.utcnow()
+                        )
+                        db.add(new_rate)
+                        db.commit()
+                        total_inserted += 1
+                        logger.debug(f"[智能同步] 新增汇率: {source}->{target} {time_dt}")
+                    except Exception as e:
+                        logger.error(f"[智能同步] 插入汇率失败: {source}->{target} {time_dt}, 错误: {e}")
+                        db.rollback()
+                        continue
+            
+            return {
+                'success': True,
+                'total_inserted': total_inserted,
+                'total_updated': total_updated,
+                'message': f'成功获取 {source}->{target} 数据: 新增 {total_inserted} 条，更新 {total_updated} 条'
+            }
+            
+        except Exception as e:
+            logger.error(f"[智能同步] 处理数据时发生错误: {e}")
+            db.rollback()
+            return {
+                'success': False,
+                'message': f'处理数据时发生错误: {e}'
+            }
+        finally:
+            db.close()
+
+# 创建路由器实例
+wise_router = WiseRouter()
 
 # 初始化Wise API服务
 wise_service = WiseAPIService()
@@ -702,6 +825,8 @@ async def smart_sync_exchange_rates(
             # 转换日期格式
             from_dt = datetime.strptime(from_date, '%Y-%m-%d')
             to_dt = datetime.strptime(to_date, '%Y-%m-%d')
+            # 将结束日期设置为当天的最后一刻，确保包含结束日期当天的所有数据
+            to_dt = to_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
             
             # 查询数据库中指定币种对的现有数据
             existing_records = db.query(WiseExchangeRate).filter(
@@ -729,52 +854,29 @@ async def smart_sync_exchange_rates(
             logger.info(f"数据库现有数据: {len(existing_records)} 条")
             logger.info(f"需要的数据日期: {len(required_dates)} 天")
             logger.info(f"缺失的日期: {len(missing_dates)} 天")
+            logger.info(f"查询条件: source={source}, target={target}, from_dt={from_dt}, to_dt={to_dt}")
+            logger.info(f"现有数据日期: {sorted(list(existing_dates))}")
+            logger.info(f"需要的数据日期: {sorted(list(required_dates))}")
+            logger.info(f"缺失的日期: {sorted(list(missing_dates))}")
             
-            # 2. 如果有缺失数据，从API获取所有币种对
+            # 2. 如果有缺失数据，从API获取特定币种对的缺失数据
             if missing_dates:
-                logger.info(f"发现缺失数据，从API获取所有币种对: {missing_dates}")
+                logger.info(f"发现缺失数据，从API获取特定币种对 {source}->{target} 的缺失数据: {missing_dates}")
                 
                 # 初始化汇率服务
                 exchange_service = ExchangeRateService(wise_service.api_token)
-                
-                # 获取所有币种列表（从数据库中的Wise余额和交易数据）
-                all_currencies = set()
-                
-                # 从Wise余额表获取币种
-                balance_currencies = set()
-                for balance in db.query(WiseBalance).all():
-                    if balance.currency:
-                        balance_currencies.add(balance.currency)
-                
-                # 从Wise交易表获取币种
-                transaction_currencies = set()
-                for transaction in db.query(WiseTransaction).all():
-                    if transaction.currency:
-                        transaction_currencies.add(transaction.currency)
-                
-                # 合并所有币种，并添加常用的币种
-                all_currencies = balance_currencies | transaction_currencies
-                if not all_currencies:
-                    # 如果没有数据，使用默认币种
-                    all_currencies = {'USD', 'CNY', 'AUD', 'HKD', 'JPY', 'EUR', 'GBP'}
-                
-                # 确保包含用户查询的币种
-                all_currencies.add(source)
-                all_currencies.add(target)
-                
-                currencies_list = list(all_currencies)
-                logger.info(f"获取所有币种: {currencies_list}")
                 
                 # 计算缺失数据的时间范围
                 missing_from = min(missing_dates)
                 missing_to = max(missing_dates)
                 days_to_fetch = (missing_to - missing_from).days + 1
                 
-                # 从API获取所有币种对的缺失数据
-                sync_result = await exchange_service.fetch_and_store_history(
-                    currencies=currencies_list,
-                    days=days_to_fetch,
-                    group=group
+                logger.info(f"获取缺失数据: {source}->{target}, 时间范围: {missing_from} 到 {missing_to}, 天数: {days_to_fetch}")
+                
+                # 只获取查询的币种对的缺失数据
+                # 使用自定义方法只获取特定币种对
+                sync_result = await wise_router._fetch_specific_currency_pair(
+                    exchange_service, source, target, missing_from, missing_to, group
                 )
                 
                 if not sync_result.get('success', False):
