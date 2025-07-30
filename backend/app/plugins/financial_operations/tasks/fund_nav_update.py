@@ -5,9 +5,12 @@ from typing import Dict, Any, List
 from datetime import date
 from app.core.base_plugin import BaseTask
 from app.core.context import TaskContext, TaskResult
-from app.services.fund_service import FundOperationService
+from app.services.fund_service import FundOperationService, FundNavService
 from app.services.fund_api_service import FundAPIService
 from app.utils.database import get_db
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FundNavUpdateTask(BaseTask):
@@ -56,9 +59,34 @@ class FundNavUpdateTask(BaseTask):
                         if nav_data and nav_data.get('nav'):
                             # 更新或插入净值记录
                             today = date.today()
-                            success = FundOperationService.update_fund_nav(
-                                db, fund_code, nav_data['nav'], today
-                            )
+                            nav_value = nav_data['nav']
+                            
+                            # 确保nav是Decimal类型
+                            from decimal import Decimal
+                            if isinstance(nav_value, str):
+                                nav_value = Decimal(nav_value)
+                            elif isinstance(nav_value, (int, float)):
+                                nav_value = Decimal(str(nav_value))
+                            
+                            context.log(f"准备更新基金 {fund_code} 净值: {nav_value} (类型: {type(nav_value)})")
+                            
+                            # 添加调试日志
+                            context.log(f"🔍 FundNavService 类型: {type(FundNavService)}")
+                            context.log(f"🔍 FundNavService 属性: {dir(FundNavService)}")
+                            context.log(f"🔍 检查 update_fund_nav 方法是否存在: {'update_fund_nav' in dir(FundNavService)}")
+                            
+                            try:
+                                # 使用 create_nav 方法创建或更新净值记录
+                                nav_record = FundNavService.create_nav(
+                                    db, fund_code, today, nav_value
+                                )
+                                success = nav_record is not None
+                                context.log(f"🔍 create_nav 返回结果: {nav_record}")
+                            except Exception as e:
+                                context.log(f"❌ 调用 create_nav 时出错: {e}", "ERROR")
+                                context.log(f"❌ 错误类型: {type(e)}", "ERROR")
+                                context.log(f"❌ 错误详情: {str(e)}", "ERROR")
+                                raise
                             
                             if success:
                                 updated_count += 1
@@ -106,12 +134,32 @@ class FundNavUpdateTask(BaseTask):
             
     async def validate_config(self, config: Dict[str, Any]) -> bool:
         """验证配置"""
+        # 添加调试日志
+        logger.info(f"🔍 fund_nav_update 收到配置: {config}")
+        logger.info(f"🔍 配置类型: {type(config)}")
+        
         # 检查必需参数
         if 'update_all' not in config and 'fund_codes' not in config:
+            logger.error(f"❌ 配置验证失败: 缺少 update_all 或 fund_codes 参数")
+            logger.error(f"❌ 当前配置键: {list(config.keys()) if config else 'None'}")
             return False
             
         # 如果指定基金代码，检查格式
-        if 'fund_codes' in config and not isinstance(config['fund_codes'], list):
-            return False
+        if 'fund_codes' in config:
+            logger.info(f"🔍 fund_codes 值: {config['fund_codes']}")
+            logger.info(f"🔍 fund_codes 类型: {type(config['fund_codes'])}")
+            if not isinstance(config['fund_codes'], list):
+                logger.error(f"❌ 配置验证失败: fund_codes 不是 list 类型，实际类型: {type(config['fund_codes'])}")
+                return False
+            logger.info(f"✅ fund_codes 格式正确，包含 {len(config['fund_codes'])} 个基金代码")
             
+        if 'update_all' in config:
+            logger.info(f"🔍 update_all 值: {config['update_all']}")
+            logger.info(f"🔍 update_all 类型: {type(config['update_all'])}")
+            if not isinstance(config['update_all'], bool):
+                logger.error(f"❌ 配置验证失败: update_all 不是 bool 类型，实际类型: {type(config['update_all'])}")
+                return False
+            logger.info(f"✅ update_all 格式正确")
+            
+        logger.info(f"✅ fund_nav_update 配置验证通过")
         return True 

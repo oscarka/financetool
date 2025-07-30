@@ -176,8 +176,18 @@ async def create_job(job_config: Dict[str, Any]):
 async def execute_task_now(task_id: str, config: Dict[str, Any] = None):
     """立即执行任务"""
     try:
+        logger.info(f"🔍 收到执行任务请求: task_id={task_id}")
+        logger.info(f"🔍 原始配置参数: {config}")
+        logger.info(f"🔍 配置类型: {type(config)}")
+        
+        # 处理配置格式：前端可能发送 {'config': {...}} 格式
+        actual_config = config or {}
+        if 'config' in actual_config and isinstance(actual_config['config'], dict):
+            actual_config = actual_config['config']
+            logger.info(f"🔍 提取后的配置参数: {actual_config}")
+        
         service = get_scheduler_service()
-        result = await service.execute_task_now(task_id, config or {})
+        result = await service.execute_task_now(task_id, actual_config)
         
         if result.success:
             return BaseResponse(success=True, message="任务执行成功", data=result.to_dict())
