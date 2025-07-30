@@ -1426,6 +1426,23 @@ class DCAService:
             net_amount = plan.amount - fee
             quantity = net_amount / nav_record.nav
             
+            # PostgreSQL序列修复：检查并重置序列
+            try:
+                max_id_result = db.execute(text("SELECT MAX(id) FROM user_operations"))
+                max_id = max_id_result.scalar()
+                
+                if max_id is not None:
+                    seq_result = db.execute(text("SELECT last_value FROM user_operations_id_seq"))
+                    current_seq = seq_result.scalar()
+                    
+                    if current_seq < max_id:
+                        print(f'[历史生成] 重置序列: 当前={current_seq}, 最大ID={max_id}')
+                        db.execute(text(f"SELECT setval('user_operations_id_seq', {max_id})"))
+                        db.commit()  # Commit sequence reset
+                        print(f'[历史生成] 序列重置完成')
+            except Exception as e:
+                print(f'[历史生成] 序列检查失败: {e}')
+            
             # 创建操作记录
             operation = UserOperation(
                 operation_date=exec_date,
@@ -1447,25 +1464,8 @@ class DCAService:
             db.add(operation)
             db.commit()
             
-            # 更新持仓
-            FundOperationService._update_position(db, operation)
-            
             created_count += 1
-            print(f'[历史生成] 已生成操作记录: {exec_date}')
-        
-        # 更新定投计划统计
-        DCAService.update_plan_statistics(db, plan_id)
-        
-        # 生成历史后，如有新exclude_dates，需同步入库
-        if exclude_dates is not None:
-            import json
-            print(f'[防御] 赋值前 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
-            if isinstance(plan.exclude_dates, list):
-                plan.exclude_dates = json.dumps([d.strftime('%Y-%m-%d') if isinstance(d, date) else str(d) for d in plan.exclude_dates])
-                print(f'[防御] 已序列化 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
-            plan.exclude_dates = json.dumps([d.strftime('%Y-%m-%d') if isinstance(d, date) else str(d) for d in exclude_dates])
-            print(f'[防御] 新赋值 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
-            db.commit()
+            print(f'[历史生成] 成功创建操作记录: {exec_date}')
         
         print(f'[历史生成] 总共生成 {created_count} 条操作记录')
         return created_count
