@@ -12,6 +12,8 @@ from sqlalchemy import and_
 from app.utils.auto_logger import auto_log
 import re
 from dateutil import parser
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import text
 
 WISE_API_BASE = "https://api.transferwise.com"
 
@@ -264,19 +266,53 @@ class ExchangeRateService:
                             total_updated += 1
                             logger.debug(f"[Wise汇率] 更新汇率: {source_currency}->{target_currency} {time_dt}")
                         else:
-                            # 新增记录
-                            new_rate = WiseExchangeRate(
-                                source_currency=source_currency,
-                                target_currency=target_currency,
-                                rate=rate,
-                                time=time_dt
-                            )
-                            db.add(new_rate)
-                            total_inserted += 1
-                            logger.debug(f"[Wise汇率] 新增汇率: {source_currency}->{target_currency} {time_dt}")
+                            # 新增记录 - 使用简单的INSERT语句
+                            try:
+                                new_rate = WiseExchangeRate(
+                                    source_currency=source_currency,
+                                    target_currency=target_currency,
+                                    rate=rate,
+                                    time=time_dt,
+                                    created_at=datetime.utcnow()
+                                )
+                                db.add(new_rate)
+                                db.commit()
+                                total_inserted += 1
+                                logger.debug(f"[Wise汇率] 新增汇率: {source_currency}->{target_currency} {time_dt}")
+                            except Exception as e:
+                                logger.error(f"[Wise汇率] 插入汇率失败: {source_currency}->{target_currency} {time_dt}, 错误: {e}")
+                                db.rollback()
+                                
+                                # 如果是主键冲突，尝试重置序列
+                                if "duplicate key value violates unique constraint" in str(e) or "UniqueViolation" in str(e):
+                                    try:
+                                        logger.warning(f"[Wise汇率] 检测到主键冲突，尝试重置序列...")
+                                        db.execute(text("SELECT setval('wise_exchange_rates_id_seq', (SELECT COALESCE(MAX(id), 0) FROM wise_exchange_rates))"))
+                                        db.commit()
+                                        logger.info(f"[Wise汇率] 序列重置成功")
+                                        
+                                        # 再次尝试插入
+                                        try:
+                                            new_rate = WiseExchangeRate(
+                                                source_currency=source_currency,
+                                                target_currency=target_currency,
+                                                rate=rate,
+                                                time=time_dt,
+                                                created_at=datetime.utcnow()
+                                            )
+                                            db.add(new_rate)
+                                            db.commit()
+                                            total_inserted += 1
+                                            logger.debug(f"[Wise汇率] 重置序列后新增汇率成功: {source_currency}->{target_currency} {time_dt}")
+                                        except Exception as retry_error:
+                                            logger.error(f"[Wise汇率] 重置序列后仍然插入失败: {retry_error}")
+                                            db.rollback()
+                                    except Exception as seq_error:
+                                        logger.error(f"[Wise汇率] 序列重置失败: {seq_error}")
+                                
+                                continue
                     
-                    # 提交当前币种对的数据
-                    db.commit()
+                    # 币种对处理完成
                     logger.info(f"[Wise汇率] 币种对 {source_currency} -> {target_currency} 处理完成")
                     
                 except Exception as e:
@@ -388,8 +424,9 @@ class ExchangeRateService:
                             new_rate = WiseExchangeRate(
                                 source_currency=source_currency,
                                 target_currency=target_currency,
-                            rate=rate,
-                            time=time_dt
+                                rate=rate,
+                                time=time_dt,
+                                created_at=datetime.utcnow()  # 显式设置created_at，保持风格一致
                             )
                             db.add(new_rate)
                             total_inserted += 1
@@ -425,11 +462,14 @@ class ExchangeRateService:
     async def _fetch_rates_with_date_range(self, source_currency: str, target_currency: str, start_date: datetime, end_date: datetime, group: str) -> List[Dict]:
         """获取指定日期范围的汇率数据"""
         url = f"{WISE_API_BASE}/v1/rates"
+        
+        # 使用更详细的时间格式，包括时间戳
+        # 根据API文档，支持 YYYY-MM-DDTHH:MM:SS 格式
         params = {
             'source': source_currency,
             'target': target_currency,
-            'from': start_date.strftime('%Y-%m-%d'),
-            'to': end_date.strftime('%Y-%m-%d'),
+            'from': start_date.strftime('%Y-%m-%dT%H:%M:%S'),
+            'to': end_date.strftime('%Y-%m-%dT%H:%M:%S'),
             'group': group
         }
         

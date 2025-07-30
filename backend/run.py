@@ -773,6 +773,17 @@ def auto_alembic_upgrade():
     except Exception as e:
         print(f"[ALEMBIC] 执行迁移命令出错: {e}")
 
+def run_wise_data_maintenance():
+    """运行Wise数据维护"""
+    try:
+        from app.utils.wise_data_manager import WiseDataManager
+        manager = WiseDataManager()
+        result = manager.run_maintenance()
+        return result['sequence_fixed'] and result['duplicates_cleaned']
+    except Exception as e:
+        print(f"❌ Wise数据维护失败: {e}")
+        return False
+
 if __name__ == "__main__":
     import uvicorn
     
@@ -790,14 +801,16 @@ if __name__ == "__main__":
         print("🏠 本地环境，执行标准数据库设置...")
         auto_alembic_upgrade()
     
-    # 测试模式：模拟Railway环境
-    if os.getenv("TEST_RAILWAY_MIGRATION", "false").lower() == "true":
-        print("🧪 测试模式：模拟Railway环境迁移...")
-        os.environ["RAILWAY_ENVIRONMENT"] = "test"
-        migration_success = safe_railway_migration()
-        if not migration_success:
-            print("❌ 测试迁移失败")
-            sys.exit(1)
+    # 运行Wise数据维护（可选，只在需要时执行）
+    if os.getenv("RUN_WISE_MAINTENANCE", "false").lower() == "true":
+        print("🔧 执行Wise数据维护...")
+        maintenance_success = run_wise_data_maintenance()
+        if not maintenance_success:
+            print("⚠️  Wise数据维护失败，但继续启动服务")
+    else:
+        print("ℹ️  跳过Wise数据维护（设置RUN_WISE_MAINTENANCE=true可启用）")
+    
+
     
     port = int(os.environ.get("PORT", 8000))
     debug = os.environ.get("DEBUG", "False").lower() == "true"
