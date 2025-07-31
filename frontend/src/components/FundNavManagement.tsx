@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Row, Col, Table, Tag, Space, Button, message, Input, Divider, Statistic, Checkbox, TimePicker, Modal, Form } from 'antd'
-import { SyncOutlined, SearchOutlined, DownloadOutlined, ClockCircleOutlined, PlayCircleOutlined, PauseCircleOutlined } from '@ant-design/icons'
+import { Card, Row, Col, Table, Tag, Space, Button, message, Input, Divider, Statistic, Checkbox } from 'antd'
+import { SyncOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
-import dayjs from 'dayjs'
 
 interface NavHistoryItem {
     id: number
@@ -33,12 +32,7 @@ const FundNavManagement: React.FC = () => {
     const [showDividend, setShowDividend] = useState(false)
     const [onlyDividend, setOnlyDividend] = useState(false)
 
-    // 定时任务相关状态
-    const [schedulerJobs, setSchedulerJobs] = useState<any[]>([])
-    const [schedulerLoading, setSchedulerLoading] = useState(false)
-    const [updateTimeModalVisible, setUpdateTimeModalVisible] = useState(false)
-    const [selectedJob, setSelectedJob] = useState<any>(null)
-    const [updateTimeForm] = Form.useForm()
+
 
     // 查询历史净值
     const fetchNavHistory = async (forceUpdate = false) => {
@@ -209,130 +203,7 @@ const FundNavManagement: React.FC = () => {
         message.success('历史净值数据导出成功')
     }
 
-    // 获取定时任务列表
-    const fetchSchedulerJobs = async () => {
-        setSchedulerLoading(true)
-        try {
-            const response = await fundAPI.getSchedulerJobs()
-            if (response.success && response.data) {
-                setSchedulerJobs(response.data.jobs || [])
-            } else {
-                message.error(response.message || '获取定时任务失败')
-            }
-        } catch (error: any) {
-            console.error('获取定时任务失败:', error)
-            message.error('获取定时任务失败')
-        } finally {
-            setSchedulerLoading(false)
-        }
-    }
 
-    // 启动定时任务调度器
-    const startScheduler = async () => {
-        try {
-            const response = await fundAPI.startScheduler()
-            if (response.success) {
-                message.success(response.message || '定时任务调度器已启动')
-                fetchSchedulerJobs()
-            } else {
-                message.error(response.message || '启动定时任务调度器失败')
-            }
-        } catch (error: any) {
-            console.error('启动定时任务调度器失败:', error)
-            message.error('启动定时任务调度器失败')
-        }
-    }
-
-    // 停止定时任务调度器
-    const stopScheduler = async () => {
-        try {
-            const response = await fundAPI.stopScheduler()
-            if (response.success) {
-                message.success(response.message || '定时任务调度器已停止')
-                fetchSchedulerJobs()
-            } else {
-                message.error(response.message || '停止定时任务调度器失败')
-            }
-        } catch (error: any) {
-            console.error('停止定时任务调度器失败:', error)
-            message.error('停止定时任务调度器失败')
-        }
-    }
-
-    // 重启定时任务调度器
-    const restartScheduler = async () => {
-        try {
-            const response = await fundAPI.restartScheduler()
-            if (response.success) {
-                message.success(response.message || '定时任务调度器已重启')
-                fetchSchedulerJobs()
-            } else {
-                message.error(response.message || '重启定时任务调度器失败')
-            }
-        } catch (error: any) {
-            console.error('重启定时任务调度器失败:', error)
-            message.error('重启定时任务调度器失败')
-        }
-    }
-
-    // 手动执行净值更新
-    const manualUpdateNavs = async () => {
-        try {
-            const response = await fundAPI.manualUpdateNavs()
-            if (response.success) {
-                message.success(response.message || '手动净值更新任务执行完成')
-            } else {
-                message.error(response.message || '手动净值更新任务执行失败')
-            }
-        } catch (error: any) {
-            console.error('手动净值更新任务执行失败:', error)
-            message.error('手动净值更新任务执行失败')
-        }
-    }
-
-    // 更新任务执行时间
-    const updateJobSchedule = async (values: any) => {
-        if (!selectedJob) return
-
-        try {
-            const time = values.time
-            const hour = time.hour()
-            const minute = time.minute()
-
-            const response = await fundAPI.updateJobSchedule(selectedJob.id, hour, minute)
-            if (response.success) {
-                message.success(response.message || '任务执行时间更新成功')
-                setUpdateTimeModalVisible(false)
-                fetchSchedulerJobs()
-            } else {
-                message.error(response.message || '更新任务执行时间失败')
-            }
-        } catch (error: any) {
-            console.error('更新任务执行时间失败:', error)
-            message.error('更新任务执行时间失败')
-        }
-    }
-
-    // 打开更新时间模态框
-    const openUpdateTimeModal = (job: any) => {
-        setSelectedJob(job)
-        // 从trigger字符串中解析时间
-        const triggerStr = job.trigger
-        const timeMatch = triggerStr.match(/cron\[h=(\d+),m=(\d+)/)
-        if (timeMatch) {
-            const hour = parseInt(timeMatch[1])
-            const minute = parseInt(timeMatch[2])
-            updateTimeForm.setFieldsValue({
-                time: dayjs().hour(hour).minute(minute)
-            })
-        }
-        setUpdateTimeModalVisible(true)
-    }
-
-    // 组件加载时获取定时任务列表
-    useEffect(() => {
-        fetchSchedulerJobs()
-    }, [])
 
     // 历史净值表格列定义
     const navColumns = [
@@ -516,155 +387,19 @@ const FundNavManagement: React.FC = () => {
                 )}
             </Card>
 
-            {/* 定时任务管理 */}
-            <Card
-                title={
-                    <Space>
-                        <ClockCircleOutlined />
-                        定时任务管理
-                    </Space>
-                }
-                extra={
-                    <Space>
-                        <Button
-                            type="primary"
-                            icon={<PlayCircleOutlined />}
-                            onClick={startScheduler}
-                        >
-                            启动调度器
-                        </Button>
-                        <Button
-                            danger
-                            icon={<PauseCircleOutlined />}
-                            onClick={stopScheduler}
-                        >
-                            停止调度器
-                        </Button>
-                        <Button
-                            type="default"
-                            icon={<SyncOutlined />}
-                            onClick={restartScheduler}
-                        >
-                            重启调度器
-                        </Button>
-                        <Button
-                            icon={<SyncOutlined />}
-                            onClick={manualUpdateNavs}
-                        >
-                            手动更新净值
-                        </Button>
-                        <Button
-                            icon={<SyncOutlined />}
-                            onClick={fetchSchedulerJobs}
-                            loading={schedulerLoading}
-                        >
-                            刷新
-                        </Button>
-                    </Space>
-                }
-            >
-                <Table
-                    columns={[
-                        {
-                            title: '任务名称',
-                            dataIndex: 'name',
-                            key: 'name',
-                            render: (name: string) => <Tag color="blue">{name}</Tag>
-                        },
-                        {
-                            title: '任务ID',
-                            dataIndex: 'id',
-                            key: 'id',
-                            width: 150
-                        },
-                        {
-                            title: '下次执行时间',
-                            dataIndex: 'next_run_time',
-                            key: 'next_run_time',
-                            render: (time: string) => time ? new Date(time).toLocaleString() : '未设置'
-                        },
-                        {
-                            title: '执行规则',
-                            dataIndex: 'trigger',
-                            key: 'trigger',
-                            render: (trigger: string) => {
-                                const match = trigger.match(/cron\[h=(\d+),m=(\d+)/)
-                                if (match) {
-                                    return `每天 ${match[1]}:${match[2].padStart(2, '0')}`
-                                }
-                                return trigger
-                            }
-                        },
-                        {
-                            title: '操作',
-                            key: 'action',
-                            width: 120,
-                            render: (_, record: any) => (
-                                <Button
-                                    type="link"
-                                    size="small"
-                                    onClick={() => openUpdateTimeModal(record)}
-                                >
-                                    修改时间
-                                </Button>
-                            )
-                        }
-                    ]}
-                    dataSource={schedulerJobs}
-                    rowKey="id"
-                    loading={schedulerLoading}
-                    pagination={false}
-                    size="small"
-                />
-            </Card>
+
 
             {/* 使用说明 */}
             <Card title="使用说明">
                 <div className="space-y-2 text-sm text-gray-600">
                     <p>• <strong>查询历史净值</strong>：输入基金代码，点击查询按钮获取历史净值数据</p>
                     <p>• <strong>强制更新</strong>：从外部API重新获取最新净值数据，覆盖本地缓存</p>
-                    <p>• <strong>定时任务</strong>：系统会自动在指定时间更新净值、执行定投计划等</p>
                     <p>• <strong>导出数据</strong>：将查询到的历史净值数据导出为CSV文件</p>
                     <p>• <strong>数据来源</strong>：历史净值数据来源于akshare开源数据接口</p>
                     <p>• <strong>分页显示</strong>：支持分页浏览大量历史数据，每页默认显示20条记录</p>
+                    <p>• <strong>分红数据</strong>：支持显示和同步基金分红数据</p>
                 </div>
             </Card>
-
-            {/* 更新时间模态框 */}
-            <Modal
-                title="修改任务执行时间"
-                open={updateTimeModalVisible}
-                onCancel={() => setUpdateTimeModalVisible(false)}
-                footer={null}
-            >
-                <Form
-                    form={updateTimeForm}
-                    onFinish={updateJobSchedule}
-                    layout="vertical"
-                >
-                    <Form.Item
-                        label="执行时间"
-                        name="time"
-                        rules={[{ required: true, message: '请选择执行时间' }]}
-                    >
-                        <TimePicker
-                            format="HH:mm"
-                            placeholder="选择执行时间"
-                            style={{ width: '100%' }}
-                        />
-                    </Form.Item>
-                    <Form.Item>
-                        <Space>
-                            <Button type="primary" htmlType="submit">
-                                确定
-                            </Button>
-                            <Button onClick={() => setUpdateTimeModalVisible(false)}>
-                                取消
-                            </Button>
-                        </Space>
-                    </Form.Item>
-                </Form>
-            </Modal>
         </div>
     )
 }
