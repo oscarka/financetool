@@ -202,6 +202,7 @@ class DCAPlanUpdate(BaseModel):
     
     # 新增字段更新
     execution_time: Optional[str] = None
+    next_execution_date: Optional[date] = None  # 添加下次执行日期字段
     smart_dca: Optional[bool] = None
     base_amount: Optional[Decimal] = None
     max_amount: Optional[Decimal] = None

@@ -1042,6 +1042,7 @@ class DCAService:
             end_date=plan_data.end_date,
             strategy=plan_data.strategy,
             execution_time=plan_data.execution_time,
+            next_execution_date=next_execution_date,  # 添加下次执行日期
             smart_dca=plan_data.smart_dca,
             base_amount=plan_data.base_amount,
             max_amount=plan_data.max_amount,
@@ -1221,6 +1222,17 @@ class DCAService:
         if latest_nav:
             DCAService._calculate_and_confirm_operation(db, operation, latest_nav)
         
+        # 更新下次执行日期
+        if plan.next_execution_date:
+            # 基于当前执行日期计算下次执行日期
+            next_execution_date = DCAService._calculate_next_execution_date(
+                plan.next_execution_date,  # 使用当前执行日期作为基准
+                plan.frequency,
+                plan.frequency_value
+            )
+            plan.next_execution_date = next_execution_date
+            db.commit()
+        
         # 更新定投计划统计
         DCAService.update_plan_statistics(db, plan_id)
         
@@ -1268,20 +1280,70 @@ class DCAService:
         today = datetime.now().date()
         active_plans = DCAService.get_dca_plans(db, "active")
         
+        print(f"[调试] 检查定投计划执行 - 今天: {today}")
+        print(f"[调试] 找到 {len(active_plans)} 个活跃计划")
+        
         executed_operations = []
         for plan in active_plans:
             # 使用字典键值访问，因为get_dca_plans返回的是字典列表
             next_execution_date = plan.get('next_execution_date')
             end_date = plan.get('end_date')
             plan_id = plan.get('id')
+            start_date = plan.get('start_date')
+            frequency = plan.get('frequency')
+            frequency_value = plan.get('frequency_value')
+            
+            # 检查计划是否已过期
+            # 对于已过期的计划，跳过执行，让用户在前端修改
+            if end_date and end_date < today:
+                print(f"[警告] 定投计划 {plan_id} 已过期 (结束日期: {end_date})，跳过执行")
+                continue
+            
+            # 如果next_execution_date为null，尝试计算下次执行日期
+            if not next_execution_date:
+                if start_date and frequency and frequency_value:
+                    # 对于无限期计划，基于当前日期计算下次执行日期
+                    # 对于有结束日期的计划，基于开始日期计算
+                    if not end_date:
+                        # 无限期计划：基于当前日期计算
+                        next_execution_date = DCAService._calculate_next_execution_date(
+                            today, frequency, frequency_value
+                        )
+                        print(f"[信息] 无限期计划 {plan_id} 基于当前日期计算下次执行日期: {next_execution_date}")
+                    else:
+                        # 有结束日期的计划：基于开始日期计算
+                        next_execution_date = DCAService._calculate_next_execution_date(
+                            start_date, frequency, frequency_value
+                        )
+                        print(f"[信息] 有结束日期计划 {plan_id} 基于开始日期计算下次执行日期: {next_execution_date}")
+                    
+                    # 更新数据库中的next_execution_date
+                    db_plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
+                    if db_plan:
+                        db_plan.next_execution_date = next_execution_date
+                        db.commit()
+                        print(f"[信息] 计划 {plan_id} 下次执行日期已更新为: {next_execution_date}")
+                else:
+                    # 无法计算下次执行日期，跳过
+                    print(f"[警告] 计划 {plan_id} 缺少必要信息，跳过")
+                    continue
+            
+            # 检查是否应该执行
+            print(f"[调试] 计划 {plan_id}: next_execution_date={next_execution_date}, end_date={end_date}")
             
             if (next_execution_date and 
                 next_execution_date <= today and
                 (not end_date or end_date >= today)):
                 
+                print(f"[调试] 执行计划 {plan_id}")
                 operation = DCAService.execute_dca_plan(db, plan_id, "scheduled")
                 if operation:
                     executed_operations.append(operation)
+                    print(f"[调试] 计划 {plan_id} 执行成功")
+                else:
+                    print(f"[调试] 计划 {plan_id} 执行失败")
+            else:
+                print(f"[调试] 计划 {plan_id} 不满足执行条件")
         
         return executed_operations
     
