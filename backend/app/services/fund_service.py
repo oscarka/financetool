@@ -108,8 +108,9 @@ class FundOperationService:
             operation.quantity = shares
             operation.nav = nav_value
             operation.price = nav_value
-            operation.status = "confirmed"
-            operation.updated_at = datetime.utcnow()
+            # 只有在状态为confirmed时才更新持仓，否则保持原有状态
+            if operation.status == "confirmed":
+                operation.updated_at = datetime.utcnow()
             print(f"[调试] 重新计算份额: amount={operation.amount}, fee={fee}, nav={nav_value}, shares={shares}")
             
             # 同步最新净值到数据库
@@ -137,17 +138,20 @@ class FundOperationService:
             except Exception as e:
                 print(f"[调试] 同步最新净值时出错: {e}")
             
-            # 更新持仓
-            print(f"[调试] 准备调用_update_position...")
-            try:
-                FundOperationService._update_position(db, operation)
-                print(f"[调试] _update_position调用成功")
-            except Exception as e:
-                print(f"[调试] _update_position调用失败: {e}")
-                print(f"[调试] 错误类型: {type(e)}")
-                import traceback
-                print(f"[调试] 错误堆栈: {traceback.format_exc()}")
-                raise e
+            # 只有在状态为confirmed时才更新持仓
+            if operation.status == "confirmed":
+                print(f"[调试] 准备调用_update_position...")
+                try:
+                    FundOperationService._update_position(db, operation)
+                    print(f"[调试] _update_position调用成功")
+                except Exception as e:
+                    print(f"[调试] _update_position调用失败: {e}")
+                    print(f"[调试] 错误类型: {type(e)}")
+                    import traceback
+                    print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+                    raise e
+            else:
+                print(f"[调试] 跳过更新持仓，状态为: {operation.status}")
         else:
             print(f"[调试] 跳过份额计算: nav_value={nav_value}")
         
@@ -520,18 +524,21 @@ class FundOperationService:
             try:
                 if operation.operation_type == 'buy':
                     print(f"[调试] 调用_calculate_buy_shares...")
-                    # 先清空现有持仓，避免重复累加
-                    existing_position = db.query(AssetPosition).filter(
-                        and_(
-                            AssetPosition.platform == operation.platform,
-                            AssetPosition.asset_code == operation.asset_code,
-                            AssetPosition.currency == operation.currency
-                        )
-                    ).first()
-                    if existing_position:
-                        print(f"[调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
-                        db.delete(existing_position)
-                        db.commit()
+                    # 只有在状态为confirmed时才清空现有持仓，避免重复累加
+                    if operation.status == "confirmed":
+                        existing_position = db.query(AssetPosition).filter(
+                            and_(
+                                AssetPosition.platform == operation.platform,
+                                AssetPosition.asset_code == operation.asset_code,
+                                AssetPosition.currency == operation.currency
+                            )
+                        ).first()
+                        if existing_position:
+                            print(f"[调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
+                            db.delete(existing_position)
+                            db.commit()
+                    else:
+                        print(f"[调试] 跳过清空持仓，状态为: {operation.status}")
                     
                     FundOperationService._calculate_buy_shares(db, operation)
                     print(f"[调试] _calculate_buy_shares调用完成")
