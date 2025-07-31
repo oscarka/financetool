@@ -1270,11 +1270,16 @@ class DCAService:
         
         executed_operations = []
         for plan in active_plans:
-            if (plan.next_execution_date and 
-                plan.next_execution_date <= today and
-                (not plan.end_date or plan.end_date >= today)):
+            # 使用字典键值访问，因为get_dca_plans返回的是字典列表
+            next_execution_date = plan.get('next_execution_date')
+            end_date = plan.get('end_date')
+            plan_id = plan.get('id')
+            
+            if (next_execution_date and 
+                next_execution_date <= today and
+                (not end_date or end_date >= today)):
                 
-                operation = DCAService.execute_dca_plan(db, plan.id, "scheduled")
+                operation = DCAService.execute_dca_plan(db, plan_id, "scheduled")
                 if operation:
                     executed_operations.append(operation)
         
