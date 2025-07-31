@@ -550,7 +550,9 @@ class FundOperationService:
                 
                 # 份额重新计算后，重新获取操作对象以确保状态一致
                 print(f"[调试] 重新获取操作对象...")
+                print(f"[调试] 刷新前状态: {operation.status}")
                 db.refresh(operation)
+                print(f"[调试] 刷新后状态: {operation.status}")
                 print(f"[调试] 操作对象重新获取成功")
             except Exception as e:
                 print(f"[调试] 份额重新计算失败: {e}")
