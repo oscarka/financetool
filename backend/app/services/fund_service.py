@@ -484,7 +484,7 @@ class FundOperationService:
         print(f"[调试]   最终条件: {operation.operation_type == 'buy' and (nav_check or amount_check or fee_check)}")
         
         # 只有在真正需要重新计算时才执行，避免重复计算
-        should_recalculate = operation.operation_type == "buy" and (nav_check or amount_check or fee_check)
+        should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check)
         
         # 重新计算份额
         if should_recalculate:
