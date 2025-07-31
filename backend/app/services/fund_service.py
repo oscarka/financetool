@@ -1299,30 +1299,12 @@ class DCAService:
                 print(f"[警告] 定投计划 {plan_id} 已过期 (结束日期: {end_date})，跳过执行")
                 continue
             
-            # 如果next_execution_date为null，尝试计算下次执行日期
+            # 如果next_execution_date为null，说明是第一次运行，应该执行今天的定投
             if not next_execution_date:
                 if start_date and frequency and frequency_value:
-                    # 对于无限期计划，基于当前日期计算下次执行日期
-                    # 对于有结束日期的计划，基于开始日期计算
-                    if not end_date:
-                        # 无限期计划：基于当前日期计算
-                        next_execution_date = DCAService._calculate_next_execution_date(
-                            today, frequency, frequency_value
-                        )
-                        print(f"[信息] 无限期计划 {plan_id} 基于当前日期计算下次执行日期: {next_execution_date}")
-                    else:
-                        # 有结束日期的计划：基于开始日期计算
-                        next_execution_date = DCAService._calculate_next_execution_date(
-                            start_date, frequency, frequency_value
-                        )
-                        print(f"[信息] 有结束日期计划 {plan_id} 基于开始日期计算下次执行日期: {next_execution_date}")
-                    
-                    # 更新数据库中的next_execution_date
-                    db_plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
-                    if db_plan:
-                        db_plan.next_execution_date = next_execution_date
-                        db.commit()
-                        print(f"[信息] 计划 {plan_id} 下次执行日期已更新为: {next_execution_date}")
+                    print(f"[信息] 计划 {plan_id} 是第一次运行，设置为今天执行")
+                    # 设置为今天执行
+                    next_execution_date = today
                 else:
                     # 无法计算下次执行日期，跳过
                     print(f"[警告] 计划 {plan_id} 缺少必要信息，跳过")
