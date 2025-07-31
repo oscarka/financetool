@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Card, Row, Col, Table, Tag, Space, Button, message, Input, Divider, Statistic, Checkbox } from 'antd'
 import { SyncOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
