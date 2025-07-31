@@ -277,6 +277,7 @@ const FundOperations: React.FC = () => {
             if (response.success) {
                 message.success('删除成功')
                 fetchOperations({}, pagination.current, pagination.pageSize)
+                fetchAvailablePositions() // 刷新可用持仓
             } else {
                 message.error('删除失败')
             }

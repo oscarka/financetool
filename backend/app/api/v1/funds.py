@@ -179,13 +179,35 @@ def delete_fund_operation(
         if not operation:
             raise HTTPException(status_code=404, detail="操作记录不存在")
         
+        # 记录操作信息用于后续重新计算持仓
+        asset_code = operation.asset_code
+        operation_type = operation.operation_type
+        
+        # 删除操作记录
         db.delete(operation)
         db.commit()
         
-        return BaseResponse(
-            success=True,
-            message="基金操作记录删除成功"
-        )
+        # 重新计算该基金的持仓
+        try:
+            # 重新计算所有持仓（包括被删除操作的基金）
+            result = FundOperationService.recalculate_all_positions(db)
+            if result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"基金操作记录删除成功，持仓已重新计算"
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"基金操作记录删除成功，但持仓重新计算失败：{result['message']}"
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"基金操作记录删除成功，但持仓重新计算失败"
+            )
+        
     except HTTPException:
         raise
     except Exception as e:
