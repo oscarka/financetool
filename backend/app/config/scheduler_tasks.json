@@ -4,7 +4,9 @@
         "name": "基金净值更新",
         "cron": "0 23 * * *",
         "plugin": "financial_operations.tasks.fund_nav_update",
-        "args": {},
+        "args": {
+            "update_all": true
+        },
         "enabled": true
     },
     {
@@ -91,7 +93,7 @@
     {
         "id": "crypto_exchange_rate_cache",
         "name": "数字货币汇率缓存",
-        "cron": "*/5 * * * *",
+        "cron": "0 */4 * * *",
         "plugin": "financial_operations.tasks.crypto_exchange_rate_cache",
         "args": {},
         "enabled": true

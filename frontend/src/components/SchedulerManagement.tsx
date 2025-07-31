@@ -9,16 +9,16 @@ import {
   Input,
   Select,
   InputNumber,
-
   message,
   Tag,
   Descriptions,
   Row,
   Col,
-
   Popconfirm,
   Tooltip,
-  Badge
+  Badge,
+  Alert,
+  Divider
 } from 'antd';
 import {
   PlayCircleOutlined,
@@ -26,15 +26,78 @@ import {
   DeleteOutlined,
   PlusOutlined,
   ReloadOutlined,
+  ClockCircleOutlined,
+  SettingOutlined,
+  CopyOutlined
 } from '@ant-design/icons';
 import { schedulerAPI } from '../services/schedulerAPI';
 import type { TaskDefinition, ScheduledJob, JobConfig } from '../services/schedulerAPI';
 
-
 const { Option } = Select;
 const { TextArea } = Input;
 
+// 预设任务配置模板
+const TASK_TEMPLATES = {
+  'fund_nav_update': {
+    name: '基金净值更新',
+    description: '更新基金净值数据',
+    config: {},
+    schedule: {
+      type: 'cron',
+      hour: 23,
+      minute: 0,
+      frequency: 'daily'
+    }
+  },
+  'dca_execute': {
+    name: '定投计划执行',
+    description: '执行到期的定投计划',
+    config: {},
+    schedule: {
+      type: 'cron',
+      hour: 10,
+      minute: 0,
+      frequency: 'weekly',
+      day_of_week: 'mon-fri'
+    }
+  },
+  'crypto_exchange_rate_cache': {
+    name: '数字货币汇率缓存',
+    description: '更新数字货币汇率数据',
+    config: {},
+    schedule: {
+      type: 'cron',
+      hour: 0,
+      minute: 0,
+      frequency: 'interval',
+      interval_hours: 4
+    }
+  },
+  'wise_balance_sync': {
+    name: 'Wise余额同步',
+    description: '同步Wise账户余额',
+    config: {},
+    schedule: {
+      type: 'cron',
+      hour: 18,
+      minute: 0,
+      frequency: 'daily'
+    }
+  }
+};
 
+// 常用时间预设
+const TIME_PRESETS = [
+  { label: '每天凌晨2点', value: { hour: 2, minute: 0, frequency: 'daily' } },
+  { label: '每天上午9点', value: { hour: 9, minute: 0, frequency: 'daily' } },
+  { label: '每天下午6点', value: { hour: 18, minute: 0, frequency: 'daily' } },
+  { label: '每天晚上11点', value: { hour: 23, minute: 0, frequency: 'daily' } },
+  { label: '工作日早上10点', value: { hour: 10, minute: 0, frequency: 'weekly', day_of_week: 'mon-fri' } },
+  { label: '每周一早上9点', value: { hour: 9, minute: 0, frequency: 'weekly', day_of_week: 'mon' } },
+  { label: '每月1号早上8点', value: { hour: 8, minute: 0, frequency: 'monthly', day: 1 } },
+  { label: '每4小时执行', value: { frequency: 'interval', interval_hours: 4 } },
+  { label: '每30分钟执行', value: { frequency: 'interval', interval_minutes: 30 } }
+];
 
 const SchedulerManagement: React.FC = () => {
   // 状态管理
@@ -106,6 +169,84 @@ const SchedulerManagement: React.FC = () => {
     }
   };
 
+  // 应用任务模板
+  const applyTaskTemplate = (taskId: string) => {
+    const template = TASK_TEMPLATES[taskId as keyof typeof TASK_TEMPLATES];
+    if (template) {
+      const formData: any = {
+        task_id: taskId,
+        name: template.name,
+        schedule_type: 'cron',
+        cron_frequency: template.schedule.frequency,
+        cron_hour: template.schedule.hour,
+        cron_minute: template.schedule.minute,
+        config: JSON.stringify(template.config, null, 2)
+      };
+
+      // 安全地添加可选字段
+      if ('day_of_week' in template.schedule) {
+        formData.cron_day_of_week = template.schedule.day_of_week;
+      }
+      if ('day' in template.schedule) {
+        formData.cron_day = template.schedule.day;
+      }
+
+      createJobForm.setFieldsValue(formData);
+      message.success('已应用任务模板');
+    }
+  };
+
+  // 应用时间预设
+  const applyTimePreset = (preset: any) => {
+    if (preset.frequency === 'interval') {
+      createJobForm.setFieldsValue({
+        schedule_type: 'interval',
+        interval_hours: preset.interval_hours,
+        interval_minutes: preset.interval_minutes
+      });
+    } else {
+      createJobForm.setFieldsValue({
+        schedule_type: 'cron',
+        cron_frequency: preset.frequency,
+        cron_hour: preset.hour,
+        cron_minute: preset.minute,
+        cron_day_of_week: preset.day_of_week,
+        cron_day: preset.day
+      });
+    }
+    message.success('已应用时间预设');
+  };
+
+  // 复制Cron表达式
+  const copyCronExpression = () => {
+    const values = createJobForm.getFieldsValue();
+    let cronExpression = '';
+
+    if (values.schedule_type === 'cron') {
+      const { cron_frequency, cron_hour, cron_minute, cron_day_of_week, cron_day } = values;
+
+      if (cron_frequency === 'daily') {
+        cronExpression = `${cron_minute} ${cron_hour} * * *`;
+      } else if (cron_frequency === 'weekly') {
+        cronExpression = `${cron_minute} ${cron_hour} * * ${cron_day_of_week}`;
+      } else if (cron_frequency === 'monthly') {
+        cronExpression = `${cron_minute} ${cron_hour} ${cron_day} * *`;
+      }
+    } else if (values.schedule_type === 'interval') {
+      const { interval_hours, interval_minutes } = values;
+      if (interval_hours) {
+        cronExpression = `0 */${interval_hours} * * *`;
+      } else if (interval_minutes) {
+        cronExpression = `*/${interval_minutes} * * * *`;
+      }
+    }
+
+    if (cronExpression) {
+      navigator.clipboard.writeText(cronExpression);
+      message.success('Cron表达式已复制到剪贴板');
+    }
+  };
+
   // 创建定时任务
   const handleCreateJob = async (values: any) => {
     try {
@@ -118,8 +259,9 @@ const SchedulerManagement: React.FC = () => {
       if (values.schedule_type === 'interval') {
         scheduleConfig = {
           ...scheduleConfig,
-          minutes: values.interval_minutes,
-          seconds: values.interval_seconds
+          minutes: values.interval_minutes || 0,
+          seconds: values.interval_seconds || 0,
+          hours: values.interval_hours || 0
         };
       } else if (values.schedule_type === 'cron') {
         // 基础cron配置
@@ -298,18 +440,28 @@ const SchedulerManagement: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 120,
+      width: 200,
       render: (_: any, record: TaskDefinition) => (
-        <Button
-          type="primary"
-          size="small"
-          onClick={() => {
-            setSelectedTask(record);
-            setExecuteTaskModalVisible(true);
-          }}
-        >
-          立即执行
-        </Button>
+        <Space size="small">
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => {
+              setSelectedTask(record);
+              setExecuteTaskModalVisible(true);
+            }}
+          >
+            立即执行
+          </Button>
+          {TASK_TEMPLATES[record.task_id as keyof typeof TASK_TEMPLATES] && (
+            <Button
+              size="small"
+              onClick={() => applyTaskTemplate(record.task_id)}
+            >
+              应用模板
+            </Button>
+          )}
+        </Space>
       ),
     },
   ];
@@ -357,9 +509,6 @@ const SchedulerManagement: React.FC = () => {
               </Button>
             }
           >
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-              jobs: {JSON.stringify(jobs)}
-            </div>
             <Table
               dataSource={jobs}
               columns={jobColumns}
@@ -368,20 +517,12 @@ const SchedulerManagement: React.FC = () => {
               pagination={false}
               size="small"
             />
-            <div ref={tasksJsonRef} style={{ fontSize: 12, color: '#888', marginTop: 8 }}></div>
           </Card>
         </Col>
 
         {/* 可用任务定义 */}
         <Col span={24}>
           <Card title="可用任务定义">
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-              tasks: {JSON.stringify(tasks)}
-            </div>
-            <div style={{ fontSize: 12, color: '#f00', marginBottom: 8 }}>
-              [Table渲染前] typeof tasks: {typeof tasks}, Array.isArray: {Array.isArray(tasks).toString()}, length: {tasks.length}, first: {tasks[0] && JSON.stringify(tasks[0])}
-            </div>
-            {/* 原有Table */}
             <Table
               dataSource={tasks}
               columns={taskColumns}
@@ -390,18 +531,12 @@ const SchedulerManagement: React.FC = () => {
               pagination={false}
               size="small"
             />
-            <div style={{ fontSize: 12, color: '#f00', marginTop: 8 }}>
-              [Table渲染后] typeof tasks: {typeof tasks}, Array.isArray: {Array.isArray(tasks).toString()}, length: {tasks.length}, first: {tasks[0] && JSON.stringify(tasks[0])}
-            </div>
           </Card>
         </Col>
 
         {/* 插件信息 */}
         <Col span={24}>
           <Card title="已加载插件">
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-              plugins: {JSON.stringify(plugins)}
-            </div>
             <Row gutter={[16, 16]}>
               {plugins.map((plugin, index) => (
                 <Col key={index} span={8}>
@@ -427,34 +562,54 @@ const SchedulerManagement: React.FC = () => {
         open={createJobModalVisible}
         onCancel={() => setCreateJobModalVisible(false)}
         footer={null}
-        width={600}
+        width={800}
       >
         <Form
           form={createJobForm}
           layout="vertical"
           onFinish={handleCreateJob}
         >
-          <Form.Item
-            name="task_id"
-            label="选择任务"
-            rules={[{ required: true, message: '请选择任务' }]}
-          >
-            <Select placeholder="请选择要执行的任务">
-              {tasks.map(task => (
-                <Option key={task.task_id} value={task.task_id}>
-                  {task.name} ({task.task_id})
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="task_id"
+                label="选择任务"
+                rules={[{ required: true, message: '请选择任务' }]}
+              >
+                <Select
+                  placeholder="请选择要执行的任务"
+                  onChange={(value) => {
+                    // 自动应用模板
+                    if (TASK_TEMPLATES[value as keyof typeof TASK_TEMPLATES]) {
+                      applyTaskTemplate(value);
+                    }
+                  }}
+                >
+                  {tasks.map(task => (
+                    <Option key={task.task_id} value={task.task_id}>
+                      {task.name} ({task.task_id})
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="name"
+                label="任务名称"
+                rules={[{ required: true, message: '请输入任务名称' }]}
+              >
+                <Input placeholder="请输入任务名称" />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <Form.Item
-            name="name"
-            label="任务名称"
-            rules={[{ required: true, message: '请输入任务名称' }]}
-          >
-            <Input placeholder="请输入任务名称" />
-          </Form.Item>
+          <Divider orientation="left">
+            <Space>
+              <ClockCircleOutlined />
+              时间配置
+            </Space>
+          </Divider>
 
           <Form.Item
             name="schedule_type"
@@ -463,8 +618,23 @@ const SchedulerManagement: React.FC = () => {
           >
             <Select placeholder="请选择调度类型">
               <Option value="interval">间隔执行</Option>
-              <Option value="cron">Cron表达式</Option>
+              <Option value="cron">定时执行</Option>
             </Select>
+          </Form.Item>
+
+          {/* 时间预设 */}
+          <Form.Item label="常用时间预设">
+            <Space wrap>
+              {TIME_PRESETS.map((preset, index) => (
+                <Button
+                  key={index}
+                  size="small"
+                  onClick={() => applyTimePreset(preset.value)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </Space>
           </Form.Item>
 
           <Form.Item noStyle shouldUpdate>
@@ -474,21 +644,28 @@ const SchedulerManagement: React.FC = () => {
               if (scheduleType === 'interval') {
                 return (
                   <Row gutter={16}>
-                    <Col span={12}>
+                    <Col span={8}>
+                      <Form.Item
+                        name="interval_hours"
+                        label="小时间隔"
+                      >
+                        <InputNumber min={0} max={23} style={{ width: '100%' }} placeholder="0-23" />
+                      </Form.Item>
+                    </Col>
+                    <Col span={8}>
                       <Form.Item
                         name="interval_minutes"
                         label="分钟间隔"
-                        rules={[{ required: true, message: '请输入分钟间隔' }]}
                       >
-                        <InputNumber min={1} max={59} style={{ width: '100%' }} />
+                        <InputNumber min={0} max={59} style={{ width: '100%' }} placeholder="0-59" />
                       </Form.Item>
                     </Col>
-                    <Col span={12}>
+                    <Col span={8}>
                       <Form.Item
                         name="interval_seconds"
                         label="秒间隔"
                       >
-                        <InputNumber min={0} max={59} style={{ width: '100%' }} />
+                        <InputNumber min={0} max={59} style={{ width: '100%' }} placeholder="0-59" />
                       </Form.Item>
                     </Col>
                   </Row>
@@ -557,6 +734,7 @@ const SchedulerManagement: React.FC = () => {
                                     <Option value="fri">星期五</Option>
                                     <Option value="sat">星期六</Option>
                                     <Option value="sun">星期日</Option>
+                                    <Option value="mon-fri">工作日</Option>
                                   </Select>
                                 </Form.Item>
                               </Col>
@@ -676,24 +854,48 @@ const SchedulerManagement: React.FC = () => {
             }}
           </Form.Item>
 
+          <Divider orientation="left">
+            <Space>
+              <SettingOutlined />
+              任务配置
+            </Space>
+          </Divider>
+
+          <Alert
+            message="配置说明"
+            description={
+              <div>
+                <p>• 基金净值更新：通常配置为每天执行，无需额外参数</p>
+                <p>• 定投执行：通常配置为工作日执行，无需额外参数</p>
+                <p>• 数字货币汇率：通常配置为每4小时执行，无需额外参数</p>
+                <p>• 其他任务：根据具体需求配置参数</p>
+              </div>
+            }
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+
           <Form.Item
             name="config"
-            label="任务配置 (JSON)"
+            label={
+              <Space>
+                任务配置 (JSON)
+                <Tooltip title="点击复制Cron表达式">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={copyCronExpression}
+                  />
+                </Tooltip>
+              </Space>
+            }
           >
             <TextArea
               rows={4}
-              placeholder='{"key": "value"}'
+              placeholder='{"key": "value"} 或留空使用默认配置'
             />
-          </Form.Item>
-
-          {/* 调试信息 */}
-          <Form.Item label="调试信息">
-            <div style={{ fontSize: 12, color: '#666', backgroundColor: '#f5f5f5', padding: 8, borderRadius: 4 }}>
-              <div><strong>当前表单数据：</strong></div>
-              <pre style={{ margin: 0, fontSize: 10 }}>
-                {JSON.stringify(createJobForm.getFieldsValue(), null, 2)}
-              </pre>
-            </div>
           </Form.Item>
 
           <Form.Item>
@@ -715,8 +917,16 @@ const SchedulerManagement: React.FC = () => {
         open={executeTaskModalVisible}
         onCancel={() => setExecuteTaskModalVisible(false)}
         footer={null}
-        width={500}
+        width={600}
       >
+        <Alert
+          message="执行说明"
+          description="立即执行任务会忽略定时配置，直接执行一次。可以传入自定义参数。"
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+
         <Form
           form={executeTaskForm}
           layout="vertical"
@@ -728,7 +938,7 @@ const SchedulerManagement: React.FC = () => {
           >
             <TextArea
               rows={4}
-              placeholder='{"key": "value"}'
+              placeholder='{"key": "value"} 或留空使用默认配置'
             />
           </Form.Item>
 

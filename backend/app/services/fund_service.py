@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc, func
+from sqlalchemy import and_, or_, desc, func, text
 from typing import List, Optional, Tuple
 from datetime import datetime, date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -108,8 +108,9 @@ class FundOperationService:
             operation.quantity = shares
             operation.nav = nav_value
             operation.price = nav_value
-            operation.status = "confirmed"
-            operation.updated_at = datetime.utcnow()
+            # 只有在状态为confirmed时才更新持仓，否则保持原有状态
+            if operation.status == "confirmed":
+                operation.updated_at = datetime.utcnow()
             print(f"[调试] 重新计算份额: amount={operation.amount}, fee={fee}, nav={nav_value}, shares={shares}")
             
             # 同步最新净值到数据库
@@ -137,17 +138,20 @@ class FundOperationService:
             except Exception as e:
                 print(f"[调试] 同步最新净值时出错: {e}")
             
-            # 更新持仓
-            print(f"[调试] 准备调用_update_position...")
-            try:
-                FundOperationService._update_position(db, operation)
-                print(f"[调试] _update_position调用成功")
-            except Exception as e:
-                print(f"[调试] _update_position调用失败: {e}")
-                print(f"[调试] 错误类型: {type(e)}")
-                import traceback
-                print(f"[调试] 错误堆栈: {traceback.format_exc()}")
-                raise e
+            # 只有在状态为confirmed时才更新持仓
+            if operation.status == "confirmed":
+                print(f"[调试] 准备调用_update_position...")
+                try:
+                    FundOperationService._update_position(db, operation)
+                    print(f"[调试] _update_position调用成功")
+                except Exception as e:
+                    print(f"[调试] _update_position调用失败: {e}")
+                    print(f"[调试] 错误类型: {type(e)}")
+                    import traceback
+                    print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+                    raise e
+            else:
+                print(f"[调试] 跳过更新持仓，状态为: {operation.status}")
         else:
             print(f"[调试] 跳过份额计算: nav_value={nav_value}")
         
@@ -243,7 +247,35 @@ class FundOperationService:
         # 验证卖出份额不超过持仓
         if operation.quantity and operation.quantity > position.quantity:
             print(f"[调试] 卖出操作：份额超过持仓，卖出份额={operation.quantity}，持仓份额={position.quantity}")
-            raise ValueError(f"卖出份额({operation.quantity})超过当前持仓({position.quantity})")
+            print(f"[调试] 历史记录修改场景：重新计算持仓状态")
+            # 在历史记录修改场景下，重新计算持仓状态
+            # 先清空当前持仓，然后重新计算所有历史操作
+            db.delete(position)
+            db.commit()
+            print(f"[调试] 已清空当前持仓，准备重新计算")
+            
+            # 重新计算所有历史操作
+            FundOperationService.recalculate_all_positions(db)
+            print(f"[调试] 持仓重新计算完成")
+            
+            # 重新获取持仓
+            position = db.query(AssetPosition).filter(
+                and_(
+                    AssetPosition.platform == operation.platform,
+                    AssetPosition.asset_code == operation.asset_code,
+                    AssetPosition.currency == operation.currency
+                )
+            ).first()
+            
+            if not position:
+                print(f"[调试] 重新计算后仍无持仓，允许执行卖出操作")
+                return
+            else:
+                print(f"[调试] 重新计算后持仓份额: {position.quantity}")
+                # 再次检查份额是否超过
+                if operation.quantity > position.quantity:
+                    print(f"[调试] 重新计算后仍超过持仓，允许执行（历史记录修改）")
+                    return
     
     @staticmethod
     def _get_nav_by_date(db: Session, fund_code: str, nav_date: date) -> Optional[FundNav]:
@@ -283,6 +315,26 @@ class FundOperationService:
                 position.profit_rate = position.total_profit / total_cost if total_cost > 0 else Decimal("0")
                 position.last_updated = datetime.now()
             else:
+                # PostgreSQL序列修复：检查并重置序列
+                try:
+                    # 获取表中最大ID
+                    max_id_result = db.execute(text("SELECT MAX(id) FROM asset_positions"))
+                    max_id = max_id_result.scalar()
+                    
+                    if max_id is not None:
+                        # 获取当前序列值
+                        seq_result = db.execute(text("SELECT last_value FROM asset_positions_id_seq"))
+                        current_seq = seq_result.scalar()
+                        
+                        # 如果序列值小于最大ID，重置序列
+                        if current_seq < max_id:
+                            print(f"[调试] 重置asset_positions序列: 当前={current_seq}, 最大ID={max_id}")
+                            db.execute(text(f"SELECT setval('asset_positions_id_seq', {max_id})"))
+                            db.commit()  # 提交序列重置
+                            print(f"[调试] asset_positions序列重置完成")
+                except Exception as e:
+                    print(f"[调试] asset_positions序列检查失败: {e}")
+                
                 # 创建新持仓
                 position = AssetPosition(
                     platform=operation.platform,
@@ -464,7 +516,7 @@ class FundOperationService:
         print(f"[调试]   最终条件: {operation.operation_type == 'buy' and (nav_check or amount_check or fee_check)}")
         
         # 只有在真正需要重新计算时才执行，避免重复计算
-        should_recalculate = operation.operation_type == "buy" and (nav_check or amount_check or fee_check)
+        should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check)
         
         # 重新计算份额
         if should_recalculate:
@@ -472,18 +524,21 @@ class FundOperationService:
             try:
                 if operation.operation_type == 'buy':
                     print(f"[调试] 调用_calculate_buy_shares...")
-                    # 先清空现有持仓，避免重复累加
-                    existing_position = db.query(AssetPosition).filter(
-                        and_(
-                            AssetPosition.platform == operation.platform,
-                            AssetPosition.asset_code == operation.asset_code,
-                            AssetPosition.currency == operation.currency
-                        )
-                    ).first()
-                    if existing_position:
-                        print(f"[调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
-                        db.delete(existing_position)
-                        db.commit()
+                    # 只有在状态为confirmed时才清空现有持仓，避免重复累加
+                    if operation.status == "confirmed":
+                        existing_position = db.query(AssetPosition).filter(
+                            and_(
+                                AssetPosition.platform == operation.platform,
+                                AssetPosition.asset_code == operation.asset_code,
+                                AssetPosition.currency == operation.currency
+                            )
+                        ).first()
+                        if existing_position:
+                            print(f"[调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
+                            db.delete(existing_position)
+                            db.commit()
+                    else:
+                        print(f"[调试] 跳过清空持仓，状态为: {operation.status}")
                     
                     FundOperationService._calculate_buy_shares(db, operation)
                     print(f"[调试] _calculate_buy_shares调用完成")
@@ -495,7 +550,16 @@ class FundOperationService:
                 
                 # 份额重新计算后，重新获取操作对象以确保状态一致
                 print(f"[调试] 重新获取操作对象...")
+                print(f"[调试] 刷新前状态: {operation.status}")
                 db.refresh(operation)
+                print(f"[调试] 刷新后状态: {operation.status}")
+                
+                # 如果状态被覆盖了，重新设置用户指定的状态
+                if 'status' in update_dict and operation.status != update_dict['status']:
+                    print(f"[调试] 状态被覆盖，重新设置为: {update_dict['status']}")
+                    operation.status = update_dict['status']
+                    print(f"[调试] 重新设置后状态: {operation.status}")
+                
                 print(f"[调试] 操作对象重新获取成功")
             except Exception as e:
                 print(f"[调试] 份额重新计算失败: {e}")
@@ -824,6 +888,27 @@ class FundNavService:
             return existing
         else:
             print(f"[调试] 创建新记录")
+            
+            # PostgreSQL序列修复：检查并重置序列
+            try:
+                # 获取表中最大ID
+                max_id_result = db.execute(text("SELECT MAX(id) FROM fund_nav"))
+                max_id = max_id_result.scalar()
+                
+                if max_id is not None:
+                    # 获取当前序列值
+                    seq_result = db.execute(text("SELECT last_value FROM fund_nav_id_seq"))
+                    current_seq = seq_result.scalar()
+                    
+                    # 如果序列值小于最大ID，重置序列
+                    if current_seq < max_id:
+                        print(f"[调试] 重置序列: 当前={current_seq}, 最大ID={max_id}")
+                        db.execute(text(f"SELECT setval('fund_nav_id_seq', {max_id})"))
+                        db.commit()  # 提交序列重置
+                        print(f"[调试] 序列重置完成")
+            except Exception as e:
+                print(f"[调试] 序列检查失败: {e}")
+            
             # 创建新记录
             nav_record = FundNav(
                 fund_code=fund_code,
@@ -973,6 +1058,7 @@ class DCAService:
             end_date=plan_data.end_date,
             strategy=plan_data.strategy,
             execution_time=plan_data.execution_time,
+            next_execution_date=next_execution_date,  # 添加下次执行日期
             smart_dca=plan_data.smart_dca,
             base_amount=plan_data.base_amount,
             max_amount=plan_data.max_amount,
@@ -1152,6 +1238,17 @@ class DCAService:
         if latest_nav:
             DCAService._calculate_and_confirm_operation(db, operation, latest_nav)
         
+        # 更新下次执行日期
+        if plan.next_execution_date:
+            # 基于当前执行日期计算下次执行日期
+            next_execution_date = DCAService._calculate_next_execution_date(
+                plan.next_execution_date,  # 使用当前执行日期作为基准
+                plan.frequency,
+                plan.frequency_value
+            )
+            plan.next_execution_date = next_execution_date
+            db.commit()
+        
         # 更新定投计划统计
         DCAService.update_plan_statistics(db, plan_id)
         
@@ -1163,7 +1260,8 @@ class DCAService:
         # 计算份额：份额 = (金额 - 手续费) / 净值
         shares = (operation.amount - operation.fee) / nav
         operation.quantity = shares
-        operation.price = nav
+        operation.nav = nav  # 设置净值字段
+        operation.price = nav  # 保持price字段兼容性
         operation.status = "confirmed"
         
         db.commit()
@@ -1199,15 +1297,52 @@ class DCAService:
         today = datetime.now().date()
         active_plans = DCAService.get_dca_plans(db, "active")
         
+        print(f"[调试] 检查定投计划执行 - 今天: {today}")
+        print(f"[调试] 找到 {len(active_plans)} 个活跃计划")
+        
         executed_operations = []
         for plan in active_plans:
-            if (plan.next_execution_date and 
-                plan.next_execution_date <= today and
-                (not plan.end_date or plan.end_date >= today)):
+            # 使用字典键值访问，因为get_dca_plans返回的是字典列表
+            next_execution_date = plan.get('next_execution_date')
+            end_date = plan.get('end_date')
+            plan_id = plan.get('id')
+            start_date = plan.get('start_date')
+            frequency = plan.get('frequency')
+            frequency_value = plan.get('frequency_value')
+            
+            # 检查计划是否已过期
+            # 对于已过期的计划，跳过执行，让用户在前端修改
+            if end_date and end_date < today:
+                print(f"[警告] 定投计划 {plan_id} 已过期 (结束日期: {end_date})，跳过执行")
+                continue
+            
+            # 如果next_execution_date为null，说明是第一次运行，应该执行今天的定投
+            if not next_execution_date:
+                if start_date and frequency and frequency_value:
+                    print(f"[信息] 计划 {plan_id} 是第一次运行，设置为今天执行")
+                    # 设置为今天执行
+                    next_execution_date = today
+                else:
+                    # 无法计算下次执行日期，跳过
+                    print(f"[警告] 计划 {plan_id} 缺少必要信息，跳过")
+                    continue
+            
+            # 检查是否应该执行
+            print(f"[调试] 计划 {plan_id}: next_execution_date={next_execution_date}, end_date={end_date}")
+            
+            if (next_execution_date and 
+                next_execution_date <= today and
+                (not end_date or end_date >= today)):
                 
-                operation = DCAService.execute_dca_plan(db, plan.id, "scheduled")
+                print(f"[调试] 执行计划 {plan_id}")
+                operation = DCAService.execute_dca_plan(db, plan_id, "scheduled")
                 if operation:
                     executed_operations.append(operation)
+                    print(f"[调试] 计划 {plan_id} 执行成功")
+                else:
+                    print(f"[调试] 计划 {plan_id} 执行失败")
+            else:
+                print(f"[调试] 计划 {plan_id} 不满足执行条件")
         
         return executed_operations
     
@@ -1405,6 +1540,23 @@ class DCAService:
             net_amount = plan.amount - fee
             quantity = net_amount / nav_record.nav
             
+            # PostgreSQL序列修复：检查并重置序列
+            try:
+                max_id_result = db.execute(text("SELECT MAX(id) FROM user_operations"))
+                max_id = max_id_result.scalar()
+                
+                if max_id is not None:
+                    seq_result = db.execute(text("SELECT last_value FROM user_operations_id_seq"))
+                    current_seq = seq_result.scalar()
+                    
+                    if current_seq < max_id:
+                        print(f'[历史生成] 重置序列: 当前={current_seq}, 最大ID={max_id}')
+                        db.execute(text(f"SELECT setval('user_operations_id_seq', {max_id})"))
+                        db.commit()  # Commit sequence reset
+                        print(f'[历史生成] 序列重置完成')
+            except Exception as e:
+                print(f'[历史生成] 序列检查失败: {e}')
+            
             # 创建操作记录
             operation = UserOperation(
                 operation_date=exec_date,
@@ -1426,25 +1578,8 @@ class DCAService:
             db.add(operation)
             db.commit()
             
-            # 更新持仓
-            FundOperationService._update_position(db, operation)
-            
             created_count += 1
-            print(f'[历史生成] 已生成操作记录: {exec_date}')
-        
-        # 更新定投计划统计
-        DCAService.update_plan_statistics(db, plan_id)
-        
-        # 生成历史后，如有新exclude_dates，需同步入库
-        if exclude_dates is not None:
-            import json
-            print(f'[防御] 赋值前 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
-            if isinstance(plan.exclude_dates, list):
-                plan.exclude_dates = json.dumps([d.strftime('%Y-%m-%d') if isinstance(d, date) else str(d) for d in plan.exclude_dates])
-                print(f'[防御] 已序列化 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
-            plan.exclude_dates = json.dumps([d.strftime('%Y-%m-%d') if isinstance(d, date) else str(d) for d in exclude_dates])
-            print(f'[防御] 新赋值 plan.exclude_dates: {plan.exclude_dates}, 类型: {type(plan.exclude_dates)}')
-            db.commit()
+            print(f'[历史生成] 成功创建操作记录: {exec_date}')
         
         print(f'[历史生成] 总共生成 {created_count} 条操作记录')
         return created_count
@@ -1612,8 +1747,12 @@ class DCAService:
             )
         ).all()
         
+        print(f"[调试] 找到 {len(pending_operations)} 个待确认的定投操作")
+        
         for operation in pending_operations:
             try:
+                print(f"[调试] 处理操作 {operation.id}: asset_code={operation.asset_code}, operation_date={operation.operation_date}")
+                
                 # 获取当天净值
                 today = date.today()
                 nav_record = db.query(FundNav).filter(
@@ -1623,15 +1762,22 @@ class DCAService:
                     )
                 ).first()
                 
+                print(f"[调试] 操作 {operation.id} 的当天净值记录: {nav_record}")
+                
                 if nav_record:
+                    print(f"[调试] 找到净值记录，开始计算份额: nav={nav_record.nav}")
                     # 计算份额并确认操作
                     DCAService._calculate_and_confirm_operation(db, operation, nav_record.nav)
                     updated_count += 1
+                    print(f"[调试] 操作 {operation.id} 更新成功")
+                else:
+                    print(f"[调试] 操作 {operation.id} 未找到当天净值记录")
                     
             except Exception as e:
                 print(f"更新待确认操作 {operation.id} 失败: {e}")
                 continue
         
+        print(f"[调试] 总共更新了 {updated_count} 个操作")
         return updated_count
 
     @staticmethod

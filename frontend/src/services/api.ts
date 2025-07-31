@@ -142,8 +142,14 @@ export const fundAPI = {
     },
 
     // 删除定投计划
-    deleteDCAPlan: (planId: number): Promise<APIResponse> =>
-        api.delete(`/funds/dca/plans/${planId}`),
+    deleteDCAPlan: (planId: number, params?: { delete_operations?: boolean }): Promise<APIResponse> => {
+        const queryParams = new URLSearchParams()
+        if (params?.delete_operations) {
+            queryParams.append('delete_operations', 'true')
+        }
+        const queryString = queryParams.toString()
+        return api.delete(`/funds/dca/plans/${planId}${queryString ? `?${queryString}` : ''}`)
+    },
 
     // 执行定投计划
     executeDCAPlan: (planId: number, executionType: string = 'manual'): Promise<APIResponse> =>

@@ -109,6 +109,15 @@ class PluginManager:
                 description=task_info["description"]
             )
             
+            # 如果配置为空，使用默认配置
+            if not config:
+                default_config = self._get_default_config(task_id)
+                if default_config:
+                    logger.info(f"任务 {task_id} 使用默认配置: {default_config}")
+                    config = default_config
+                else:
+                    logger.warning(f"任务 {task_id} 无默认配置")
+            
             # 验证配置
             if not await task.validate_config(config):
                 logger.error(f"任务 {task_id} 配置验证失败")
@@ -120,17 +129,50 @@ class PluginManager:
             logger.error(f"创建任务实例 {task_id} 失败: {e}")
             return None
             
+    def _get_default_config(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """获取任务的默认配置"""
+        # 从配置文件读取默认配置
+        try:
+            import json
+            import os
+            from pathlib import Path
+            
+            config_path = Path(__file__).parent.parent / "config" / "scheduler_tasks.json"
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    tasks_config = json.load(f)
+                    
+                for task_config in tasks_config:
+                    if task_config.get("id") == task_id:
+                        return task_config.get("args", {})
+                        
+        except Exception as e:
+            logger.error(f"读取任务 {task_id} 默认配置失败: {e}")
+            
+        return None
+            
     async def execute_task(self, task_id: str, execution_id: str, 
                           config: Dict[str, Any]) -> TaskResult:
         """执行任务"""
         try:
-            # 创建任务实例
+            # 创建任务实例（可能会更新配置为默认配置）
             task = await self.create_task_instance(task_id, config)
             if not task:
                 return TaskResult(success=False, error=f"任务 {task_id} 创建失败")
                 
+            # 如果配置被更新为默认配置，重新获取
+            if not config and task_id in self._task_registry:
+                default_config = self._get_default_config(task_id)
+                if default_config:
+                    config = default_config
+                
             # 创建执行上下文
             context = TaskContext(task_id, execution_id, config)
+            
+            # 设置事件总线（从调度器服务获取）
+            from app.api.v1.scheduler import get_scheduler_service
+            scheduler_service = get_scheduler_service()
+            context.event_bus = scheduler_service.event_bus
             
             # 执行任务
             result = await task.execute(context)

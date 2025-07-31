@@ -325,7 +325,37 @@ class ExtensibleSchedulerService:
         
     async def _handle_fund_nav_updated(self, event: Dict[str, Any]):
         """处理基金净值更新事件"""
+        logger.info(f"🔍 收到基金净值更新事件: {event}")
         logger.info(f"基金净值已更新: {event['data']['updated_count']} 个基金")
+        
+        # 后续操作：更新待确认的操作记录
+        try:
+            from app.utils.database import get_db
+            from app.services.fund_service import DCAService, FundOperationService
+            
+            logger.info("🔍 开始更新待确认操作...")
+            db = next(get_db())
+            try:
+                # 更新定投相关的待确认操作
+                dca_updated = DCAService.update_pending_operations(db)
+                logger.info(f"✅ 更新了 {dca_updated} 个定投待确认操作")
+                
+                # 更新所有待确认操作
+                nav_updated = FundOperationService.update_pending_operations(db)
+                logger.info(f"✅ 更新了 {nav_updated} 个待确认操作")
+                
+                # 提交数据库事务
+                db.commit()
+                logger.info("✅ 待确认操作更新完成")
+                
+            except Exception as e:
+                logger.error(f"❌ 更新待确认操作失败: {e}")
+                db.rollback()
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"❌ 处理基金净值更新后续操作失败: {e}")
         
     async def _handle_wise_balance_synced(self, event: Dict[str, Any]):
         """处理Wise余额同步事件"""

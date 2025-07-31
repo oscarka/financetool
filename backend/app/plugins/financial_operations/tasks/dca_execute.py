@@ -5,7 +5,7 @@ from typing import Dict, Any
 from datetime import date
 from app.core.base_plugin import BaseTask
 from app.core.context import TaskContext, TaskResult
-from app.services.fund_service import FundOperationService
+from app.services.fund_service import DCAService
 from app.utils.database import get_db
 
 
@@ -27,46 +27,51 @@ class DCAExecuteTask(BaseTask):
             db = next(get_db())
             
             try:
-                # 获取到期的定投计划
-                today = date.today()
-                expired_plans = FundOperationService.get_expired_dca_plans(db, today)
+                # 检查并执行到期的定投计划
+                if dry_run:
+                    context.log("试运行模式：只检查不执行")
+                    # 在试运行模式下，只检查计划状态
+                    all_plans = DCAService.get_dca_plans(db, status="active")
+                    context.log(f"找到 {len(all_plans)} 个活跃的定投计划")
+                    
+                    result_data = {
+                        'executed_count': 0,
+                        'total_count': len(all_plans),
+                        'failed_plans': [],
+                        'dry_run': True
+                    }
+                else:
+                    # 实际执行定投计划
+                    executed_operations = DCAService.check_and_execute_dca_plans(db)
+                    
+                    context.log(f"执行了 {len(executed_operations)} 个定投操作")
+                    
+                    result_data = {
+                        'executed_count': len(executed_operations),
+                        'total_count': len(executed_operations),
+                        'failed_plans': [],
+                        'dry_run': False,
+                        'operations': [
+                            {
+                                'id': op.id,
+                                'operation_type': op.operation_type,
+                                'asset_code': op.asset_code,
+                                'amount': float(op.amount) if op.amount else 0,
+                                'status': op.status
+                            } for op in executed_operations
+                        ]
+                    }
                 
-                if not expired_plans:
-                    context.log("没有到期的定投计划")
-                    return TaskResult(success=True, data={'executed_count': 0})
+                context.log(f"定投计划执行任务完成，成功执行 {result_data['executed_count']} 个操作")
                 
-                context.log(f"找到 {len(expired_plans)} 个到期的定投计划")
-                
-                # 执行定投计划
-                executed_count = 0
-                failed_plans = []
-                
-                for plan in expired_plans:
-                    try:
-                        if dry_run:
-                            context.log(f"试运行: 执行定投计划 {plan.id}")
-                            executed_count += 1
-                        else:
-                            # 实际执行定投
-                            success = FundOperationService.execute_dca_plan(db, plan.id)
-                            if success:
-                                executed_count += 1
-                                context.log(f"成功执行定投计划 {plan.id}")
-                            else:
-                                failed_plans.append(plan.id)
-                                context.log(f"执行定投计划 {plan.id} 失败", "WARNING")
-                    except Exception as e:
-                        failed_plans.append(plan.id)
-                        context.log(f"执行定投计划 {plan.id} 时出错: {e}", "ERROR")
-                
-                result_data = {
-                    'executed_count': executed_count,
-                    'total_count': len(expired_plans),
-                    'failed_plans': failed_plans,
-                    'dry_run': dry_run
-                }
-                
-                context.log(f"定投计划执行任务完成，成功执行 {executed_count}/{len(expired_plans)} 个计划")
+                # 提交数据库事务
+                try:
+                    db.commit()
+                    context.log("✅ 数据库事务提交成功")
+                except Exception as e:
+                    db.rollback()
+                    context.log(f"❌ 数据库事务提交失败: {e}", "ERROR")
+                    return TaskResult(success=False, error=f"数据库提交失败: {e}")
                 
                 # 发布事件
                 if context.event_bus:
