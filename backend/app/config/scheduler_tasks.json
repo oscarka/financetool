@@ -4,7 +4,9 @@
         "name": "基金净值更新",
         "cron": "0 23 * * *",
         "plugin": "financial_operations.tasks.fund_nav_update",
-        "args": {},
+        "args": {
+            "update_all": true
+        },
         "enabled": true
     },
     {
