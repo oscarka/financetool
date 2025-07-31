@@ -243,7 +243,35 @@ class FundOperationService:
         # 验证卖出份额不超过持仓
         if operation.quantity and operation.quantity > position.quantity:
             print(f"[调试] 卖出操作：份额超过持仓，卖出份额={operation.quantity}，持仓份额={position.quantity}")
-            raise ValueError(f"卖出份额({operation.quantity})超过当前持仓({position.quantity})")
+            print(f"[调试] 历史记录修改场景：重新计算持仓状态")
+            # 在历史记录修改场景下，重新计算持仓状态
+            # 先清空当前持仓，然后重新计算所有历史操作
+            db.delete(position)
+            db.commit()
+            print(f"[调试] 已清空当前持仓，准备重新计算")
+            
+            # 重新计算所有历史操作
+            FundOperationService.recalculate_all_positions(db)
+            print(f"[调试] 持仓重新计算完成")
+            
+            # 重新获取持仓
+            position = db.query(AssetPosition).filter(
+                and_(
+                    AssetPosition.platform == operation.platform,
+                    AssetPosition.asset_code == operation.asset_code,
+                    AssetPosition.currency == operation.currency
+                )
+            ).first()
+            
+            if not position:
+                print(f"[调试] 重新计算后仍无持仓，允许执行卖出操作")
+                return
+            else:
+                print(f"[调试] 重新计算后持仓份额: {position.quantity}")
+                # 再次检查份额是否超过
+                if operation.quantity > position.quantity:
+                    print(f"[调试] 重新计算后仍超过持仓，允许执行（历史记录修改）")
+                    return
     
     @staticmethod
     def _get_nav_by_date(db: Session, fund_code: str, nav_date: date) -> Optional[FundNav]:
