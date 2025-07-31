@@ -1244,7 +1244,8 @@ class DCAService:
         # 计算份额：份额 = (金额 - 手续费) / 净值
         shares = (operation.amount - operation.fee) / nav
         operation.quantity = shares
-        operation.price = nav
+        operation.nav = nav  # 设置净值字段
+        operation.price = nav  # 保持price字段兼容性
         operation.status = "confirmed"
         
         db.commit()
@@ -1730,8 +1731,12 @@ class DCAService:
             )
         ).all()
         
+        print(f"[调试] 找到 {len(pending_operations)} 个待确认的定投操作")
+        
         for operation in pending_operations:
             try:
+                print(f"[调试] 处理操作 {operation.id}: asset_code={operation.asset_code}, operation_date={operation.operation_date}")
+                
                 # 获取当天净值
                 today = date.today()
                 nav_record = db.query(FundNav).filter(
@@ -1741,15 +1746,22 @@ class DCAService:
                     )
                 ).first()
                 
+                print(f"[调试] 操作 {operation.id} 的当天净值记录: {nav_record}")
+                
                 if nav_record:
+                    print(f"[调试] 找到净值记录，开始计算份额: nav={nav_record.nav}")
                     # 计算份额并确认操作
                     DCAService._calculate_and_confirm_operation(db, operation, nav_record.nav)
                     updated_count += 1
+                    print(f"[调试] 操作 {operation.id} 更新成功")
+                else:
+                    print(f"[调试] 操作 {operation.id} 未找到当天净值记录")
                     
             except Exception as e:
                 print(f"更新待确认操作 {operation.id} 失败: {e}")
                 continue
         
+        print(f"[调试] 总共更新了 {updated_count} 个操作")
         return updated_count
 
     @staticmethod

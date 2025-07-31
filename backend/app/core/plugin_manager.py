@@ -170,7 +170,7 @@ class PluginManager:
             context = TaskContext(task_id, execution_id, config)
             
             # 设置事件总线（从调度器服务获取）
-            from app.services.extensible_scheduler_service import get_scheduler_service
+            from app.api.v1.scheduler import get_scheduler_service
             scheduler_service = get_scheduler_service()
             context.event_bus = scheduler_service.event_bus
             
