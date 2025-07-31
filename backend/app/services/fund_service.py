@@ -553,6 +553,13 @@ class FundOperationService:
                 print(f"[调试] 刷新前状态: {operation.status}")
                 db.refresh(operation)
                 print(f"[调试] 刷新后状态: {operation.status}")
+                
+                # 如果状态被覆盖了，重新设置用户指定的状态
+                if 'status' in update_dict and operation.status != update_dict['status']:
+                    print(f"[调试] 状态被覆盖，重新设置为: {update_dict['status']}")
+                    operation.status = update_dict['status']
+                    print(f"[调试] 重新设置后状态: {operation.status}")
+                
                 print(f"[调试] 操作对象重新获取成功")
             except Exception as e:
                 print(f"[调试] 份额重新计算失败: {e}")
