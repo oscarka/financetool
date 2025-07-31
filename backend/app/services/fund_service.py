@@ -283,6 +283,26 @@ class FundOperationService:
                 position.profit_rate = position.total_profit / total_cost if total_cost > 0 else Decimal("0")
                 position.last_updated = datetime.now()
             else:
+                # PostgreSQL序列修复：检查并重置序列
+                try:
+                    # 获取表中最大ID
+                    max_id_result = db.execute(text("SELECT MAX(id) FROM asset_positions"))
+                    max_id = max_id_result.scalar()
+                    
+                    if max_id is not None:
+                        # 获取当前序列值
+                        seq_result = db.execute(text("SELECT last_value FROM asset_positions_id_seq"))
+                        current_seq = seq_result.scalar()
+                        
+                        # 如果序列值小于最大ID，重置序列
+                        if current_seq < max_id:
+                            print(f"[调试] 重置asset_positions序列: 当前={current_seq}, 最大ID={max_id}")
+                            db.execute(text(f"SELECT setval('asset_positions_id_seq', {max_id})"))
+                            db.commit()  # 提交序列重置
+                            print(f"[调试] asset_positions序列重置完成")
+                except Exception as e:
+                    print(f"[调试] asset_positions序列检查失败: {e}")
+                
                 # 创建新持仓
                 position = AssetPosition(
                     platform=operation.platform,

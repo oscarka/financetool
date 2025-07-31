@@ -6,7 +6,7 @@ class TestConfig(BaseConfig):
     
     app_env: str = "test"
     debug: bool = True
-    database_url: str = "sqlite:///./data/personalfinance.db"
+    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./data/personalfinance.db")
     cors_origins: str = '["http://localhost:3000", "http://localhost:5173"]'
     log_level: str = "DEBUG"
     log_file: str = "./logs/app_test.log"
