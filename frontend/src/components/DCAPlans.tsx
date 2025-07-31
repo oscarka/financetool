@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
     Card, Button, Form, Input, Select, DatePicker, InputNumber, message, Table, Space, Tag, Modal, Popconfirm, Tooltip,
-    Row, Col, Statistic, Tabs, Switch, Divider, Alert, Radio, Checkbox
+    Row, Col, Statistic, Tabs, Switch, Divider, Alert, Radio, Checkbox, Dropdown
 } from 'antd'
 import {
     PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, PlayCircleOutlined,
@@ -275,21 +275,73 @@ const DCAPlans: React.FC = () => {
 
     // 删除定投计划
     const handleDelete = async (record: DCAPlan) => {
-        setSubmitting(true)
-        try {
-            const response = await fundAPI.deleteDCAPlan(record.id)
-            if (response.success) {
-                message.success('删除成功')
-                fetchPlans()
-            } else {
-                message.error('删除失败')
+        // 显示确认对话框，询问是否一并删除操作记录
+        Modal.confirm({
+            title: '删除定投计划',
+            content: (
+                <div>
+                    <p>确定要删除定投计划 "{record.plan_name}" 吗？</p>
+                    <p style={{ color: '#ff4d4f', fontSize: '12px' }}>
+                        注意：删除后无法恢复，建议先备份重要数据
+                    </p>
+                </div>
+            ),
+            okText: '仅删除计划',
+            cancelText: '取消',
+            onOk: async () => {
+                setSubmitting(true)
+                try {
+                    const response = await fundAPI.deleteDCAPlan(record.id)
+                    if (response.success) {
+                        message.success('删除成功')
+                        fetchPlans()
+                    } else {
+                        message.error('删除失败')
+                    }
+                } catch (error: any) {
+                    console.error('删除定投计划失败:', error)
+                    message.error('删除失败，请稍后重试')
+                } finally {
+                    setSubmitting(false)
+                }
             }
-        } catch (error: any) {
-            console.error('删除定投计划失败:', error)
-            message.error('删除失败，请稍后重试')
-        } finally {
-            setSubmitting(false)
-        }
+        })
+    }
+
+    // 删除定投计划及所有操作记录
+    const handleDeleteWithOperations = async (record: DCAPlan) => {
+        // 显示确认对话框
+        Modal.confirm({
+            title: '删除定投计划及所有操作记录',
+            content: (
+                <div>
+                    <p>确定要删除定投计划 "{record.plan_name}" 及其所有关联的操作记录吗？</p>
+                    <p style={{ color: '#ff4d4f', fontSize: '12px' }}>
+                        ⚠️ 此操作将永久删除所有相关的操作记录，无法恢复！
+                    </p>
+                </div>
+            ),
+            okText: '确认删除',
+            cancelText: '取消',
+            okType: 'danger',
+            onOk: async () => {
+                setSubmitting(true)
+                try {
+                    const response = await fundAPI.deleteDCAPlan(record.id, { delete_operations: true })
+                    if (response.success) {
+                        message.success('删除成功')
+                        fetchPlans()
+                    } else {
+                        message.error('删除失败')
+                    }
+                } catch (error: any) {
+                    console.error('删除定投计划失败:', error)
+                    message.error('删除失败，请稍后重试')
+                } finally {
+                    setSubmitting(false)
+                }
+            }
+        })
     }
 
     // 执行定投计划
@@ -711,9 +763,22 @@ const DCAPlans: React.FC = () => {
                             更新统计
                         </Button>
                     </Tooltip>
-                    <Popconfirm
-                        title="确定要删除这个定投计划吗？"
-                        onConfirm={() => handleDelete(record)}
+                    <Dropdown
+                        menu={{
+                            items: [
+                                {
+                                    key: 'delete_plan_only',
+                                    label: '仅删除计划',
+                                    onClick: () => handleDelete(record)
+                                },
+                                {
+                                    key: 'delete_plan_with_operations',
+                                    label: '删除计划及操作记录',
+                                    danger: true,
+                                    onClick: () => handleDeleteWithOperations(record)
+                                }
+                            ]
+                        }}
                     >
                         <Tooltip title="删除">
                             <Button
@@ -724,7 +789,7 @@ const DCAPlans: React.FC = () => {
                                 style={{ padding: 0 }}
                             />
                         </Tooltip>
-                    </Popconfirm>
+                    </Dropdown>
                 </Space>
             )
         }
