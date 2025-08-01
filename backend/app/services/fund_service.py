@@ -290,8 +290,7 @@ class FundOperationService:
     @staticmethod
     def _update_position(db: Session, operation: UserOperation):
         """更新基金持仓"""
-        print(f"[持仓计算] 开始更新持仓: operation_id={operation.id}, type={operation.operation_type}, asset_code={operation.asset_code}")
-        print(f"[持仓计算] 操作详情: amount={operation.amount}, quantity={operation.quantity}, nav={operation.nav}, fee={operation.fee}")
+        print(f"[持仓计算] 处理操作: {operation.operation_type} {operation.asset_code}, amount={operation.amount}, quantity={operation.quantity}")
         
         # 查找现有持仓
         position = db.query(AssetPosition).filter(
@@ -302,22 +301,12 @@ class FundOperationService:
             )
         ).first()
         
-        if position:
-            print(f"[持仓计算] 找到现有持仓: quantity={position.quantity}, avg_cost={position.avg_cost}, total_invested={position.total_invested}")
-        else:
-            print(f"[持仓计算] 未找到现有持仓，将创建新持仓")
-        
         if operation.operation_type == "buy":
             if position:
                 # 更新现有持仓
-                print(f"[持仓计算] 买入操作 - 更新现有持仓")
-                print(f"[持仓计算] 更新前: quantity={position.quantity}, avg_cost={position.avg_cost}, total_invested={position.total_invested}")
-                
                 total_shares = position.quantity + operation.quantity
                 total_cost = position.total_invested + operation.amount
                 avg_cost = total_cost / total_shares
-                
-                print(f"[持仓计算] 计算过程: total_shares={total_shares}, total_cost={total_cost}, avg_cost={avg_cost}")
                 
                 position.quantity = total_shares
                 position.avg_cost = avg_cost
@@ -328,8 +317,7 @@ class FundOperationService:
                 position.profit_rate = position.total_profit / total_cost if total_cost > 0 else Decimal("0")
                 position.last_updated = datetime.now()
                 
-                print(f"[持仓计算] 更新后: quantity={position.quantity}, avg_cost={position.avg_cost}, total_invested={position.total_invested}")
-                print(f"[持仓计算] 当前价值: current_value={position.current_value}, total_profit={position.total_profit}, profit_rate={position.profit_rate}")
+                print(f"[持仓计算] 更新持仓: {operation.asset_code} -> quantity={total_shares}, total_invested={total_cost}")
             else:
                 # PostgreSQL序列修复：检查并重置序列
                 try:
@@ -352,7 +340,6 @@ class FundOperationService:
                     print(f"[调试] asset_positions序列检查失败: {e}")
                 
                 # 创建新持仓
-                print(f"[持仓计算] 买入操作 - 创建新持仓")
                 position = AssetPosition(
                     platform=operation.platform,
                     asset_type=operation.asset_type,
@@ -368,40 +355,30 @@ class FundOperationService:
                     profit_rate=Decimal("0"),
                     last_updated=datetime.now()
                 )
-                print(f"[持仓计算] 新持仓详情: quantity={position.quantity}, avg_cost={position.avg_cost}, total_invested={position.total_invested}")
-                print(f"[持仓计算] 当前价值: current_value={position.current_value}, total_profit={position.total_profit}")
+                print(f"[持仓计算] 创建新持仓: {operation.asset_code} -> quantity={operation.quantity}, total_invested={operation.amount}")
                 db.add(position)
         
         elif operation.operation_type == "sell":
-            print(f"[持仓计算] 卖出操作")
             if position and position.quantity >= operation.quantity:
-                print(f"[持仓计算] 卖出前持仓: quantity={position.quantity}, total_invested={position.total_invested}")
-                print(f"[持仓计算] 卖出操作: quantity={operation.quantity}, amount={operation.amount}")
-                
                 # 更新持仓（卖出）
                 remaining_shares = position.quantity - operation.quantity
                 sold_cost = (operation.amount / operation.quantity) * operation.quantity
                 
-                print(f"[持仓计算] 计算过程: remaining_shares={remaining_shares}, sold_cost={sold_cost}")
-                
                 if remaining_shares > 0:
                     # 还有剩余份额
-                    print(f"[持仓计算] 部分卖出，保留剩余份额")
                     position.quantity = remaining_shares
                     position.total_invested = position.total_invested - sold_cost
                     position.current_value = remaining_shares * operation.nav  # 使用净值作为当前价格
                     position.total_profit = position.current_value - position.total_invested
                     position.profit_rate = position.total_profit / position.total_invested if position.total_invested > 0 else Decimal("0")
                     
-                    print(f"[持仓计算] 卖出后持仓: quantity={position.quantity}, total_invested={position.total_invested}")
-                    print(f"[持仓计算] 当前价值: current_value={position.current_value}, total_profit={position.total_profit}, profit_rate={position.profit_rate}")
+                    print(f"[持仓计算] 卖出持仓: {operation.asset_code} -> quantity={remaining_shares}, total_invested={position.total_invested}")
                 else:
                     # 全部卖出，删除持仓记录
-                    print(f"[持仓计算] 全部卖出，删除持仓记录")
+                    print(f"[持仓计算] 全部卖出: {operation.asset_code}")
                     db.delete(position)
             else:
-                print(f"[持仓计算] 卖出操作失败: 持仓不存在或份额不足")
-                print(f"[持仓计算] 持仓情况: position={position is not None}, quantity={position.quantity if position else 'N/A'}, required={operation.quantity}")
+                print(f"[持仓计算] 卖出失败: {operation.asset_code}, 持仓不存在或份额不足")
         
         db.commit()
     
@@ -719,46 +696,11 @@ class FundOperationService:
         print(f"[持仓汇总] 开始计算持仓汇总")
         try:
             # 直接查询数据库计算汇总，避免调用get_fund_positions造成重复
-            print(f"[持仓汇总] 查询条件: AssetPosition.asset_type == '基金'")
-            
-            # 先查询所有持仓记录，看看总共有多少
-            all_positions = db.query(AssetPosition).all()
-            print(f"[持仓汇总] 数据库中总持仓记录数: {len(all_positions)}")
-            
-            # 按asset_type分组统计
-            asset_type_counts = {}
-            for pos in all_positions:
-                asset_type = pos.asset_type
-                if asset_type not in asset_type_counts:
-                    asset_type_counts[asset_type] = 0
-                asset_type_counts[asset_type] += 1
-            print(f"[持仓汇总] 按asset_type分组统计: {asset_type_counts}")
-            
-            # 查询基金持仓
             positions_data = db.query(AssetPosition).filter(
                 AssetPosition.asset_type == "基金"
             ).all()
             
             print(f"[持仓汇总] 查询到 {len(positions_data)} 条基金持仓记录")
-            
-            # 打印每个持仓的完整信息
-            for i, pos in enumerate(positions_data):
-                print(f"[持仓汇总] 持仓{i+1} 完整信息:")
-                print(f"[持仓汇总]   id: {pos.id}")
-                print(f"[持仓汇总]   platform: {pos.platform}")
-                print(f"[持仓汇总]   asset_type: {pos.asset_type}")
-                print(f"[持仓汇总]   asset_code: {pos.asset_code}")
-                print(f"[持仓汇总]   asset_name: {pos.asset_name}")
-                print(f"[持仓汇总]   currency: {pos.currency}")
-                print(f"[持仓汇总]   quantity: {pos.quantity}")
-                print(f"[持仓汇总]   avg_cost: {pos.avg_cost}")
-                print(f"[持仓汇总]   current_price: {pos.current_price}")
-                print(f"[持仓汇总]   current_value: {pos.current_value}")
-                print(f"[持仓汇总]   total_invested: {pos.total_invested}")
-                print(f"[持仓汇总]   total_profit: {pos.total_profit}")
-                print(f"[持仓汇总]   profit_rate: {pos.profit_rate}")
-                print(f"[持仓汇总]   last_updated: {pos.last_updated}")
-                print(f"[持仓汇总]   ---")
             
             if not positions_data:
                 print(f"[持仓汇总] 无持仓记录，返回默认值")
@@ -776,18 +718,11 @@ class FundOperationService:
             fund_codes = list(set(pos.asset_code for pos in positions_data))
             latest_nav_map = {}
             
-            print(f"[持仓汇总] 需要获取净值的基金代码: {fund_codes}")
-            
             if fund_codes:
                 for fund_code in fund_codes:
                     latest_nav_obj = FundNavService.get_latest_nav(db, fund_code)
                     if latest_nav_obj and latest_nav_obj.nav:
                         latest_nav_map[fund_code] = latest_nav_obj.nav
-                        print(f"[持仓汇总] 获取到净值: {fund_code} = {latest_nav_obj.nav}")
-                    else:
-                        print(f"[持仓汇总] 未获取到净值: {fund_code}")
-            
-            print(f"[持仓汇总] 净值映射: {latest_nav_map}")
             
             # 计算汇总数据
             total_invested = Decimal("0")
@@ -795,14 +730,10 @@ class FundOperationService:
             profitable_count = 0
             loss_count = 0
             
-            print(f"[持仓汇总] 开始逐个计算持仓...")
             for pos in positions_data:
                 current_nav = latest_nav_map.get(pos.asset_code, pos.current_price)
                 current_value = pos.quantity * current_nav
                 total_profit = current_value - pos.total_invested
-                
-                print(f"[持仓汇总] {pos.asset_code}: quantity={pos.quantity}, nav={current_nav}, invested={pos.total_invested}")
-                print(f"[持仓汇总] {pos.asset_code}: current_value={current_value}, total_profit={total_profit}")
                 
                 total_invested += pos.total_invested
                 total_value += current_value
@@ -815,14 +746,7 @@ class FundOperationService:
             total_profit = total_value - total_invested
             total_profit_rate = total_profit / total_invested if total_invested > 0 else Decimal("0")
             
-            print(f"[持仓汇总] 汇总结果:")
-            print(f"[持仓汇总]   total_invested: {total_invested}")
-            print(f"[持仓汇总]   total_value: {total_value}")
-            print(f"[持仓汇总]   total_profit: {total_profit}")
-            print(f"[持仓汇总]   total_profit_rate: {total_profit_rate}")
-            print(f"[持仓汇总]   asset_count: {len(positions_data)}")
-            print(f"[持仓汇总]   profitable_count: {profitable_count}")
-            print(f"[持仓汇总]   loss_count: {loss_count}")
+            print(f"[持仓汇总] 汇总结果: 投入={total_invested}, 市值={total_value}, 盈亏={total_profit}, 收益率={total_profit_rate:.2%}")
             
             return {
                 "total_invested": total_invested,
@@ -845,29 +769,10 @@ class FundOperationService:
         try:
             print(f"[重新计算持仓] 开始重新计算所有持仓...")
             
-            # 先查询现有的持仓记录
-            existing_positions = db.query(AssetPosition).filter(AssetPosition.asset_type == "基金").all()
-            print(f"[重新计算持仓] 现有持仓记录数量: {len(existing_positions)}")
-            for pos in existing_positions:
-                print(f"[重新计算持仓] 现有持仓: {pos.asset_code} - quantity={pos.quantity}, total_invested={pos.total_invested}")
-            
             # 清空所有持仓
             deleted_count = db.query(AssetPosition).filter(AssetPosition.asset_type == "基金").delete()
             db.commit()
             print(f"[重新计算持仓] 清空了 {deleted_count} 条持仓记录")
-            
-            # 先查询所有操作记录，看看总共有多少
-            all_operations = db.query(UserOperation).all()
-            print(f"[重新计算持仓] 数据库中总操作记录数: {len(all_operations)}")
-            
-            # 按asset_type和status分组统计
-            operation_stats = {}
-            for op in all_operations:
-                key = f"{op.asset_type}_{op.status}"
-                if key not in operation_stats:
-                    operation_stats[key] = 0
-                operation_stats[key] += 1
-            print(f"[重新计算持仓] 按asset_type和status分组统计: {operation_stats}")
             
             # 获取所有已确认的操作记录，按时间排序
             operations = db.query(UserOperation).filter(
@@ -877,60 +782,24 @@ class FundOperationService:
                 )
             ).order_by(UserOperation.operation_date).all()
             
-            print(f"[重新计算持仓] 查询条件: asset_type='基金', status='confirmed'")
             print(f"[重新计算持仓] 找到 {len(operations)} 条已确认的操作记录")
-            
-            # 按基金代码分组统计操作记录
-            operation_by_fund = {}
-            for op in operations:
-                if op.asset_code not in operation_by_fund:
-                    operation_by_fund[op.asset_code] = []
-                operation_by_fund[op.asset_code].append(op)
-            
-            print(f"[重新计算持仓] 按基金代码分组统计:")
-            for fund_code, fund_ops in operation_by_fund.items():
-                buy_count = len([op for op in fund_ops if op.operation_type == "buy"])
-                sell_count = len([op for op in fund_ops if op.operation_type == "sell"])
-                print(f"[重新计算持仓]   {fund_code}: 总计{len(fund_ops)}条, 买入{buy_count}条, 卖出{sell_count}条")
-            
-            # 打印操作记录的详细信息
-            for i, op in enumerate(operations):
-                print(f"[重新计算持仓] 操作{i+1}: id={op.id}, type={op.operation_type}, asset_code={op.asset_code}")
-                print(f"[重新计算持仓] 操作{i+1}: amount={op.amount}, quantity={op.quantity}, nav={op.nav}, fee={op.fee}")
-                print(f"[重新计算持仓] 操作{i+1}: date={op.operation_date}, status={op.status}")
-                print(f"[重新计算持仓] ---")
             
             processed_count = 0
             for operation in operations:
                 try:
-                    print(f"[重新计算持仓] 开始处理操作: id={operation.id}, type={operation.operation_type}, asset_code={operation.asset_code}")
-                    print(f"[重新计算持仓] 操作详情: amount={operation.amount}, quantity={operation.quantity}, nav={operation.nav}, fee={operation.fee}")
-                    
                     if operation.operation_type == "buy":
                         # 对于买入操作，直接更新持仓
-                        print(f"[重新计算持仓] 处理买入操作")
                         FundOperationService._update_position(db, operation)
                         processed_count += 1
                     elif operation.operation_type == "sell":
                         # 对于卖出操作，直接更新持仓
-                        print(f"[重新计算持仓] 处理卖出操作")
                         FundOperationService._update_position(db, operation)
                         processed_count += 1
-                    else:
-                        print(f"[重新计算持仓] 跳过未知操作类型: {operation.operation_type}")
                 except Exception as e:
                     print(f"[重新计算持仓] 处理操作 {operation.id} 时出错: {e}")
-                    import traceback
-                    print(f"[重新计算持仓] 错误堆栈: {traceback.format_exc()}")
                     continue
             
             print(f"[重新计算持仓] 成功处理了 {processed_count} 条操作记录")
-            
-            # 重新查询最终的持仓记录
-            final_positions = db.query(AssetPosition).filter(AssetPosition.asset_type == "基金").all()
-            print(f"[重新计算持仓] 重新计算后的持仓记录数量: {len(final_positions)}")
-            for pos in final_positions:
-                print(f"[重新计算持仓] 最终持仓: {pos.asset_code} - quantity={pos.quantity}, total_invested={pos.total_invested}")
             return {
                 "success": True,
                 "message": f"重新计算了 {processed_count} 条操作记录的持仓",
