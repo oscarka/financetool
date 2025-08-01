@@ -290,6 +290,9 @@ class FundOperationService:
     @staticmethod
     def _update_position(db: Session, operation: UserOperation):
         """更新基金持仓"""
+        print(f"[持仓计算] 开始更新持仓: operation_id={operation.id}, type={operation.operation_type}, asset_code={operation.asset_code}")
+        print(f"[持仓计算] 操作详情: amount={operation.amount}, quantity={operation.quantity}, nav={operation.nav}, fee={operation.fee}")
+        
         # 查找现有持仓
         position = db.query(AssetPosition).filter(
             and_(
@@ -299,12 +302,22 @@ class FundOperationService:
             )
         ).first()
         
+        if position:
+            print(f"[持仓计算] 找到现有持仓: quantity={position.quantity}, avg_cost={position.avg_cost}, total_invested={position.total_invested}")
+        else:
+            print(f"[持仓计算] 未找到现有持仓，将创建新持仓")
+        
         if operation.operation_type == "buy":
             if position:
                 # 更新现有持仓
+                print(f"[持仓计算] 买入操作 - 更新现有持仓")
+                print(f"[持仓计算] 更新前: quantity={position.quantity}, avg_cost={position.avg_cost}, total_invested={position.total_invested}")
+                
                 total_shares = position.quantity + operation.quantity
                 total_cost = position.total_invested + operation.amount
                 avg_cost = total_cost / total_shares
+                
+                print(f"[持仓计算] 计算过程: total_shares={total_shares}, total_cost={total_cost}, avg_cost={avg_cost}")
                 
                 position.quantity = total_shares
                 position.avg_cost = avg_cost
@@ -314,6 +327,9 @@ class FundOperationService:
                 position.total_profit = position.current_value - total_cost
                 position.profit_rate = position.total_profit / total_cost if total_cost > 0 else Decimal("0")
                 position.last_updated = datetime.now()
+                
+                print(f"[持仓计算] 更新后: quantity={position.quantity}, avg_cost={position.avg_cost}, total_invested={position.total_invested}")
+                print(f"[持仓计算] 当前价值: current_value={position.current_value}, total_profit={position.total_profit}, profit_rate={position.profit_rate}")
             else:
                 # PostgreSQL序列修复：检查并重置序列
                 try:
@@ -336,6 +352,7 @@ class FundOperationService:
                     print(f"[调试] asset_positions序列检查失败: {e}")
                 
                 # 创建新持仓
+                print(f"[持仓计算] 买入操作 - 创建新持仓")
                 position = AssetPosition(
                     platform=operation.platform,
                     asset_type=operation.asset_type,
@@ -351,24 +368,40 @@ class FundOperationService:
                     profit_rate=Decimal("0"),
                     last_updated=datetime.now()
                 )
+                print(f"[持仓计算] 新持仓详情: quantity={position.quantity}, avg_cost={position.avg_cost}, total_invested={position.total_invested}")
+                print(f"[持仓计算] 当前价值: current_value={position.current_value}, total_profit={position.total_profit}")
                 db.add(position)
         
         elif operation.operation_type == "sell":
+            print(f"[持仓计算] 卖出操作")
             if position and position.quantity >= operation.quantity:
+                print(f"[持仓计算] 卖出前持仓: quantity={position.quantity}, total_invested={position.total_invested}")
+                print(f"[持仓计算] 卖出操作: quantity={operation.quantity}, amount={operation.amount}")
+                
                 # 更新持仓（卖出）
                 remaining_shares = position.quantity - operation.quantity
                 sold_cost = (operation.amount / operation.quantity) * operation.quantity
                 
+                print(f"[持仓计算] 计算过程: remaining_shares={remaining_shares}, sold_cost={sold_cost}")
+                
                 if remaining_shares > 0:
                     # 还有剩余份额
+                    print(f"[持仓计算] 部分卖出，保留剩余份额")
                     position.quantity = remaining_shares
                     position.total_invested = position.total_invested - sold_cost
                     position.current_value = remaining_shares * operation.nav  # 使用净值作为当前价格
                     position.total_profit = position.current_value - position.total_invested
                     position.profit_rate = position.total_profit / position.total_invested if position.total_invested > 0 else Decimal("0")
+                    
+                    print(f"[持仓计算] 卖出后持仓: quantity={position.quantity}, total_invested={position.total_invested}")
+                    print(f"[持仓计算] 当前价值: current_value={position.current_value}, total_profit={position.total_profit}, profit_rate={position.profit_rate}")
                 else:
                     # 全部卖出，删除持仓记录
+                    print(f"[持仓计算] 全部卖出，删除持仓记录")
                     db.delete(position)
+            else:
+                print(f"[持仓计算] 卖出操作失败: 持仓不存在或份额不足")
+                print(f"[持仓计算] 持仓情况: position={position is not None}, quantity={position.quantity if position else 'N/A'}, required={operation.quantity}")
         
         db.commit()
     
@@ -666,13 +699,17 @@ class FundOperationService:
     @auto_log("database", log_result=True)
     def get_position_summary(db: Session) -> dict:
         """获取持仓汇总信息 - 优化版本（避免重复查询）"""
+        print(f"[持仓汇总] 开始计算持仓汇总")
         try:
             # 直接查询数据库计算汇总，避免调用get_fund_positions造成重复
             positions_data = db.query(AssetPosition).filter(
                 AssetPosition.asset_type == "基金"
             ).all()
             
+            print(f"[持仓汇总] 查询到 {len(positions_data)} 条持仓记录")
+            
             if not positions_data:
+                print(f"[持仓汇总] 无持仓记录，返回默认值")
                 return {
                     "total_invested": Decimal("0"),
                     "total_value": Decimal("0"),
@@ -687,11 +724,18 @@ class FundOperationService:
             fund_codes = list(set(pos.asset_code for pos in positions_data))
             latest_nav_map = {}
             
+            print(f"[持仓汇总] 需要获取净值的基金代码: {fund_codes}")
+            
             if fund_codes:
                 for fund_code in fund_codes:
                     latest_nav_obj = FundNavService.get_latest_nav(db, fund_code)
                     if latest_nav_obj and latest_nav_obj.nav:
                         latest_nav_map[fund_code] = latest_nav_obj.nav
+                        print(f"[持仓汇总] 获取到净值: {fund_code} = {latest_nav_obj.nav}")
+                    else:
+                        print(f"[持仓汇总] 未获取到净值: {fund_code}")
+            
+            print(f"[持仓汇总] 净值映射: {latest_nav_map}")
             
             # 计算汇总数据
             total_invested = Decimal("0")
@@ -699,10 +743,14 @@ class FundOperationService:
             profitable_count = 0
             loss_count = 0
             
+            print(f"[持仓汇总] 开始逐个计算持仓...")
             for pos in positions_data:
                 current_nav = latest_nav_map.get(pos.asset_code, pos.current_price)
                 current_value = pos.quantity * current_nav
                 total_profit = current_value - pos.total_invested
+                
+                print(f"[持仓汇总] {pos.asset_code}: quantity={pos.quantity}, nav={current_nav}, invested={pos.total_invested}")
+                print(f"[持仓汇总] {pos.asset_code}: current_value={current_value}, total_profit={total_profit}")
                 
                 total_invested += pos.total_invested
                 total_value += current_value
@@ -714,6 +762,15 @@ class FundOperationService:
             
             total_profit = total_value - total_invested
             total_profit_rate = total_profit / total_invested if total_invested > 0 else Decimal("0")
+            
+            print(f"[持仓汇总] 汇总结果:")
+            print(f"[持仓汇总]   total_invested: {total_invested}")
+            print(f"[持仓汇总]   total_value: {total_value}")
+            print(f"[持仓汇总]   total_profit: {total_profit}")
+            print(f"[持仓汇总]   total_profit_rate: {total_profit_rate}")
+            print(f"[持仓汇总]   asset_count: {len(positions_data)}")
+            print(f"[持仓汇总]   profitable_count: {profitable_count}")
+            print(f"[持仓汇总]   loss_count: {loss_count}")
             
             return {
                 "total_invested": total_invested,
