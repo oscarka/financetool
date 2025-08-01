@@ -25,11 +25,26 @@ const api = axios.create({
     },
 })
 
+// 请求拦截器
+api.interceptors.request.use(
+    (config) => {
+        console.log('[API调试] 发送请求:', config.method?.toUpperCase(), config.url)
+        return config
+    },
+    (error) => {
+        console.error('[API调试] 请求错误:', error)
+        return Promise.reject(error)
+    }
+)
+
 // 响应拦截器
 api.interceptors.response.use(
-    (response) => response.data,
+    (response) => {
+        console.log('[API调试] 响应成功:', response.config.method?.toUpperCase(), response.config.url)
+        return response.data
+    },
     (error) => {
-        console.error('API Error:', error)
+        console.error('[API调试] 响应错误:', error.config?.method?.toUpperCase(), error.config?.url, error.message)
         throw error
     }
 )
@@ -143,12 +158,28 @@ export const fundAPI = {
 
     // 删除定投计划
     deleteDCAPlan: (planId: number, params?: { delete_operations?: boolean }): Promise<APIResponse> => {
+        console.log('[API调试] deleteDCAPlan 开始调用')
+        console.log('[API调试] planId:', planId)
+        console.log('[API调试] params:', params)
+
         const queryParams = new URLSearchParams()
         if (params?.delete_operations) {
             queryParams.append('delete_operations', 'true')
         }
         const queryString = queryParams.toString()
-        return api.delete(`/funds/dca/plans/${planId}${queryString ? `?${queryString}` : ''}`)
+        const url = `/funds/dca/plans/${planId}${queryString ? `?${queryString}` : ''}`
+
+        console.log('[API调试] 请求URL:', url)
+        console.log('[API调试] 完整URL:', getBaseURL() + url)
+
+        try {
+            const result = api.delete(url)
+            console.log('[API调试] deleteDCAPlan 调用成功，返回Promise')
+            return result
+        } catch (error) {
+            console.error('[API调试] deleteDCAPlan 调用失败:', error)
+            throw error
+        }
     },
 
     // 执行定投计划
