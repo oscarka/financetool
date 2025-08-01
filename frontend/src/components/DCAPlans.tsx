@@ -276,6 +276,7 @@ const DCAPlans: React.FC = () => {
     // 删除定投计划
     const handleDelete = async (record: DCAPlan) => {
         console.log('[前端调试] 开始删除定投计划:', record)
+        console.log('[前端调试] 版本: 2025-08-01 04:00 - 最新版本')
         // 显示确认对话框，询问是否一并删除操作记录
         Modal.confirm({
             title: '删除定投计划',
@@ -315,6 +316,7 @@ const DCAPlans: React.FC = () => {
     // 删除定投计划及所有操作记录
     const handleDeleteWithOperations = async (record: DCAPlan) => {
         console.log('[前端调试] 开始删除定投计划及操作记录:', record)
+        console.log('[前端调试] 版本: 2025-08-01 04:00 - 最新版本')
         // 显示确认对话框
         Modal.confirm({
             title: '删除定投计划及所有操作记录',
