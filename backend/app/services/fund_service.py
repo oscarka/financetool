@@ -1037,6 +1037,24 @@ class DCAService:
         print(f"[调试]   end_date: {plan_data.end_date}, 类型: {type(plan_data.end_date)}")
         
         try:
+            # 检查数据库状态
+            print(f"[调试] 检查数据库状态")
+            try:
+                # 查询现有定投计划数量
+                existing_count = db.query(DCAPlan).count()
+                print(f"[调试] 现有定投计划数量: {existing_count}")
+                
+                # 查询最大ID
+                max_id_result = db.query(func.max(DCAPlan.id)).scalar()
+                print(f"[调试] 最大ID: {max_id_result}")
+                
+                # 查询所有ID
+                all_ids = [row[0] for row in db.query(DCAPlan.id).all()]
+                print(f"[调试] 所有现有ID: {all_ids}")
+                
+            except Exception as db_check_error:
+                print(f"[调试] 数据库状态检查失败: {db_check_error}")
+            
             # 计算下次执行日期
             print(f"[调试] 开始计算下次执行日期")
             next_execution_date = DCAService._calculate_next_execution_date(
@@ -1088,6 +1106,11 @@ class DCAService:
             db.add(plan)
             print(f"[调试] 对象已添加到session")
             
+            # 检查session中的对象
+            print(f"[调试] 检查session中的对象状态")
+            print(f"[调试] 对象状态: {plan._sa_instance_state}")
+            print(f"[调试] 对象是否在session中: {plan in db}")
+            
             print(f"[调试] 准备提交到数据库")
             db.commit()
             print(f"[调试] 数据库提交成功")
@@ -1102,6 +1125,19 @@ class DCAService:
             print(f"[错误] 创建定投计划失败: {str(e)}")
             print(f"[错误] 错误类型: {type(e)}")
             print(f"[错误] 错误详情: {e}")
+            
+            # 如果是主键冲突，提供更详细的信息
+            if "duplicate key value violates unique constraint" in str(e) or "already exists" in str(e):
+                print(f"[错误] 检测到主键冲突错误")
+                try:
+                    # 查询所有现有记录
+                    all_plans = db.query(DCAPlan).all()
+                    print(f"[错误] 现有定投计划:")
+                    for p in all_plans:
+                        print(f"[错误]   ID: {p.id}, 名称: {p.plan_name}, 创建时间: {p.created_at}")
+                except Exception as query_error:
+                    print(f"[错误] 查询现有记录失败: {query_error}")
+            
             import traceback
             print(f"[错误] 完整错误堆栈:")
             traceback.print_exc()
