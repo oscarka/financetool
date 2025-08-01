@@ -277,6 +277,7 @@ const DCAPlans: React.FC = () => {
     const handleDelete = async (record: DCAPlan) => {
         console.log('[前端调试] 开始删除定投计划:', record)
         console.log('[前端调试] 版本: 2025-08-01 04:00 - 最新版本')
+        console.log('[前端调试] 准备显示删除确认对话框 (仅删除计划)')
         // 显示确认对话框，询问是否一并删除操作记录
         Modal.confirm({
             title: '删除定投计划',
@@ -290,6 +291,9 @@ const DCAPlans: React.FC = () => {
             ),
             okText: '仅删除计划',
             cancelText: '取消',
+            onCancel: () => {
+                console.log('[前端调试] 用户取消删除计划')
+            },
             onOk: async () => {
                 console.log('[前端调试] 用户确认删除，开始调用API')
                 setSubmitting(true)
@@ -317,6 +321,7 @@ const DCAPlans: React.FC = () => {
     const handleDeleteWithOperations = async (record: DCAPlan) => {
         console.log('[前端调试] 开始删除定投计划及操作记录:', record)
         console.log('[前端调试] 版本: 2025-08-01 04:00 - 最新版本')
+        console.log('[前端调试] 准备显示删除确认对话框 (删除计划及操作记录)')
         // 显示确认对话框
         Modal.confirm({
             title: '删除定投计划及所有操作记录',
@@ -331,6 +336,9 @@ const DCAPlans: React.FC = () => {
             okText: '确认删除',
             cancelText: '取消',
             okType: 'danger',
+            onCancel: () => {
+                console.log('[前端调试] 用户取消删除计划及操作记录')
+            },
             onOk: async () => {
                 console.log('[前端调试] 用户确认删除计划及操作记录，开始调用API')
                 setSubmitting(true)
