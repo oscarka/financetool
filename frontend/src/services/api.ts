@@ -129,6 +129,10 @@ export const fundAPI = {
     getPositionSummary: (): Promise<APIResponse> =>
         api.get('/funds/positions/summary'),
 
+    // 重新计算持仓
+    recalculatePositions: (): Promise<APIResponse> =>
+        api.post('/funds/positions/recalculate'),
+
     // 创建定投计划
     createDCAPlan: (data: any): Promise<APIResponse> =>
         api.post('/funds/dca/plans', data),

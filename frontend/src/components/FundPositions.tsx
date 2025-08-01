@@ -303,14 +303,40 @@ const FundPositions: React.FC = () => {
             <Card
                 title="基金持仓明细（表格）"
                 extra={
-                    <Button
-                        type="primary"
-                        icon={<SyncOutlined />}
-                        loading={loading}
-                        onClick={fetchPositions}
-                    >
-                        刷新数据
-                    </Button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <Button
+                            type="primary"
+                            icon={<SyncOutlined />}
+                            loading={loading}
+                            onClick={fetchPositions}
+                        >
+                            刷新数据
+                        </Button>
+                        <Button
+                            type="default"
+                            icon={<SyncOutlined />}
+                            loading={loading}
+                            onClick={async () => {
+                                setLoading(true)
+                                try {
+                                    const response = await fundAPI.recalculatePositions()
+                                    if (response.success) {
+                                        message.success('持仓重新计算成功')
+                                        await fetchPositions() // 重新获取数据
+                                    } else {
+                                        message.error('持仓重新计算失败')
+                                    }
+                                } catch (error: any) {
+                                    console.error('重新计算持仓失败:', error)
+                                    message.error('重新计算持仓失败')
+                                } finally {
+                                    setLoading(false)
+                                }
+                            }}
+                        >
+                            重新计算持仓
+                        </Button>
+                    </div>
                 }
                 style={{ marginTop: 32 }}
             >
