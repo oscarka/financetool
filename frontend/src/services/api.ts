@@ -172,14 +172,7 @@ export const fundAPI = {
         console.log('[API调试] 请求URL:', url)
         console.log('[API调试] 完整URL:', getBaseURL() + url)
 
-        try {
-            const result = api.delete(url)
-            console.log('[API调试] deleteDCAPlan 调用成功，返回Promise')
-            return result
-        } catch (error) {
-            console.error('[API调试] deleteDCAPlan 调用失败:', error)
-            throw error
-        }
+        return api.delete(url)
     },
 
     // 执行定投计划
