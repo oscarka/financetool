@@ -1052,6 +1052,26 @@ class DCAService:
                 all_ids = [row[0] for row in db.query(DCAPlan.id).all()]
                 print(f"[调试] 所有现有ID: {all_ids}")
                 
+                # 检查序列状态
+                try:
+                    # 获取序列的当前值
+                    sequence_result = db.execute(text("SELECT last_value FROM dca_plans_id_seq")).scalar()
+                    print(f"[调试] 序列当前值: {sequence_result}")
+                    
+                    # 获取序列的下一个值
+                    next_sequence_result = db.execute(text("SELECT nextval('dca_plans_id_seq')")).scalar()
+                    print(f"[调试] 序列下一个值: {next_sequence_result}")
+                    
+                    # 如果序列值小于最大ID，重置序列
+                    if sequence_result and max_id_result and sequence_result < max_id_result:
+                        print(f"[调试] 检测到序列不同步，重置序列")
+                        db.execute(text(f"SELECT setval('dca_plans_id_seq', {max_id_result})"))
+                        db.commit()
+                        print(f"[调试] 序列已重置为: {max_id_result}")
+                    
+                except Exception as seq_error:
+                    print(f"[调试] 序列检查失败: {seq_error}")
+                
             except Exception as db_check_error:
                 print(f"[调试] 数据库状态检查失败: {db_check_error}")
             
