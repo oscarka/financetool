@@ -196,7 +196,7 @@ const DCAPlans: React.FC = () => {
             const planData = {
                 ...values,
                 start_date: dayjs(values.start_date).format('YYYY-MM-DD'),
-                end_date: isOngoing ? dayjs().format('YYYY-MM-DD') : (values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined),
+                end_date: isOngoing ? undefined : (values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined),
                 platform: '支付宝',
                 asset_type: '基金',
                 exclude_dates: values.exclude_dates
@@ -1175,14 +1175,14 @@ const DCAPlans: React.FC = () => {
                                     onChange={e => {
                                         setIsOngoing(e.target.checked)
                                         if (e.target.checked) {
-                                            form.setFieldsValue({ end_date: dayjs() })
-                                            setHistoryRange([historyRange ? historyRange[0] : null, dayjs()])
+                                            form.setFieldsValue({ end_date: undefined })
+                                            setHistoryRange([historyRange ? historyRange[0] : null, null])
                                         } else {
                                             form.setFieldsValue({ end_date: undefined })
                                         }
                                     }}
                                 >
-                                    结束日期为当前/持续进行中
+                                    持续进行中（无结束日期）
                                 </Checkbox>
                             </Form.Item>
                         </Col>

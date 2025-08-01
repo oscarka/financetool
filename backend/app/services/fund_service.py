@@ -1414,12 +1414,16 @@ class DCAService:
                     print(f"[警告] 计划 {plan_id} 缺少必要信息，跳过")
                     continue
             
+            # 检查计划是否已过期（只有设置了结束日期的计划才检查）
+            if end_date and end_date < today:
+                print(f"[警告] 定投计划 {plan_id} 已过期 (结束日期: {end_date})，跳过执行")
+                continue
+            
             # 检查是否应该执行
             print(f"[调试] 计划 {plan_id}: next_execution_date={next_execution_date}, end_date={end_date}")
             
             if (next_execution_date and 
-                next_execution_date <= today and
-                (not end_date or end_date >= today)):
+                next_execution_date <= today):
                 
                 print(f"[调试] 执行计划 {plan_id}")
                 operation = DCAService.execute_dca_plan(db, plan_id, "scheduled")
