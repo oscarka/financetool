@@ -1681,7 +1681,8 @@ class DCAService:
                 continue
             
             # 计算手续费和份额
-            fee = plan.amount * (plan.fee_rate or 0) / 100
+            fee_rate = plan.fee_rate or 0
+            fee = (plan.amount * fee_rate).quantize(Decimal('0.0001')) if fee_rate else Decimal('0')
             net_amount = plan.amount - fee
             quantity = net_amount / nav_record.nav
             
