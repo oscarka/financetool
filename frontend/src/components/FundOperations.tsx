@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Button, Form, Input, Select, DatePicker, InputNumber, message, Table, Space, Tag, Modal, Popconfirm, Tooltip, Radio, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
 
 import dayjs from 'dayjs'
@@ -306,6 +306,55 @@ const FundOperations: React.FC = () => {
         }
     }
 
+    // 导出操作记录为CSV
+    const handleExportOperations = async () => {
+        try {
+            const searchValues = searchForm.getFieldsValue()
+            const params = new URLSearchParams()
+            
+            // 添加搜索参数
+            if (searchValues.asset_code) params.append('fund_code', searchValues.asset_code)
+            if (searchValues.operation_type) params.append('operation_type', searchValues.operation_type)
+            if (searchValues.status) params.append('status', searchValues.status)
+            if (searchValues.dca_plan_id) params.append('dca_plan_id', searchValues.dca_plan_id.toString())
+            
+            // 处理日期范围
+            if (searchValues.date_range && searchValues.date_range.length === 2) {
+                params.append('start_date', searchValues.date_range[0].format('YYYY-MM-DD'))
+                params.append('end_date', searchValues.date_range[1].format('YYYY-MM-DD'))
+            }
+            
+            // 默认包含净值和分红信息
+            params.append('include_nav', 'true')
+            params.append('include_dividend', 'true')
+            
+            const response = await fetch(`/api/v1/funds/operations/export-csv?${params.toString()}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            
+            if (response.ok) {
+                const blob = await response.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `fund_operations_${new Date().toISOString().slice(0, 10)}.csv`
+                document.body.appendChild(a)
+                a.click()
+                window.URL.revokeObjectURL(url)
+                document.body.removeChild(a)
+                message.success('导出成功')
+            } else {
+                message.error('导出失败')
+            }
+        } catch (error) {
+            console.error('导出失败:', error)
+            message.error('导出失败，请重试')
+        }
+    }
+
     // 表格列定义
     const columns = [
         {
@@ -570,6 +619,14 @@ const FundOperations: React.FC = () => {
                                     </Button>
                                     <Button onClick={handleReset} icon={<ReloadOutlined />}>
                                         重置
+                                    </Button>
+                                    <Button 
+                                        type="default" 
+                                        icon={<DownloadOutlined />}
+                                        onClick={handleExportOperations}
+                                        loading={loading}
+                                    >
+                                        导出CSV
                                     </Button>
                                 </Space>
                             </Form.Item>

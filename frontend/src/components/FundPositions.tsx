@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Table, Statistic, Row, Col, Tag, Button, message, Typography, Divider } from 'antd'
-import { SyncOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
+import { SyncOutlined, ArrowUpOutlined, ArrowDownOutlined, DownloadOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
 
 
@@ -74,6 +74,36 @@ const FundPositions: React.FC = () => {
     }, [])
 
     console.log('[调试] summary:', summary)
+
+    // 导出持仓信息为CSV
+    const handleExportPositions = async () => {
+        try {
+            const response = await fetch('/api/v1/funds/positions/export-csv', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            
+            if (response.ok) {
+                const blob = await response.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `fund_positions_${new Date().toISOString().slice(0, 10)}.csv`
+                document.body.appendChild(a)
+                a.click()
+                window.URL.revokeObjectURL(url)
+                document.body.removeChild(a)
+                message.success('导出成功')
+            } else {
+                message.error('导出失败')
+            }
+        } catch (error) {
+            console.error('导出失败:', error)
+            message.error('导出失败，请重试')
+        }
+    }
 
     // 表格列定义
     const columns = [
@@ -335,6 +365,14 @@ const FundPositions: React.FC = () => {
                             }}
                         >
                             重新计算持仓
+                        </Button>
+                        <Button
+                            type="default"
+                            icon={<DownloadOutlined />}
+                            onClick={handleExportPositions}
+                            loading={loading}
+                        >
+                            导出CSV
                         </Button>
                     </div>
                 }

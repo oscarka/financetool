@@ -1561,3 +1561,212 @@ def get_batch_latest_nav(
     except Exception as e:
         print(f"[调试] 批量获取净值异常: {e}")
         raise HTTPException(status_code=400, detail=str(e)) 
+
+@router.get("/operations/export-csv")
+def export_fund_operations_csv(
+    fund_code: Optional[str] = Query(None, description="基金代码，不填则导出所有基金"),
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    operation_type: Optional[str] = Query(None, description="操作类型"),
+    include_nav: bool = Query(True, description="是否包含净值信息"),
+    include_dividend: bool = Query(True, description="是否包含分红信息"),
+    db: Session = Depends(get_db)
+):
+    """导出基金操作记录为CSV文件，包含所有计算因素"""
+    from fastapi.responses import StreamingResponse
+    import csv
+    import io
+    from datetime import datetime
+    
+    try:
+        # 获取所有操作记录（不分页）
+        operations, total = FundOperationService.get_operations(
+            db=db,
+            fund_code=fund_code,
+            operation_type=operation_type,
+            start_date=start_date,
+            end_date=end_date,
+            page=1,
+            page_size=10000  # 获取大量数据
+        )
+        
+        if not operations:
+            raise HTTPException(status_code=404, detail="没有找到符合条件的操作记录")
+        
+        # 创建CSV文件
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # 写入CSV头部
+        headers = [
+            "操作ID", "操作日期", "平台", "资产类型", "操作类型", "基金代码", "基金名称",
+            "金额", "货币", "数量", "价格", "净值", "手续费", "策略", "情绪评分",
+            "标签", "备注", "状态", "定投计划ID", "定投执行类型", "创建时间", "更新时间"
+        ]
+        
+        # 如果需要包含净值信息，添加净值相关字段
+        if include_nav:
+            headers.extend([
+                "净值日期", "累计净值", "净值增长率", "净值来源"
+            ])
+        
+        # 如果需要包含分红信息，添加分红相关字段
+        if include_dividend:
+            headers.extend([
+                "分红日期", "分红金额", "总分红", "公告日期"
+            ])
+        
+        writer.writerow(headers)
+        
+        # 批量获取净值信息
+        fund_codes = list(set(op.asset_code for op in operations))
+        nav_map = {}
+        if include_nav and fund_codes:
+            for fund_code in fund_codes:
+                nav_records = FundNavService.get_nav_history(db, fund_code, days=365)
+                nav_map[fund_code] = {nav.nav_date: nav for nav in nav_records}
+        
+        # 批量获取分红信息
+        dividend_map = {}
+        if include_dividend and fund_codes:
+            for fund_code in fund_codes:
+                dividend_records = FundDividendService.get_dividends_by_fund(
+                    db, fund_code, start_date=start_date, end_date=end_date
+                )
+                dividend_map[fund_code] = {div.dividend_date: div for div in dividend_records}
+        
+        # 写入数据行
+        for operation in operations:
+            row = [
+                operation.id,
+                operation.operation_date.strftime("%Y-%m-%d %H:%M:%S") if operation.operation_date else "",
+                operation.platform,
+                operation.asset_type,
+                operation.operation_type,
+                operation.asset_code,
+                operation.asset_name,
+                float(operation.amount) if operation.amount else 0,
+                operation.currency,
+                float(operation.quantity) if operation.quantity else 0,
+                float(operation.price) if operation.price else 0,
+                float(operation.nav) if operation.nav else 0,
+                float(operation.fee) if operation.fee else 0,
+                operation.strategy or "",
+                operation.emotion_score or 0,
+                operation.tags or "",
+                operation.notes or "",
+                operation.status,
+                operation.dca_plan_id or "",
+                operation.dca_execution_type or "",
+                operation.created_at.strftime("%Y-%m-%d %H:%M:%S") if operation.created_at else "",
+                operation.updated_at.strftime("%Y-%m-%d %H:%M:%S") if operation.updated_at else ""
+            ]
+            
+            # 添加净值信息
+            if include_nav:
+                nav_date = operation.operation_date.date() if operation.operation_date else None
+                nav_info = nav_map.get(operation.asset_code, {}).get(nav_date) if nav_date else None
+                
+                row.extend([
+                    nav_info.nav_date.strftime("%Y-%m-%d") if nav_info and nav_info.nav_date else "",
+                    float(nav_info.accumulated_nav) if nav_info and nav_info.accumulated_nav else "",
+                    float(nav_info.growth_rate) if nav_info and nav_info.growth_rate else "",
+                    nav_info.source if nav_info else ""
+                ])
+            
+            # 添加分红信息
+            if include_dividend:
+                op_date = operation.operation_date.date() if operation.operation_date else None
+                dividend_info = dividend_map.get(operation.asset_code, {}).get(op_date) if op_date else None
+                
+                row.extend([
+                    dividend_info.dividend_date.strftime("%Y-%m-%d") if dividend_info and dividend_info.dividend_date else "",
+                    float(dividend_info.dividend_amount) if dividend_info and dividend_info.dividend_amount else "",
+                    float(dividend_info.total_dividend) if dividend_info and dividend_info.total_dividend else "",
+                    dividend_info.announcement_date.strftime("%Y-%m-%d") if dividend_info and dividend_info.announcement_date else ""
+                ])
+            
+            writer.writerow(row)
+        
+        # 准备文件名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fund_suffix = f"_{fund_code}" if fund_code else "_all"
+        filename = f"fund_operations{fund_suffix}_{timestamp}.csv"
+        
+        # 返回CSV文件
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8-sig')),  # 使用UTF-8-BOM确保Excel正确显示中文
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        print(f"导出CSV失败: {e}")
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+
+@router.get("/positions/export-csv")
+def export_fund_positions_csv(
+    db: Session = Depends(get_db)
+):
+    """导出基金持仓信息为CSV文件"""
+    from fastapi.responses import StreamingResponse
+    import csv
+    import io
+    from datetime import datetime
+    
+    try:
+        # 获取所有持仓信息
+        positions = FundOperationService.get_fund_positions(db)
+        
+        if not positions:
+            raise HTTPException(status_code=404, detail="没有找到持仓信息")
+        
+        # 创建CSV文件
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # 写入CSV头部
+        headers = [
+            "持仓ID", "平台", "资产类型", "基金代码", "基金名称", "货币",
+            "持仓数量", "平均成本", "当前价格", "当前价值", "总投入", "总盈亏", "盈亏率",
+            "最后更新时间"
+        ]
+        writer.writerow(headers)
+        
+        # 写入数据行
+        for position in positions:
+            row = [
+                position.id,
+                position.platform,
+                position.asset_type,
+                position.asset_code,
+                position.asset_name,
+                position.currency,
+                float(position.quantity) if position.quantity else 0,
+                float(position.avg_cost) if position.avg_cost else 0,
+                float(position.current_price) if position.current_price else 0,
+                float(position.current_value) if position.current_value else 0,
+                float(position.total_invested) if position.total_invested else 0,
+                float(position.total_profit) if position.total_profit else 0,
+                float(position.profit_rate) if position.profit_rate else 0,
+                position.last_updated.strftime("%Y-%m-%d %H:%M:%S") if position.last_updated else ""
+            ]
+            writer.writerow(row)
+        
+        # 准备文件名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"fund_positions_{timestamp}.csv"
+        
+        # 返回CSV文件
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8-sig')),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        print(f"导出持仓CSV失败: {e}")
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}") 
