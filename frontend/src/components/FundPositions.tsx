@@ -78,13 +78,25 @@ const FundPositions: React.FC = () => {
     // 导出持仓信息为CSV
     const handleExportPositions = async () => {
         try {
-            const response = await fetch('/api/v1/funds/positions/export-csv', {
+            // 获取API基础URL
+            const getBaseURL = () => {
+                if (import.meta.env.VITE_API_BASE_URL) {
+                    return import.meta.env.VITE_API_BASE_URL
+                }
+                if (import.meta.env.DEV) {
+                    return 'http://localhost:8000/api/v1'
+                }
+                return '/api/v1'
+            }
+            
+            const baseURL = getBaseURL()
+            const response = await fetch(`${baseURL}/funds/positions/export-csv`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                 },
             })
-            
+
             if (response.ok) {
                 const blob = await response.blob()
                 const url = window.URL.createObjectURL(blob)

@@ -311,30 +311,42 @@ const FundOperations: React.FC = () => {
         try {
             const searchValues = searchForm.getFieldsValue()
             const params = new URLSearchParams()
-            
+
             // 添加搜索参数
             if (searchValues.asset_code) params.append('fund_code', searchValues.asset_code)
             if (searchValues.operation_type) params.append('operation_type', searchValues.operation_type)
             if (searchValues.status) params.append('status', searchValues.status)
             if (searchValues.dca_plan_id) params.append('dca_plan_id', searchValues.dca_plan_id.toString())
-            
+
             // 处理日期范围
             if (searchValues.date_range && searchValues.date_range.length === 2) {
                 params.append('start_date', searchValues.date_range[0].format('YYYY-MM-DD'))
                 params.append('end_date', searchValues.date_range[1].format('YYYY-MM-DD'))
             }
-            
+
             // 默认包含净值和分红信息
             params.append('include_nav', 'true')
             params.append('include_dividend', 'true')
+
+            // 获取API基础URL
+            const getBaseURL = () => {
+                if (import.meta.env.VITE_API_BASE_URL) {
+                    return import.meta.env.VITE_API_BASE_URL
+                }
+                if (import.meta.env.DEV) {
+                    return 'http://localhost:8000/api/v1'
+                }
+                return '/api/v1'
+            }
             
-            const response = await fetch(`/api/v1/funds/operations/export-csv?${params.toString()}`, {
+            const baseURL = getBaseURL()
+            const response = await fetch(`${baseURL}/funds/operations/export-csv?${params.toString()}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                 },
             })
-            
+
             if (response.ok) {
                 const blob = await response.blob()
                 const url = window.URL.createObjectURL(blob)
@@ -620,8 +632,8 @@ const FundOperations: React.FC = () => {
                                     <Button onClick={handleReset} icon={<ReloadOutlined />}>
                                         重置
                                     </Button>
-                                    <Button 
-                                        type="default" 
+                                    <Button
+                                        type="default"
                                         icon={<DownloadOutlined />}
                                         onClick={handleExportOperations}
                                         loading={loading}
