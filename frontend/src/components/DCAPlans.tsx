@@ -275,6 +275,7 @@ const DCAPlans: React.FC = () => {
 
     // 删除定投计划
     const handleDelete = async (record: DCAPlan) => {
+        console.log('[前端调试] 开始删除定投计划:', record)
         // 显示确认对话框，询问是否一并删除操作记录
         Modal.confirm({
             title: '删除定投计划',
@@ -289,9 +290,12 @@ const DCAPlans: React.FC = () => {
             okText: '仅删除计划',
             cancelText: '取消',
             onOk: async () => {
+                console.log('[前端调试] 用户确认删除，开始调用API')
                 setSubmitting(true)
                 try {
+                    console.log('[前端调试] 调用fundAPI.deleteDCAPlan，ID:', record.id)
                     const response = await fundAPI.deleteDCAPlan(record.id)
+                    console.log('[前端调试] API响应:', response)
                     if (response.success) {
                         message.success('删除成功')
                         fetchPlans()
@@ -299,7 +303,7 @@ const DCAPlans: React.FC = () => {
                         message.error('删除失败')
                     }
                 } catch (error: any) {
-                    console.error('删除定投计划失败:', error)
+                    console.error('[前端调试] 删除定投计划失败:', error)
                     message.error('删除失败，请稍后重试')
                 } finally {
                     setSubmitting(false)
@@ -310,6 +314,7 @@ const DCAPlans: React.FC = () => {
 
     // 删除定投计划及所有操作记录
     const handleDeleteWithOperations = async (record: DCAPlan) => {
+        console.log('[前端调试] 开始删除定投计划及操作记录:', record)
         // 显示确认对话框
         Modal.confirm({
             title: '删除定投计划及所有操作记录',
@@ -325,9 +330,12 @@ const DCAPlans: React.FC = () => {
             cancelText: '取消',
             okType: 'danger',
             onOk: async () => {
+                console.log('[前端调试] 用户确认删除计划及操作记录，开始调用API')
                 setSubmitting(true)
                 try {
+                    console.log('[前端调试] 调用fundAPI.deleteDCAPlan，ID:', record.id, 'delete_operations: true')
                     const response = await fundAPI.deleteDCAPlan(record.id, { delete_operations: true })
+                    console.log('[前端调试] API响应:', response)
                     if (response.success) {
                         message.success('删除成功')
                         fetchPlans()
@@ -335,7 +343,7 @@ const DCAPlans: React.FC = () => {
                         message.error('删除失败')
                     }
                 } catch (error: any) {
-                    console.error('删除定投计划失败:', error)
+                    console.error('[前端调试] 删除定投计划失败:', error)
                     message.error('删除失败，请稍后重试')
                 } finally {
                     setSubmitting(false)
@@ -769,13 +777,19 @@ const DCAPlans: React.FC = () => {
                                 {
                                     key: 'delete_plan_only',
                                     label: '仅删除计划',
-                                    onClick: () => handleDelete(record)
+                                    onClick: () => {
+                                        console.log('[前端调试] 点击"仅删除计划"菜单项')
+                                        handleDelete(record)
+                                    }
                                 },
                                 {
                                     key: 'delete_plan_with_operations',
                                     label: '删除计划及操作记录',
                                     danger: true,
-                                    onClick: () => handleDeleteWithOperations(record)
+                                    onClick: () => {
+                                        console.log('[前端调试] 点击"删除计划及操作记录"菜单项')
+                                        handleDeleteWithOperations(record)
+                                    }
                                 }
                             ]
                         }}
