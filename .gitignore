@@ -12,3 +12,8 @@ backend/logs/
 __pycache__/
 *.pyc
 
+
+# Database files
+*.db
+backend/data/*.db
+

@@ -32,11 +32,29 @@ def create_fund_operation(
     """创建基金操作记录"""
     try:
         result = FundOperationService.create_operation(db, operation)
-        return FundOperationResponse(
-            success=True,
-            message="基金操作记录创建成功",
-            data=result
-        )
+        
+        # 重新计算持仓（新增操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return FundOperationResponse(
+                    success=True,
+                    message="基金操作记录创建成功，持仓已重新计算",
+                    data=result
+                )
+            else:
+                return FundOperationResponse(
+                    success=True,
+                    message="基金操作记录创建成功，但持仓重新计算失败",
+                    data=result
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return FundOperationResponse(
+                success=True,
+                message="基金操作记录创建成功，但持仓重新计算失败",
+                data=result
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -157,11 +175,28 @@ def update_fund_operation(
         if not result:
             raise HTTPException(status_code=404, detail="操作记录不存在")
         
-        return FundOperationResponse(
-            success=True,
-            message="基金操作记录更新成功",
-            data=result
-        )
+        # 重新计算持仓（更新操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return FundOperationResponse(
+                    success=True,
+                    message="基金操作记录更新成功，持仓已重新计算",
+                    data=result
+                )
+            else:
+                return FundOperationResponse(
+                    success=True,
+                    message="基金操作记录更新成功，但持仓重新计算失败",
+                    data=result
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return FundOperationResponse(
+                success=True,
+                message="基金操作记录更新成功，但持仓重新计算失败",
+                data=result
+            )
     except HTTPException:
         raise
     except Exception as e:
@@ -735,11 +770,28 @@ def execute_dca_plan(
         if not operation:
             raise HTTPException(status_code=400, detail="定投计划执行失败")
         
-        return FundOperationResponse(
-            success=True,
-            message="定投计划执行成功",
-            data=operation
-        )
+        # 重新计算持仓（定投执行会产生新的操作记录）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return FundOperationResponse(
+                    success=True,
+                    message="定投计划执行成功，持仓已重新计算",
+                    data=operation
+                )
+            else:
+                return FundOperationResponse(
+                    success=True,
+                    message="定投计划执行成功，但持仓重新计算失败",
+                    data=operation
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return FundOperationResponse(
+                success=True,
+                message="定投计划执行成功，但持仓重新计算失败",
+                data=operation
+            )
     except HTTPException:
         raise
     except Exception as e:
@@ -753,11 +805,29 @@ def execute_all_dca_plans(
     """执行所有到期的定投计划"""
     try:
         operations = DCAService.check_and_execute_dca_plans(db)
-        return BaseResponse(
-            success=True,
-            message=f"执行了 {len(operations)} 个定投计划",
-            data={"executed_count": len(operations)}
-        )
+        
+        # 重新计算持仓（批量执行定投会产生多个操作记录）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"执行了 {len(operations)} 个定投计划，持仓已重新计算",
+                    data={"executed_count": len(operations)}
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"执行了 {len(operations)} 个定投计划，但持仓重新计算失败",
+                    data={"executed_count": len(operations)}
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"执行了 {len(operations)} 个定投计划，但持仓重新计算失败",
+                data={"executed_count": len(operations)}
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1025,11 +1095,29 @@ def generate_historical_operations(
                         print(f"[历史生成] exclude_dates解析失败: {d}, 错误: {e}")
         print(f"[历史生成] exclude_dates_parsed: {exclude_dates_parsed}, 类型: {type(exclude_dates_parsed)}")
         created_count = DCAService.generate_historical_operations(db, plan_id, end_date, exclude_dates=exclude_dates_parsed)
-        return BaseResponse(
-            success=True,
-            message=f"生成了 {created_count} 条历史定投记录",
-            data={"created_count": created_count}
-        )
+        
+        # 重新计算持仓（生成历史操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"生成了 {created_count} 条历史定投记录，持仓已重新计算",
+                    data={"created_count": created_count}
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"生成了 {created_count} 条历史定投记录，但持仓重新计算失败",
+                    data={"created_count": created_count}
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"生成了 {created_count} 条历史定投记录，但持仓重新计算失败",
+                data={"created_count": created_count}
+            )
     except Exception as e:
         import traceback
         print(f"[历史生成] 生成历史异常: {e}")
@@ -1061,11 +1149,29 @@ def delete_plan_operations(
     """删除定投计划的所有操作记录"""
     try:
         deleted_count = DCAService.delete_plan_operations(db, plan_id)
-        return BaseResponse(
-            success=True,
-            message=f"删除了 {deleted_count} 条操作记录",
-            data={"deleted_count": deleted_count}
-        )
+        
+        # 重新计算持仓（删除操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"删除了 {deleted_count} 条操作记录，持仓已重新计算",
+                    data={"deleted_count": deleted_count}
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"删除了 {deleted_count} 条操作记录，但持仓重新计算失败",
+                    data={"deleted_count": deleted_count}
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"删除了 {deleted_count} 条操作记录，但持仓重新计算失败",
+                data={"deleted_count": deleted_count}
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1099,11 +1205,29 @@ def clean_plan_operations(
     """清理定投计划超出新区间的历史操作记录"""
     try:
         deleted_count = DCAService.clean_plan_operations_by_date_range(db, plan_id, start_date, end_date)
-        return BaseResponse(
-            success=True,
-            message=f"清理了 {deleted_count} 条超出区间的历史操作记录",
-            data={"deleted_count": deleted_count}
-        )
+        
+        # 重新计算持仓（清理操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"清理了 {deleted_count} 条超出区间的历史操作记录，持仓已重新计算",
+                    data={"deleted_count": deleted_count}
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"清理了 {deleted_count} 条超出区间的历史操作记录，但持仓重新计算失败",
+                    data={"deleted_count": deleted_count}
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"清理了 {deleted_count} 条超出区间的历史操作记录，但持仓重新计算失败",
+                data={"deleted_count": deleted_count}
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
