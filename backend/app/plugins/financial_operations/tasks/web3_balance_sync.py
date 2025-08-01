@@ -31,36 +31,24 @@ class Web3BalanceSyncTask(BaseTask):
                 context.log("Web3 API配置无效", "ERROR")
                 return TaskResult(success=False, error="Web3 API配置无效")
             
-            # 同步余额数据到数据库
+            # 同步余额数据到数据库（这里已经调用了API）
             sync_result = await web3_service.sync_balance_to_db()
             
             if not sync_result.get('success'):
                 context.log(f"Web3余额同步失败: {sync_result.get('message', '未知错误')}", "ERROR")
                 return TaskResult(success=False, error=sync_result.get('message', '余额同步失败'))
             
-            # 获取同步后的余额数据
-            balance_data = await web3_service.get_account_balance()
-            
-            if not balance_data or balance_data.get('code') != '0':
-                context.log("获取Web3账户余额失败", "WARNING")
-                return TaskResult(success=False, error="获取Web3账户余额失败")
-            
-            # 处理余额数据
-            balance_info = balance_data.get('data', [])
-            if not balance_info:
-                context.log("Web3账户余额数据为空", "WARNING")
-                return TaskResult(success=False, error="Web3账户余额数据为空")
-            
-            # 获取第一个账户的余额信息
-            account_balance = balance_info[0] if balance_info else {}
+            # 直接使用sync_result中的数据，避免重复API调用
+            total_value = sync_result.get('total_value', 0)
+            currency = sync_result.get('currency', 'USD')
             
             # 处理余额数据
             processed_balance = {
-                'account_id': account_balance.get('acctId', ''),
-                'total_balance': account_balance.get('totalBal', '0'),
-                'available_balance': account_balance.get('availBal', '0'),
-                'frozen_balance': account_balance.get('frozenBal', '0'),
-                'currency': 'USD',  # Web3账户通常使用USD
+                'account_id': web3_service.account_id,
+                'total_balance': str(total_value),
+                'available_balance': str(total_value),  # Web3通常没有可用/冻结余额的概念
+                'frozen_balance': '0',
+                'currency': currency,
                 'sync_time': datetime.now().isoformat()
             }
             
