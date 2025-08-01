@@ -1036,46 +1036,77 @@ class DCAService:
         print(f"[调试]   start_date: {plan_data.start_date}, 类型: {type(plan_data.start_date)}")
         print(f"[调试]   end_date: {plan_data.end_date}, 类型: {type(plan_data.end_date)}")
         
-        # 计算下次执行日期
-        next_execution_date = DCAService._calculate_next_execution_date(
-            plan_data.start_date, 
-            plan_data.frequency, 
-            plan_data.frequency_value
-        )
-        
-        # 创建定投计划
-        plan = DCAPlan(
-            plan_name=plan_data.plan_name,
-            platform=plan_data.platform,
-            asset_type=plan_data.asset_type,
-            asset_code=plan_data.asset_code,
-            asset_name=plan_data.asset_name,
-            amount=plan_data.amount,
-            currency=plan_data.currency,
-            frequency=plan_data.frequency,
-            frequency_value=plan_data.frequency_value,
-            start_date=plan_data.start_date,
-            end_date=plan_data.end_date,
-            strategy=plan_data.strategy,
-            execution_time=plan_data.execution_time,
-            next_execution_date=next_execution_date,  # 添加下次执行日期
-            smart_dca=plan_data.smart_dca,
-            base_amount=plan_data.base_amount,
-            max_amount=plan_data.max_amount,
-            increase_rate=plan_data.increase_rate,
-            min_nav=plan_data.min_nav,
-            max_nav=plan_data.max_nav,
-            skip_holidays=plan_data.skip_holidays,
-            enable_notification=plan_data.enable_notification,
-            notification_before=plan_data.notification_before,
-            fee_rate=plan_data.fee_rate,
-            exclude_dates=json.dumps(plan_data.exclude_dates) if plan_data.exclude_dates else None
-        )
-        
-        db.add(plan)
-        db.commit()
-        db.refresh(plan)
-        return plan
+        try:
+            # 计算下次执行日期
+            print(f"[调试] 开始计算下次执行日期")
+            next_execution_date = DCAService._calculate_next_execution_date(
+                plan_data.start_date, 
+                plan_data.frequency, 
+                plan_data.frequency_value
+            )
+            print(f"[调试] 计算出的下次执行日期: {next_execution_date}")
+            
+            # 创建定投计划
+            print(f"[调试] 开始创建DCAPlan对象")
+            plan = DCAPlan(
+                plan_name=plan_data.plan_name,
+                platform=plan_data.platform,
+                asset_type=plan_data.asset_type,
+                asset_code=plan_data.asset_code,
+                asset_name=plan_data.asset_name,
+                amount=plan_data.amount,
+                currency=plan_data.currency,
+                frequency=plan_data.frequency,
+                frequency_value=plan_data.frequency_value,
+                start_date=plan_data.start_date,
+                end_date=plan_data.end_date,
+                strategy=plan_data.strategy,
+                execution_time=plan_data.execution_time,
+                next_execution_date=next_execution_date,  # 添加下次执行日期
+                smart_dca=plan_data.smart_dca,
+                base_amount=plan_data.base_amount,
+                max_amount=plan_data.max_amount,
+                increase_rate=plan_data.increase_rate,
+                min_nav=plan_data.min_nav,
+                max_nav=plan_data.max_nav,
+                skip_holidays=plan_data.skip_holidays,
+                enable_notification=plan_data.enable_notification,
+                notification_before=plan_data.notification_before,
+                fee_rate=plan_data.fee_rate,
+                exclude_dates=json.dumps(plan_data.exclude_dates) if plan_data.exclude_dates else None
+            )
+            print(f"[调试] DCAPlan对象创建成功")
+            print(f"[调试] 计划名称: {plan.plan_name}")
+            print(f"[调试] 资产代码: {plan.asset_code}")
+            print(f"[调试] 金额: {plan.amount}")
+            print(f"[调试] 频率: {plan.frequency}, 频率值: {plan.frequency_value}")
+            print(f"[调试] 开始日期: {plan.start_date}")
+            print(f"[调试] 结束日期: {plan.end_date}")
+            print(f"[调试] 下次执行日期: {plan.next_execution_date}")
+            
+            print(f"[调试] 准备添加到数据库")
+            db.add(plan)
+            print(f"[调试] 对象已添加到session")
+            
+            print(f"[调试] 准备提交到数据库")
+            db.commit()
+            print(f"[调试] 数据库提交成功")
+            
+            print(f"[调试] 准备刷新对象")
+            db.refresh(plan)
+            print(f"[调试] 对象刷新成功，ID: {plan.id}")
+            
+            return plan
+            
+        except Exception as e:
+            print(f"[错误] 创建定投计划失败: {str(e)}")
+            print(f"[错误] 错误类型: {type(e)}")
+            print(f"[错误] 错误详情: {e}")
+            import traceback
+            print(f"[错误] 完整错误堆栈:")
+            traceback.print_exc()
+            db.rollback()
+            raise
     
     @staticmethod
     @auto_log("database", log_result=True)
@@ -1351,20 +1382,37 @@ class DCAService:
         """计算下次执行日期"""
         from datetime import timedelta
         
-        if frequency == "daily":
-            return start_date + timedelta(days=frequency_value)
-        elif frequency == "weekly":
-            return start_date + timedelta(weeks=frequency_value)
-        elif frequency == "monthly":
-            # 简单的月份计算，实际应该考虑月份天数差异
-            year = start_date.year
-            month = start_date.month + frequency_value
-            while month > 12:
-                year += 1
-                month -= 12
-            return date(year, month, start_date.day)
-        else:
-            return start_date + timedelta(days=frequency_value)
+        print(f"[调试] _calculate_next_execution_date - 输入参数:")
+        print(f"[调试]   start_date: {start_date}, 类型: {type(start_date)}")
+        print(f"[调试]   frequency: {frequency}")
+        print(f"[调试]   frequency_value: {frequency_value}")
+        
+        try:
+            if frequency == "daily":
+                result = start_date + timedelta(days=frequency_value)
+                print(f"[调试] 每日频率计算: {start_date} + {frequency_value}天 = {result}")
+                return result
+            elif frequency == "weekly":
+                result = start_date + timedelta(weeks=frequency_value)
+                print(f"[调试] 每周频率计算: {start_date} + {frequency_value}周 = {result}")
+                return result
+            elif frequency == "monthly":
+                # 简单的月份计算，实际应该考虑月份天数差异
+                year = start_date.year
+                month = start_date.month + frequency_value
+                while month > 12:
+                    year += 1
+                    month -= 12
+                result = date(year, month, start_date.day)
+                print(f"[调试] 每月频率计算: {start_date} + {frequency_value}月 = {result}")
+                return result
+            else:
+                result = start_date + timedelta(days=frequency_value)
+                print(f"[调试] 默认频率计算: {start_date} + {frequency_value}天 = {result}")
+                return result
+        except Exception as e:
+            print(f"[错误] _calculate_next_execution_date计算失败: {str(e)}")
+            raise
     
     @staticmethod
     def _calculate_smart_amount(db: Session, plan: DCAPlan) -> Decimal:

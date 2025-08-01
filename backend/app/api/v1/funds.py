@@ -583,8 +583,13 @@ def create_dca_plan(
     db: Session = Depends(get_db)
 ):
     """创建定投计划"""
+    print(f"[API调试] 开始创建定投计划")
+    print(f"[API调试] 接收到的计划数据: {plan}")
     try:
+        print(f"[API调试] 调用DCAService.create_dca_plan")
         result = DCAService.create_dca_plan(db, plan)
+        print(f"[API调试] DCAService.create_dca_plan调用成功")
+        
         # 修正：确保exclude_dates为List[str]类型
         if result and result.exclude_dates and isinstance(result.exclude_dates, str):
             import json
@@ -592,12 +597,19 @@ def create_dca_plan(
                 result.exclude_dates = json.loads(result.exclude_dates)
             except Exception:
                 result.exclude_dates = []
+        
+        print(f"[API调试] 准备返回成功响应")
         return DCAPlanResponse(
             success=True,
             message="定投计划创建成功",
             data=result
         )
     except Exception as e:
+        print(f"[API错误] 创建定投计划失败: {str(e)}")
+        print(f"[API错误] 错误类型: {type(e)}")
+        import traceback
+        print(f"[API错误] 完整错误堆栈:")
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
 
