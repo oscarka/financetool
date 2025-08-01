@@ -1133,7 +1133,10 @@ const DCAPlans: React.FC = () => {
                                 rules={[{ required: true, message: '请选择开始日期' }]}
                             >
                                 <DatePicker style={{ width: '100%' }}
-                                    onChange={date => setHistoryRange([date, historyRange ? historyRange[1] : null])}
+                                    onChange={date => {
+                                        const endDate = isOngoing ? dayjs() : (historyRange ? historyRange[1] : null)
+                                        setHistoryRange([date, endDate])
+                                    }}
                                 />
                             </Form.Item>
                         </Col>
@@ -1155,7 +1158,11 @@ const DCAPlans: React.FC = () => {
                                         setIsOngoing(e.target.checked)
                                         if (e.target.checked) {
                                             form.setFieldsValue({ end_date: undefined })
-                                            setHistoryRange([historyRange ? historyRange[0] : null, null])
+                                            // 当选择持续进行中时，设置historyRange为从开始日期到今天，用于排除日期选择
+                                            const startDate = form.getFieldValue('start_date')
+                                                ? dayjs(form.getFieldValue('start_date'))
+                                                : dayjs().subtract(30, 'day')
+                                            setHistoryRange([startDate, dayjs()])
                                         } else {
                                             form.setFieldsValue({ end_date: undefined })
                                         }
