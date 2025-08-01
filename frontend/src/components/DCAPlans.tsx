@@ -724,7 +724,7 @@ const DCAPlans: React.FC = () => {
                         <Button
                             type="link"
                             size="small"
-                            style={{ padding: 0, color: '#ff4d4f' }}
+                            style={{ padding: 0, color: '#fa8c16' }}
                             onClick={() => handleDeleteOperations(record)}
                         >
                             删除操作
@@ -734,27 +734,14 @@ const DCAPlans: React.FC = () => {
                         <Button
                             type="link"
                             size="small"
-                            style={{ padding: 0, color: '#52c41a' }}
+                            style={{ padding: 0, color: '#722ed1' }}
                             onClick={() => handleUpdateStatistics(record)}
                         >
                             更新统计
                         </Button>
                     </Tooltip>
                     <Space>
-                        <Tooltip title="仅删除计划">
-                            <Button
-                                type="link"
-                                size="small"
-                                danger
-                                icon={<DeleteOutlined />}
-                                style={{ padding: 0 }}
-                                onClick={() => {
-                                    console.log('[前端调试] 直接点击删除计划按钮')
-                                    handleDeleteDirect(record)
-                                }}
-                            />
-                        </Tooltip>
-                        <Tooltip title="删除计划及操作记录">
+                        <Tooltip title="删除计划（保留操作记录）">
                             <Button
                                 type="link"
                                 size="small"
@@ -762,10 +749,24 @@ const DCAPlans: React.FC = () => {
                                 icon={<DeleteOutlined />}
                                 style={{ padding: 0, color: '#ff7875' }}
                                 onClick={() => {
+                                    console.log('[前端调试] 直接点击删除计划按钮')
+                                    handleDeleteDirect(record)
+                                }}
+                            />
+                        </Tooltip>
+                        <Tooltip title="删除计划及所有操作记录">
+                            <Button
+                                type="link"
+                                size="small"
+                                danger
+                                style={{ padding: 0, color: '#ff4d4f' }}
+                                onClick={() => {
                                     console.log('[前端调试] 直接点击删除计划及操作记录按钮')
                                     handleDeleteWithOperationsDirect(record)
                                 }}
-                            />
+                            >
+                                删除全部
+                            </Button>
                         </Tooltip>
                     </Space>
                 </Space>
