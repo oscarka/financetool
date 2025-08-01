@@ -7,6 +7,7 @@ from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
 import redis
 import json
 import os
+from typing import List
 
 # Redis缓存配置
 try:
@@ -149,6 +150,29 @@ def fetch_digital_currency_rate(from_currency: str, to_currency: str):
         logging.warning(f"获取数字货币汇率失败: {e}")
         return Decimal('0.0001')  # 返回默认值而不是None
 
+def _get_user_crypto_currencies(db: Session) -> List[str]:
+    """获取用户持有的数字货币列表"""
+    try:
+        # 从OKX余额表获取用户持有的币种
+        balances = db.query(OKXBalance).filter(
+            OKXBalance.total_balance > 0
+        ).all()
+        
+        currencies = set()
+        for balance in balances:
+            if balance.currency:
+                currencies.add(balance.currency)
+        
+        # 添加常见的数字货币（如果用户没有持有，也缓存主要币种）
+        common_cryptos = ['BTC', 'ETH', 'USDT', 'USDC', 'SOL', 'ADA', 'DOT', 'LINK']
+        currencies.update(common_cryptos)
+        
+        return list(currencies)
+        
+    except Exception as e:
+        logging.error(f"获取用户数字货币列表失败: {e}")
+        return []
+
 def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_point: datetime = None):
     """获取最新汇率，支持多层转换"""
     # 1. 优先查询ExchangeRateSnapshot表
@@ -175,14 +199,8 @@ def get_latest_rate(db: Session, from_currency: str, to_currency: str, time_poin
         logging.info(f"从WiseExchangeRate获取汇率: {from_currency}/{to_currency} = {rate.rate}")
         return Decimal(rate.rate)
     
-    # 2. 数字货币特殊处理
-    digital_currencies = [
-        'USDT', 'USDC', 'BTC', 'ETH', 'IP', 'TRUMP', 'MOVE', 'S', 'KAITO', 'AIXBT', 'MXC',
-        'DOGE', 'ADA', 'DOT', 'LINK', 'UNI', 'LTC', 'BCH', 'XRP', 'SOL', 'MATIC', 'AVAX',
-        'ATOM', 'FTM', 'NEAR', 'ALGO', 'VET', 'THETA', 'FIL', 'ICP', 'APT', 'SUI', 'SEI',
-        'TIA', 'JUP', 'PYTH', 'WIF', 'BONK', 'PEPE', 'SHIB', 'FLOKI', 'BOME', 'BOOK',
-        'POPCAT', 'TURBO', 'MYRO', 'WEN', 'SLERF'
-    ]
+    # 3. 数字货币特殊处理 - 动态获取数字货币列表
+    digital_currencies = _get_user_crypto_currencies(db)
     
     if from_currency in digital_currencies and to_currency == 'USDT':
         # 数字货币对USDT汇率
@@ -347,13 +365,7 @@ def extract_exchange_rate_snapshot(db: Session, snapshot_time: datetime = None):
             logging.info(f"添加Wise汇率快照: {w.source_currency}/{w.target_currency} = {w.rate}")
         
         # 2. 获取数字货币汇率并记录
-        digital_currencies = [
-            'USDT', 'USDC', 'BTC', 'ETH', 'IP', 'TRUMP', 'MOVE', 'S', 'KAITO', 'AIXBT', 'MXC',
-            'DOGE', 'ADA', 'DOT', 'LINK', 'UNI', 'LTC', 'BCH', 'XRP', 'SOL', 'MATIC', 'AVAX',
-            'ATOM', 'FTM', 'NEAR', 'ALGO', 'VET', 'THETA', 'FIL', 'ICP', 'APT', 'SUI', 'SEI',
-            'TIA', 'JUP', 'PYTH', 'WIF', 'BONK', 'PEPE', 'SHIB', 'FLOKI', 'BOME', 'BOOK',
-            'POPCAT', 'TURBO', 'MYRO', 'WEN', 'SLERF'
-        ]
+        digital_currencies = _get_user_crypto_currencies(db)
         
         logging.info(f"开始处理 {len(digital_currencies)} 种数字货币")
         
