@@ -362,6 +362,50 @@ const DCAPlans: React.FC = () => {
         })
     }
 
+    // 直接删除定投计划（无确认对话框）
+    const handleDeleteDirect = async (record: DCAPlan) => {
+        console.log('[前端调试] 直接删除定投计划:', record)
+        setSubmitting(true)
+        try {
+            console.log('[前端调试] 调用fundAPI.deleteDCAPlan，ID:', record.id)
+            const response = await fundAPI.deleteDCAPlan(record.id)
+            console.log('[前端调试] API响应:', response)
+            if (response.success) {
+                message.success('删除成功')
+                fetchPlans()
+            } else {
+                message.error('删除失败')
+            }
+        } catch (error: any) {
+            console.error('[前端调试] 删除定投计划失败:', error)
+            message.error('删除失败，请稍后重试')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    // 直接删除定投计划及操作记录（无确认对话框）
+    const handleDeleteWithOperationsDirect = async (record: DCAPlan) => {
+        console.log('[前端调试] 直接删除定投计划及操作记录:', record)
+        setSubmitting(true)
+        try {
+            console.log('[前端调试] 调用fundAPI.deleteDCAPlan，ID:', record.id, 'delete_operations: true')
+            const response = await fundAPI.deleteDCAPlan(record.id, { delete_operations: true })
+            console.log('[前端调试] API响应:', response)
+            if (response.success) {
+                message.success('删除成功')
+                fetchPlans()
+            } else {
+                message.error('删除失败')
+            }
+        } catch (error: any) {
+            console.error('[前端调试] 删除定投计划失败:', error)
+            message.error('删除失败，请稍后重试')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     // 执行定投计划
     const handleExecute = async (record: DCAPlan) => {
         setSubmitting(true)
@@ -781,39 +825,34 @@ const DCAPlans: React.FC = () => {
                             更新统计
                         </Button>
                     </Tooltip>
-                    <Dropdown
-                        menu={{
-                            items: [
-                                {
-                                    key: 'delete_plan_only',
-                                    label: '仅删除计划',
-                                    onClick: () => {
-                                        console.log('[前端调试] 点击"仅删除计划"菜单项')
-                                        handleDelete(record)
-                                    }
-                                },
-                                {
-                                    key: 'delete_plan_with_operations',
-                                    label: '删除计划及操作记录',
-                                    danger: true,
-                                    onClick: () => {
-                                        console.log('[前端调试] 点击"删除计划及操作记录"菜单项')
-                                        handleDeleteWithOperations(record)
-                                    }
-                                }
-                            ]
-                        }}
-                    >
-                        <Tooltip title="删除">
+                    <Space>
+                        <Tooltip title="仅删除计划">
                             <Button
                                 type="link"
                                 size="small"
                                 danger
                                 icon={<DeleteOutlined />}
                                 style={{ padding: 0 }}
+                                onClick={() => {
+                                    console.log('[前端调试] 直接点击删除计划按钮')
+                                    handleDeleteDirect(record)
+                                }}
                             />
                         </Tooltip>
-                    </Dropdown>
+                        <Tooltip title="删除计划及操作记录">
+                            <Button
+                                type="link"
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                style={{ padding: 0, color: '#ff7875' }}
+                                onClick={() => {
+                                    console.log('[前端调试] 直接点击删除计划及操作记录按钮')
+                                    handleDeleteWithOperationsDirect(record)
+                                }}
+                            />
+                        </Tooltip>
+                    </Space>
                 </Space>
             )
         }
