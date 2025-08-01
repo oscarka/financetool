@@ -62,10 +62,9 @@ class WiseExchangeRateSyncTask(BaseTask):
             # 初始化汇率服务
             exchange_service = ExchangeRateService(wise_service.api_token)
             
-            # 同步汇率数据
-            sync_result = await exchange_service.fetch_and_store_history(
+            # 使用增量同步方法，避免重复获取历史数据
+            sync_result = await exchange_service.fetch_and_store_history_incremental(
                 currencies=currencies,
-                days=days,
                 group='day'
             )
             
