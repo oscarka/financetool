@@ -1242,25 +1242,62 @@ class DCAService:
     @staticmethod
     def delete_dca_plan(db: Session, plan_id: int) -> bool:
         """删除定投计划（不删除操作）"""
-        plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
-        if not plan:
+        print(f"[调试] 开始删除定投计划，ID: {plan_id}")
+        try:
+            plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
+            if not plan:
+                print(f"[调试] 定投计划不存在，ID: {plan_id}")
+                return False
+            
+            print(f"[调试] 找到定投计划: {plan.plan_name}")
+            print(f"[调试] 准备删除计划")
+            db.delete(plan)
+            print(f"[调试] 计划已从session中删除")
+            db.commit()
+            print(f"[调试] 数据库提交成功")
+            return True
+        except Exception as e:
+            print(f"[错误] 删除定投计划失败: {str(e)}")
+            db.rollback()
             return False
-        db.delete(plan)
-        db.commit()
-        return True
     
     @staticmethod
     def delete_dca_plan_with_operations(db: Session, plan_id: int) -> bool:
         """删除定投计划及其所有关联操作记录"""
-        from app.models.database import UserOperation
-        plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
-        if not plan:
+        print(f"[调试] 开始删除定投计划及操作记录，ID: {plan_id}")
+        try:
+            from app.models.database import UserOperation
+            plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
+            if not plan:
+                print(f"[调试] 定投计划不存在，ID: {plan_id}")
+                return False
+            
+            print(f"[调试] 找到定投计划: {plan.plan_name}")
+            
+            # 查询关联的操作记录数量
+            operations_count = db.query(UserOperation).filter(UserOperation.dca_plan_id == plan_id).count()
+            print(f"[调试] 关联操作记录数量: {operations_count}")
+            
+            # 删除所有关联操作
+            print(f"[调试] 开始删除关联操作记录")
+            deleted_operations = db.query(UserOperation).filter(UserOperation.dca_plan_id == plan_id).delete()
+            print(f"[调试] 删除了 {deleted_operations} 条操作记录")
+            
+            # 删除定投计划
+            print(f"[调试] 开始删除定投计划")
+            db.delete(plan)
+            print(f"[调试] 计划已从session中删除")
+            
+            db.commit()
+            print(f"[调试] 数据库提交成功")
+            return True
+        except Exception as e:
+            print(f"[错误] 删除定投计划及操作记录失败: {str(e)}")
+            import traceback
+            print(f"[错误] 完整错误堆栈:")
+            traceback.print_exc()
+            db.rollback()
             return False
-        # 删除所有关联操作
-        db.query(UserOperation).filter(UserOperation.dca_plan_id == plan_id).delete()
-        db.delete(plan)
-        db.commit()
-        return True
     
     @staticmethod
     def execute_dca_plan(db: Session, plan_id: int, execution_type: str = "scheduled") -> Optional[UserOperation]:

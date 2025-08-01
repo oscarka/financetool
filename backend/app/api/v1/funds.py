@@ -692,21 +692,34 @@ def delete_dca_plan(
     db: Session = Depends(get_db)
 ):
     """删除定投计划，支持批量删除操作记录"""
+    print(f"[API调试] 开始删除定投计划，ID: {plan_id}, delete_operations: {delete_operations}")
     try:
         if delete_operations:
+            print(f"[API调试] 调用delete_dca_plan_with_operations")
             success = DCAService.delete_dca_plan_with_operations(db, plan_id)
         else:
+            print(f"[API调试] 调用delete_dca_plan")
             success = DCAService.delete_dca_plan(db, plan_id)
+        
+        print(f"[API调试] 删除操作结果: {success}")
+        
         if not success:
+            print(f"[API调试] 删除失败，返回404")
             raise HTTPException(status_code=404, detail="定投计划不存在")
         
+        print(f"[API调试] 删除成功，准备返回响应")
         return BaseResponse(
             success=True,
             message="定投计划删除成功"
         )
     except HTTPException:
+        print(f"[API调试] 捕获HTTPException，重新抛出")
         raise
     except Exception as e:
+        print(f"[API错误] 删除定投计划异常: {str(e)}")
+        import traceback
+        print(f"[API错误] 完整错误堆栈:")
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
 
