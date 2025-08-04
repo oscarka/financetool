@@ -483,6 +483,7 @@ class FundOperationService:
         amount_check = update_dict.get('amount') is not None
         fee_check = update_dict.get('fee') is not None
         status_check = update_dict.get('status') is not None
+        quantity_check = update_dict.get('quantity') is not None
         
         print(f"[调试] 份额重新计算条件检查:")
         print(f"[调试]   operation_type={operation.operation_type}")
@@ -490,13 +491,15 @@ class FundOperationService:
         print(f"[调试]   amount_check={amount_check} (amount={update_dict.get('amount')})")
         print(f"[调试]   fee_check={fee_check} (fee={update_dict.get('fee')})")
         print(f"[调试]   status_check={status_check} (status={update_dict.get('status')})")
+        print(f"[调试]   quantity_check={quantity_check} (quantity={update_dict.get('quantity')})")
         print(f"[调试]   买入条件: {operation.operation_type == 'buy'}")
         print(f"[调试]   字段变化条件: {nav_check or amount_check or fee_check}")
         print(f"[调试]   最终条件: {operation.operation_type == 'buy' and (nav_check or amount_check or fee_check)}")
         
         # 检查是否需要重新匹配净值（操作时间改变时）
         operation_date_changed = 'operation_date' in update_dict
-        should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check)
+        # 如果用户明确修改了quantity字段，则不重新计算份额
+        should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check) and not quantity_check
         
         # 重新计算份额
         if operation_date_changed:
