@@ -262,6 +262,13 @@ class ExtensibleSchedulerService:
                 state = 'paused'
             elif job.next_run_time:
                 state = 'running'
+            
+            # 添加调试信息
+            logger.info(f"任务调试信息: {job.id}")
+            logger.info(f"  - 名称: {job.name}")
+            logger.info(f"  - 触发器: {job.trigger}")
+            logger.info(f"  - 下次执行时间: {job.next_run_time}")
+            logger.info(f"  - 状态: {state}")
                 
             jobs.append({
                 'job_id': job.id,
