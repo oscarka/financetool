@@ -96,8 +96,13 @@ class FundOperationService:
         fee = operation.fee or 0
         print(f"[调试] 手续费: {fee}")
 
-        # 如果有净值，就重新计算份额（无论quantity是否为None）
-        if nav_value:
+        # 如果用户已经明确设置了quantity，则跳过自动计算
+        if operation.quantity is not None:
+            print(f"[调试] 用户已明确设置quantity={operation.quantity}，跳过自动计算")
+            operation.nav = nav_value
+            operation.price = nav_value
+        elif nav_value:
+            # 只有在用户没有明确设置quantity时才自动计算
             shares = (operation.amount - fee) / nav_value
             # 四舍五入保留2位小数
             shares = Decimal(shares).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
