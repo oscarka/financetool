@@ -864,7 +864,8 @@ def get_fund_nav_history_with_cache(
     """获取基金历史净值，支持按需用akshare拉取并缓存，支持合并分红数据"""
     try:
         if force_update:
-            count = FundNavService.fetch_and_cache_nav_history(db, fund_code)
+            # 使用统一的净值更新方法，避免重复
+            count = FundNavService.force_update_nav_history(db, fund_code)
         
         navs = db.query(FundNav).filter_by(fund_code=fund_code).order_by(FundNav.nav_date.desc()).all()
         data = [

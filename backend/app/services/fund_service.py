@@ -1104,6 +1104,52 @@ class FundNavService:
             raise e
 
     @staticmethod
+    def force_update_nav_history(db: Session, fund_code: str) -> int:
+        """强制更新基金历史净值（统一方法，避免重复）"""
+        try:
+            print(f"[调试] 开始强制更新基金 {fund_code} 的历史净值")
+            df = ak.fund_open_fund_info_em(symbol=fund_code, indicator="单位净值走势")
+            print(f"[调试] akshare返回数据行数: {len(df)}")
+            
+            count = 0
+            for _, row in df.iterrows():
+                try:
+                    nav_date_value = row['净值日期']
+                    # 处理日期可能是字符串或datetime.date对象的情况
+                    if isinstance(nav_date_value, str):
+                        nav_date = datetime.strptime(nav_date_value, '%Y-%m-%d').date()
+                    elif hasattr(nav_date_value, 'date'):
+                        nav_date = nav_date_value.date()
+                    else:
+                        nav_date = nav_date_value
+                    
+                    nav = Decimal(str(row['单位净值']))
+                    acc_nav = Decimal(str(row.get('累计净值', 0))) if row.get('累计净值') else None
+                    
+                    # 使用统一的create_nav方法，确保重复检查一致
+                    nav_record = FundNavService.create_nav(
+                        db, fund_code, nav_date, nav, 
+                        accumulated_nav=acc_nav, source="akshare"
+                    )
+                    
+                    # 如果是新创建的记录，计数加1
+                    if nav_record and not hasattr(nav_record, '_sa_instance_state') or nav_record._sa_instance_state.persistent:
+                        count += 1
+                        
+                except Exception as e:
+                    print(f"[调试] 处理单条净值记录失败: {e}, row={row}")
+                    continue
+            
+            # 提交事务
+            db.commit()
+            print(f"[调试] 强制更新完成，处理了 {count} 条记录")
+            return count
+        except Exception as e:
+            print(f"[调试] 强制更新历史净值失败: {e}")
+            db.rollback()
+            raise e
+
+    @staticmethod
     @auto_log("database", log_result=True)
     def get_batch_latest_nav(db: Session, fund_codes: List[str]) -> dict:
         """批量获取基金最新净值 - 优化性能"""
