@@ -285,10 +285,24 @@ class ExtensibleSchedulerService:
                 logger.info(f"  - 状态: {state}")
                 logger.info(f"*** 定投任务信息结束 ***")
                 
+            # 确保时间使用正确的时区
+            next_run_time = None
+            if job.next_run_time:
+                # 强制转换为Asia/Shanghai时区
+                import pytz
+                shanghai_tz = pytz.timezone('Asia/Shanghai')
+                if job.next_run_time.tzinfo is None:
+                    # 如果没有时区信息，假设是UTC时间
+                    next_run_time = job.next_run_time.replace(tzinfo=pytz.UTC).astimezone(shanghai_tz)
+                else:
+                    # 如果有时区信息，转换到上海时区
+                    next_run_time = job.next_run_time.astimezone(shanghai_tz)
+                next_run_time = next_run_time.isoformat()
+            
             jobs.append({
                 'job_id': job.id,
                 'name': job.name,
-                'next_run_time': job.next_run_time.isoformat() if job.next_run_time else None,
+                'next_run_time': next_run_time,
                 'trigger': str(job.trigger),
                 'state': state
             })
