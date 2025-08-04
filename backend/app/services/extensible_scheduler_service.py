@@ -322,43 +322,17 @@ class ExtensibleSchedulerService:
                 logger.info(f"  - 状态: {state}")
                 logger.info(f"*** 定投任务信息结束 ***")
                 
-            # 确保时间使用正确的时区
+            # APScheduler已经返回了正确的时区感知时间，直接使用
             next_run_time = None
             if job.next_run_time:
-                # 添加详细的时区调试信息
-                import pytz
-                from datetime import datetime
-                
+                # 添加简化的调试信息
                 logger.info(f"=== 时区调试信息: {job.id} ===")
-                logger.info(f"原始时间: {job.next_run_time}")
-                logger.info(f"原始时间类型: {type(job.next_run_time)}")
-                logger.info(f"原始时间时区: {job.next_run_time.tzinfo}")
+                logger.info(f"APScheduler原始时间: {job.next_run_time}")
+                logger.info(f"APScheduler原始时间类型: {type(job.next_run_time)}")
+                logger.info(f"APScheduler原始时间时区: {job.next_run_time.tzinfo}")
                 
-                # 检查系统当前时间
-                now_utc = datetime.utcnow()
-                now_local = datetime.now()
-                logger.info(f"系统UTC时间: {now_utc}")
-                logger.info(f"系统本地时间: {now_local}")
-                
-                # 检查时区设置
-                shanghai_tz = pytz.timezone('Asia/Shanghai')
-                utc_tz = pytz.UTC
-                logger.info(f"上海时区: {shanghai_tz}")
-                logger.info(f"UTC时区: {utc_tz}")
-                
-                # 强制转换为Asia/Shanghai时区
-                if job.next_run_time.tzinfo is None:
-                    logger.info("原始时间无时区信息，假设为UTC时间")
-                    next_run_time = job.next_run_time.replace(tzinfo=pytz.UTC).astimezone(shanghai_tz)
-                else:
-                    logger.info("原始时间有时区信息，转换到上海时区")
-                    next_run_time = job.next_run_time.astimezone(shanghai_tz)
-                
-                logger.info(f"转换后时间: {next_run_time}")
-                logger.info(f"转换后时间类型: {type(next_run_time)}")
-                logger.info(f"转换后时间时区: {next_run_time.tzinfo}")
-                
-                next_run_time = next_run_time.isoformat()
+                # 直接使用APScheduler的时间，不做任何转换
+                next_run_time = job.next_run_time.isoformat()
                 logger.info(f"最终ISO格式: {next_run_time}")
                 logger.info(f"=== 时区调试信息结束 ===")
             
