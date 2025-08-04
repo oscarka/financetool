@@ -55,13 +55,14 @@ class FundNavUpdateTask(BaseTask):
                         # 使用akshare获取最新净值
                         context.log(f"开始更新基金 {fund_code} 净值")
                         
-                        # 调用akshare获取数据
+                        # 调用akshare获取最新净值数据
                         import akshare as ak
+                        # 使用 fund_open_fund_info_em 获取基金净值走势
                         df = ak.fund_open_fund_info_em(symbol=fund_code, indicator="单位净值走势")
                         
                         if not df.empty:
-                            # 获取最新的一条数据
-                            latest_row = df.iloc[0]
+                            # 获取最新的一条数据（最后一行）
+                            latest_row = df.iloc[-1]  # 修改：使用最后一行获取最新净值
                             nav_date = latest_row['净值日期']
                             nav_value = latest_row['单位净值']
                             
