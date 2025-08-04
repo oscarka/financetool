@@ -502,13 +502,14 @@ class FundOperationService:
         print(f"[调试]   买入条件: {operation.operation_type == 'buy'}")
         print(f"[调试]   字段变化条件: {nav_check or amount_check or fee_check}")
         print(f"[调试]   最终条件: {operation.operation_type == 'buy' and (nav_check or amount_check or fee_check)}")
-        print(f"[调试]   是否重新计算: {should_recalculate}")
-        print(f"[调试]   用户修改了quantity: {quantity_check}")
         
         # 检查是否需要重新匹配净值（操作时间改变时）
         operation_date_changed = 'operation_date' in update_dict
         # 如果用户明确修改了quantity字段，则不重新计算份额
         should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check) and not quantity_check
+        
+        print(f"[调试]   是否重新计算: {should_recalculate}")
+        print(f"[调试]   用户修改了quantity: {quantity_check}")
         
         # 重新计算份额
         if operation_date_changed:
