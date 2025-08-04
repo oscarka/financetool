@@ -2298,8 +2298,14 @@ class NavMatchingCheckService:
         actual_nav = None
         actual_nav_date = None
         if operation.nav:
-            # 用户填写了净值，使用操作日期作为净值日期
-            actual_nav_date = operation_date
+            # 用户填写了净值，需要根据操作时间确定对应的净值日期
+            if operation_time < time(15, 0):
+                # 15:00前操作，净值日期应该是当天
+                actual_nav_date = operation_date
+            else:
+                # 15:00后操作，净值日期应该是下一个交易日
+                next_trading_day = FundOperationService._get_next_trading_day(db, operation.asset_code, operation_date)
+                actual_nav_date = next_trading_day if next_trading_day else operation_date
             actual_nav = operation.nav
             nav_source = "用户填写"
         else:
