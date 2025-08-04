@@ -256,11 +256,19 @@ class ExtensibleSchedulerService:
         """获取所有任务"""
         jobs = []
         for job in self.scheduler.get_jobs():
+            # 检查任务状态 - 暂停的任务next_run_time为None
+            state = 'running'  # 默认状态
+            if job.next_run_time is None:
+                state = 'paused'
+            elif job.next_run_time:
+                state = 'running'
+                
             jobs.append({
                 'job_id': job.id,
                 'name': job.name,
                 'next_run_time': job.next_run_time.isoformat() if job.next_run_time else None,
-                'trigger': str(job.trigger)
+                'trigger': str(job.trigger),
+                'state': state
             })
         return jobs
         
