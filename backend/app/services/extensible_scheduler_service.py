@@ -21,8 +21,12 @@ class ExtensibleSchedulerService:
     """可扩展定时任务调度器服务"""
     
     def __init__(self):
+        # 确保时区设置正确
+        import pytz
+        timezone = pytz.timezone(settings.scheduler_timezone)
+        
         self.scheduler = AsyncIOScheduler(
-            timezone=settings.scheduler_timezone,
+            timezone=timezone,
             job_defaults={
                 'coalesce': True,
                 'max_instances': 1,
@@ -269,6 +273,17 @@ class ExtensibleSchedulerService:
             logger.info(f"  - 触发器: {job.trigger}")
             logger.info(f"  - 下次执行时间: {job.next_run_time}")
             logger.info(f"  - 状态: {state}")
+            
+            # 特别关注定投任务
+            if 'dca' in job.id.lower() or '定投' in job.name:
+                logger.info(f"*** 定投任务详细信息 ***")
+                logger.info(f"  - 任务ID: {job.id}")
+                logger.info(f"  - 任务名称: {job.name}")
+                logger.info(f"  - 触发器原始配置: {job.trigger}")
+                logger.info(f"  - 下次执行时间: {job.next_run_time}")
+                logger.info(f"  - 时区: {job.next_run_time.tzinfo if job.next_run_time else 'None'}")
+                logger.info(f"  - 状态: {state}")
+                logger.info(f"*** 定投任务信息结束 ***")
                 
             jobs.append({
                 'job_id': job.id,

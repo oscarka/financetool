@@ -18,8 +18,12 @@ class SchedulerService:
     """定时任务服务类"""
     
     def __init__(self):
+        # 确保时区设置正确
+        import pytz
+        timezone = pytz.timezone(settings.scheduler_timezone)
+        
         self.scheduler = AsyncIOScheduler(
-            timezone=settings.scheduler_timezone,
+            timezone=timezone,
             job_defaults={
                 'coalesce': True,
                 'max_instances': 1
