@@ -1571,6 +1571,7 @@ def export_fund_operations_csv(
     operation_type: Optional[str] = Query(None, description="操作类型"),
     include_nav: bool = Query(True, description="是否包含净值信息"),
     include_dividend: bool = Query(True, description="是否包含分红信息"),
+    include_nav_check: bool = Query(True, description="是否包含净值匹配检查"),
     db: Session = Depends(get_db)
 ):
     """导出基金操作记录为CSV文件，包含所有计算因素"""
@@ -1617,6 +1618,12 @@ def export_fund_operations_csv(
                 "分红日期", "分红金额", "总分红", "公告日期"
             ])
         
+        # 如果需要包含净值匹配检查，添加检查相关字段
+        if include_nav_check:
+            headers.extend([
+                "净值匹配检查", "预期净值日期", "实际净值日期", "匹配状态", "问题描述"
+            ])
+        
         writer.writerow(headers)
         
         # 批量获取净值信息
@@ -1635,6 +1642,14 @@ def export_fund_operations_csv(
                     db, fund_code, start_date=start_date, end_date=end_date
                 )
                 dividend_map[fund_code] = {div.dividend_date: div for div in dividend_records}
+        
+        # 批量获取净值匹配检查结果
+        nav_check_map = {}
+        if include_nav_check:
+            from app.services.fund_service import NavMatchingCheckService
+            for operation in operations:
+                check_result = NavMatchingCheckService._check_single_operation(db, operation)
+                nav_check_map[operation.id] = check_result
         
         # 写入数据行
         for operation in operations:
@@ -1685,6 +1700,18 @@ def export_fund_operations_csv(
                     float(dividend_info.dividend_amount) if dividend_info and dividend_info.dividend_amount else "",
                     float(dividend_info.total_dividend) if dividend_info and dividend_info.total_dividend else "",
                     dividend_info.announcement_date.strftime("%Y-%m-%d") if dividend_info and dividend_info.announcement_date else ""
+                ])
+            
+            # 添加净值匹配检查信息
+            if include_nav_check:
+                check_result = nav_check_map.get(operation.id, {})
+                
+                row.extend([
+                    "✓" if check_result.get('is_correct', False) else "✗",
+                    check_result.get('expected_nav_date', ''),
+                    check_result.get('actual_nav_date', ''),
+                    check_result.get('status', ''),
+                    check_result.get('issue_description', '')
                 ])
             
             writer.writerow(row)
@@ -1930,3 +1957,66 @@ def incremental_update_nav(fund_code: str, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"增量更新失败: {e}")
         raise HTTPException(status_code=500, detail=f"增量更新失败: {str(e)}") 
+
+@router.get("/nav-matching-check")
+async def check_nav_matching_consistency(
+    db: Session = Depends(get_db)
+):
+    """检查净值匹配一致性"""
+    try:
+        from app.services.fund_service import NavMatchingCheckService
+        results = NavMatchingCheckService.check_nav_matching_consistency(db)
+        return {
+            "success": True,
+            "data": results
+        }
+    except Exception as e:
+        logger.error(f"净值匹配检查失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.post("/nav-matching-mark")
+async def mark_incorrect_nav_matching(
+    db: Session = Depends(get_db)
+):
+    """标记净值匹配错误的操作"""
+    try:
+        from app.services.fund_service import NavMatchingCheckService
+        marked_count = NavMatchingCheckService.mark_incorrect_operations(db)
+        return {
+            "success": True,
+            "data": {
+                "marked_count": marked_count,
+                "message": f"已标记 {marked_count} 条错误匹配的操作"
+            }
+        }
+    except Exception as e:
+        logger.error(f"标记净值匹配错误失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.get("/nav-matching-issues")
+async def get_nav_matching_issues(
+    db: Session = Depends(get_db)
+):
+    """获取有净值匹配问题的操作记录"""
+    try:
+        from app.services.fund_service import NavMatchingCheckService
+        issues = NavMatchingCheckService.get_operations_with_nav_issues(db)
+        return {
+            "success": True,
+            "data": {
+                "issues": issues,
+                "total_issues": len(issues)
+            }
+        }
+    except Exception as e:
+        logger.error(f"获取净值匹配问题失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }

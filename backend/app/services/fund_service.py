@@ -2234,3 +2234,179 @@ class FundDividendService:
             db.commit()
         
         return saved_count 
+
+
+class NavMatchingCheckService:
+    """净值匹配检查服务"""
+    
+    @staticmethod
+    def check_nav_matching_consistency(db: Session) -> dict:
+        """检查所有操作记录的净值匹配一致性"""
+        print("[净值匹配检查] 开始检查所有操作记录...")
+        
+        # 获取所有操作记录
+        operations = db.query(UserOperation).filter(
+            UserOperation.asset_type == "基金"
+        ).order_by(UserOperation.operation_date).all()
+        
+        results = {
+            'total_operations': len(operations),
+            'correct_matching': 0,
+            'incorrect_matching': 0,
+            'no_nav_data': 0,
+            'details': []
+        }
+        
+        for operation in operations:
+            check_result = NavMatchingCheckService._check_single_operation(db, operation)
+            results['details'].append(check_result)
+            
+            if check_result['status'] == 'correct':
+                results['correct_matching'] += 1
+            elif check_result['status'] == 'incorrect':
+                results['incorrect_matching'] += 1
+            else:
+                results['no_nav_data'] += 1
+        
+        print(f"[净值匹配检查] 检查完成: 总计{results['total_operations']}条记录")
+        print(f"[净值匹配检查] 正确匹配: {results['correct_matching']}条")
+        print(f"[净值匹配检查] 错误匹配: {results['incorrect_matching']}条")
+        print(f"[净值匹配检查] 无净值数据: {results['no_nav_data']}条")
+        
+        return results
+    
+    @staticmethod
+    def _check_single_operation(db: Session, operation: UserOperation) -> dict:
+        """检查单个操作的净值匹配"""
+        operation_datetime = operation.operation_date
+        if isinstance(operation_datetime, str):
+            operation_datetime = datetime.fromisoformat(operation_datetime.replace('Z', '+00:00'))
+        
+        operation_date = operation_datetime.date()
+        operation_time = operation_datetime.time()
+        
+        # 根据15:00规则计算应该匹配的净值日期
+        if operation_time < time(15, 0):
+            expected_nav_date = operation_date
+            expected_nav_source = "当天净值"
+        else:
+            next_trading_day = FundOperationService._get_next_trading_day(db, operation.asset_code, operation_date)
+            expected_nav_date = next_trading_day if next_trading_day else operation_date
+            expected_nav_source = "下一个交易日净值" if next_trading_day else "当天净值(无法确定下一个交易日)"
+        
+        # 获取实际使用的净值
+        actual_nav = None
+        actual_nav_date = None
+        if operation.nav:
+            # 用户填写了净值，使用操作日期作为净值日期
+            actual_nav_date = operation_date
+            actual_nav = operation.nav
+            nav_source = "用户填写"
+        else:
+            # 查找数据库中对应的净值记录
+            nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, expected_nav_date)
+            if nav_record:
+                actual_nav = nav_record.nav
+                actual_nav_date = nav_record.nav_date
+                nav_source = "数据库匹配"
+            else:
+                nav_source = "无净值数据"
+        
+        # 判断匹配是否正确
+        is_correct = False
+        if actual_nav_date and expected_nav_date:
+            is_correct = actual_nav_date == expected_nav_date
+        
+        result = {
+            'operation_id': operation.id,
+            'operation_date': operation_datetime.isoformat(),
+            'operation_time': operation_time.strftime('%H:%M:%S'),
+            'asset_code': operation.asset_code,
+            'asset_name': operation.asset_name,
+            'operation_type': operation.operation_type,
+            'amount': float(operation.amount) if operation.amount else None,
+            'expected_nav_date': expected_nav_date.isoformat() if expected_nav_date else None,
+            'expected_nav_source': expected_nav_source,
+            'actual_nav_date': actual_nav_date.isoformat() if actual_nav_date else None,
+            'actual_nav': float(actual_nav) if actual_nav else None,
+            'nav_source': nav_source,
+            'is_correct': is_correct,
+            'status': 'correct' if is_correct else ('incorrect' if actual_nav_date else 'no_nav'),
+            'issue_description': NavMatchingCheckService._get_issue_description(
+                operation_time, expected_nav_date, actual_nav_date, nav_source
+            )
+        }
+        
+        return result
+    
+    @staticmethod
+    def _get_issue_description(operation_time, expected_nav_date, actual_nav_date, nav_source):
+        """生成问题描述"""
+        if not actual_nav_date:
+            return "无净值数据"
+        
+        if expected_nav_date == actual_nav_date:
+            return "匹配正确"
+        
+        time_str = operation_time.strftime('%H:%M:%S')
+        if operation_time < time(15, 0):
+            return f"15:00前操作({time_str})应使用当天净值，但使用了{actual_nav_date}"
+        else:
+            return f"15:00后操作({time_str})应使用下一个交易日净值，但使用了{actual_nav_date}"
+    
+    @staticmethod
+    def mark_incorrect_operations(db: Session) -> int:
+        """标记净值匹配错误的操作记录"""
+        print("[净值匹配检查] 开始标记错误匹配的操作...")
+        
+        operations = db.query(UserOperation).filter(
+            UserOperation.asset_type == "基金"
+        ).all()
+        
+        marked_count = 0
+        
+        for operation in operations:
+            check_result = NavMatchingCheckService._check_single_operation(db, operation)
+            
+            if check_result['status'] == 'incorrect':
+                # 在notes字段中添加标记
+                current_notes = operation.notes or ""
+                issue_desc = check_result['issue_description']
+                
+                if "净值匹配检查" not in current_notes:
+                    new_notes = f"{current_notes}\n[净值匹配检查] {issue_desc}".strip()
+                    operation.notes = new_notes
+                    marked_count += 1
+                    print(f"[净值匹配检查] 标记操作 {operation.id}: {issue_desc}")
+        
+        if marked_count > 0:
+            db.commit()
+            print(f"[净值匹配检查] 已标记 {marked_count} 条错误匹配的操作")
+        
+        return marked_count
+    
+    @staticmethod
+    def get_operations_with_nav_issues(db: Session) -> List[dict]:
+        """获取有净值匹配问题的操作记录"""
+        operations = db.query(UserOperation).filter(
+            UserOperation.asset_type == "基金"
+        ).order_by(UserOperation.operation_date).all()
+        
+        issues = []
+        for operation in operations:
+            check_result = NavMatchingCheckService._check_single_operation(db, operation)
+            if check_result['status'] != 'correct':
+                issues.append({
+                    'operation_id': operation.id,
+                    'operation_date': operation.operation_date.isoformat() if isinstance(operation.operation_date, datetime) else str(operation.operation_date),
+                    'asset_code': operation.asset_code,
+                    'asset_name': operation.asset_name,
+                    'operation_type': operation.operation_type,
+                    'amount': float(operation.amount) if operation.amount else None,
+                    'issue': check_result['issue_description'],
+                    'expected_nav_date': check_result['expected_nav_date'],
+                    'actual_nav_date': check_result['actual_nav_date'],
+                    'status': check_result['status']
+                })
+        
+        return issues

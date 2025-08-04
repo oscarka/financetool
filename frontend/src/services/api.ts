@@ -274,6 +274,16 @@ export const fundAPI = {
     // 手动执行净值更新任务
     manualUpdateNavs: (): Promise<APIResponse> =>
         api.post('/funds/scheduler/update-navs'),
+
+    // 净值匹配检查相关API
+    checkNavMatching: (): Promise<APIResponse> =>
+        api.get('/funds/nav-matching-check'),
+
+    markIncorrectNavMatching: (): Promise<APIResponse> =>
+        api.post('/funds/nav-matching-mark'),
+
+    getNavMatchingIssues: (): Promise<APIResponse> =>
+        api.get('/funds/nav-matching-issues'),
 }
 
 // Wise相关API

@@ -87,6 +87,10 @@ const FundOperations: React.FC = () => {
     const [processingDividend, setProcessingDividend] = useState<FundOperation | null>(null)
     const [dividendProcessType, setDividendProcessType] = useState<'reinvest' | 'withdraw' | 'skip'>('reinvest')
 
+    // 净值匹配检查相关状态
+    const [navCheckResults, setNavCheckResults] = useState<any>(null);
+    const [navCheckLoading, setNavCheckLoading] = useState(false);
+
     // 批量查所有基金的最新净值 - 已优化：后端已包含最新净值，无需前端单独获取
     const fetchLatestNavs = async (operations: FundOperation[]) => {
         // 优化：移除前端的单独API调用，后端已经返回latest_nav字段
@@ -204,6 +208,82 @@ const FundOperations: React.FC = () => {
             setSubmitting(false)
         }
     }
+
+    // 净值匹配检查功能
+    const checkNavMatching = async () => {
+        setNavCheckLoading(true);
+        try {
+            const response = await fundAPI.checkNavMatching();
+            if (response.success) {
+                setNavCheckResults(response.data);
+                message.success('净值匹配检查完成');
+            } else {
+                message.error('净值匹配检查失败');
+            }
+        } catch (error) {
+            console.error('净值匹配检查失败:', error);
+            message.error('净值匹配检查失败');
+        } finally {
+            setNavCheckLoading(false);
+        }
+    };
+
+    const markIncorrectOperations = async () => {
+        try {
+            const response = await fundAPI.markIncorrectNavMatching();
+            if (response.success) {
+                message.success(response.data.message);
+                // 刷新操作列表
+                fetchOperations(searchParams, pagination.current, pagination.pageSize);
+            } else {
+                message.error('标记错误操作失败');
+            }
+        } catch (error) {
+            console.error('标记错误操作失败:', error);
+            message.error('标记错误操作失败');
+        }
+    };
+
+    const getNavMatchingIssues = async () => {
+        try {
+            const response = await fundAPI.getNavMatchingIssues();
+            if (response.success) {
+                const issues = response.data.issues;
+                if (issues.length > 0) {
+                    // 显示问题列表
+                    Modal.info({
+                        title: '净值匹配问题列表',
+                        width: 800,
+                        content: (
+                            <div>
+                                <p>发现 {issues.length} 个净值匹配问题：</p>
+                                <Table
+                                    dataSource={issues}
+                                    columns={[
+                                        { title: '操作ID', dataIndex: 'operation_id', key: 'operation_id' },
+                                        { title: '操作日期', dataIndex: 'operation_date', key: 'operation_date' },
+                                        { title: '基金代码', dataIndex: 'asset_code', key: 'asset_code' },
+                                        { title: '操作类型', dataIndex: 'operation_type', key: 'operation_type' },
+                                        { title: '问题描述', dataIndex: 'issue', key: 'issue' },
+                                        { title: '状态', dataIndex: 'status', key: 'status' }
+                                    ]}
+                                    size="small"
+                                    pagination={false}
+                                />
+                            </div>
+                        )
+                    });
+                } else {
+                    message.success('没有发现净值匹配问题');
+                }
+            } else {
+                message.error('获取净值匹配问题失败');
+            }
+        } catch (error) {
+            console.error('获取净值匹配问题失败:', error);
+            message.error('获取净值匹配问题失败');
+        }
+    };
 
     useEffect(() => {
         fetchOperations({}, 1, 20)
