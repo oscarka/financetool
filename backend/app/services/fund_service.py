@@ -78,6 +78,7 @@ class FundOperationService:
         # 优先使用用户填写的净值，如果没有则根据操作时间匹配净值
         nav_value = operation.nav
         nav_date = None
+        print(f"[调试] 检查净值来源: operation.nav={operation.nav}, nav_value={nav_value}")
         if nav_value is None:
             print(f"[调试] 操作中没有净值，根据操作时间匹配净值")
             # 根据操作时间获取对应的净值
