@@ -2298,16 +2298,34 @@ class NavMatchingCheckService:
         actual_nav = None
         actual_nav_date = None
         if operation.nav:
-            # 用户填写了净值，需要根据操作时间确定对应的净值日期
+            # 用户填写了净值，需要验证这个净值是否对应正确的日期
+            actual_nav = operation.nav
+            nav_source = "用户填写"
+            
+            # 根据操作时间确定应该使用的净值日期
             if operation_time < time(15, 0):
                 # 15:00前操作，净值日期应该是当天
-                actual_nav_date = operation_date
+                expected_nav_date_for_check = operation_date
             else:
                 # 15:00后操作，净值日期应该是下一个交易日
                 next_trading_day = FundOperationService._get_next_trading_day(db, operation.asset_code, operation_date)
-                actual_nav_date = next_trading_day if next_trading_day else operation_date
-            actual_nav = operation.nav
-            nav_source = "用户填写"
+                expected_nav_date_for_check = next_trading_day if next_trading_day else operation_date
+            
+            # 验证用户填写的净值是否真的对应这个日期
+            nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, expected_nav_date_for_check)
+            if nav_record:
+                # 如果数据库中有对应日期的净值，比较用户填写的净值是否匹配
+                if abs(float(operation.nav) - float(nav_record.nav)) < 0.001:  # 允许0.001的误差
+                    actual_nav_date = expected_nav_date_for_check
+                    nav_source = "用户填写(验证正确)"
+                else:
+                    # 用户填写的净值与预期日期不匹配，尝试找到匹配的日期
+                    actual_nav_date = None
+                    nav_source = "用户填写(净值不匹配)"
+            else:
+                # 数据库中没有对应日期的净值，无法验证
+                actual_nav_date = expected_nav_date_for_check
+                nav_source = "用户填写(无验证数据)"
         else:
             # 查找数据库中对应的净值记录
             nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, expected_nav_date)
@@ -2349,6 +2367,12 @@ class NavMatchingCheckService:
     def _get_issue_description(operation_time, expected_nav_date, actual_nav_date, nav_source):
         """生成问题描述"""
         if not actual_nav_date:
+            if "净值不匹配" in nav_source:
+                time_str = operation_time.strftime('%H:%M:%S')
+                if operation_time < time(15, 0):
+                    return f"15:00前操作({time_str})应使用当天净值，但用户填写的净值与当天净值不匹配"
+                else:
+                    return f"15:00后操作({time_str})应使用下一个交易日净值，但用户填写的净值与下一个交易日净值不匹配"
             return "无净值数据"
         
         if expected_nav_date == actual_nav_date:
