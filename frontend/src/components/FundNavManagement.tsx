@@ -32,7 +32,43 @@ const FundNavManagement: React.FC = () => {
     const [showDividend, setShowDividend] = useState(false)
     const [onlyDividend, setOnlyDividend] = useState(false)
 
+    // 估算数据相关状态
+    const [estimateData, setEstimateData] = useState<any>(null)
+    const [estimateLoading, setEstimateLoading] = useState(false)
 
+
+
+    // 查询基金估算净值
+    const fetchEstimate = async () => {
+        if (!fundCode.trim()) {
+            message.warning('请输入基金代码')
+            return
+        }
+
+        if (estimateLoading) {
+            message.warning('正在查询估算数据中，请稍候...')
+            return
+        }
+
+        setEstimateLoading(true)
+        try {
+            const response = await fundAPI.getFundEstimate(fundCode.trim())
+
+            if (response.success && response.data) {
+                setEstimateData(response.data)
+                message.success('获取估算数据成功')
+            } else {
+                message.error(response.message || '获取估算数据失败')
+                setEstimateData(null)
+            }
+        } catch (error: any) {
+            console.error('获取估算数据失败:', error)
+            message.error('获取估算数据失败')
+            setEstimateData(null)
+        } finally {
+            setEstimateLoading(false)
+        }
+    }
 
     // 查询历史净值
     const fetchNavHistory = async (forceUpdate = false) => {
@@ -351,6 +387,13 @@ const FundNavManagement: React.FC = () => {
                                 同步分红数据
                             </Button>
                             <Button
+                                type="dashed"
+                                loading={estimateLoading}
+                                onClick={fetchEstimate}
+                            >
+                                查询估算净值
+                            </Button>
+                            <Button
                                 icon={<DownloadOutlined />}
                                 disabled={navHistory.length === 0}
                                 onClick={exportNavHistory}
@@ -387,7 +430,70 @@ const FundNavManagement: React.FC = () => {
                 )}
             </Card>
 
-
+            {/* 估算数据显示 */}
+            {estimateData && (
+                <Card title="当天估算净值" style={{ marginTop: 16 }}>
+                    <Row gutter={16}>
+                        <Col span={6}>
+                            <Statistic
+                                title="估算净值"
+                                value={estimateData.estimate_nav}
+                                precision={4}
+                                valueStyle={{ color: '#1890ff' }}
+                            />
+                        </Col>
+                        <Col span={6}>
+                            <Statistic
+                                title="估算时间"
+                                value={estimateData.estimate_time}
+                                valueStyle={{ color: '#722ed1' }}
+                            />
+                        </Col>
+                        <Col span={6}>
+                            <Statistic
+                                title="确认净值"
+                                value={estimateData.confirmed_nav}
+                                precision={4}
+                                valueStyle={{ color: '#3f8600' }}
+                            />
+                        </Col>
+                        <Col span={6}>
+                            <Statistic
+                                title="确认日期"
+                                value={estimateData.confirmed_date}
+                                valueStyle={{ color: '#cf1322' }}
+                            />
+                        </Col>
+                    </Row>
+                    <Row gutter={16} style={{ marginTop: 16 }}>
+                        <Col span={12}>
+                            <Statistic
+                                title="涨跌幅"
+                                value={estimateData.growth_rate}
+                                precision={2}
+                                suffix="%"
+                                valueStyle={{
+                                    color: estimateData.growth_rate > 0 ? '#3f8600' :
+                                        estimateData.growth_rate < 0 ? '#cf1322' : '#666'
+                                }}
+                            />
+                        </Col>
+                        <Col span={12}>
+                            <Statistic
+                                title="数据来源"
+                                value="天天基金估算"
+                                valueStyle={{ color: '#faad14' }}
+                            />
+                        </Col>
+                    </Row>
+                    <div style={{ marginTop: 16, padding: 12, backgroundColor: '#f6f8fa', borderRadius: 6 }}>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>
+                            <strong>说明：</strong>估算净值是天天基金根据当日市场情况预估的净值，仅供参考。
+                            确认净值是基金公司公布的正式净值，通常在交易日下午15:00后公布。
+                        </p>
+                    </div>
+                </Card>
+            )}
 
             {/* 使用说明 */}
             <Card title="使用说明">

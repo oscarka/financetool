@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, func, text
 from typing import List, Optional, Tuple
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from decimal import Decimal, ROUND_HALF_UP
 import json
 import akshare as ak
@@ -75,22 +75,18 @@ class FundOperationService:
                 print(f"[调试] operation_date转换失败: {e}")
                 raise ValueError(f"日期格式不正确: {operation.operation_date}")
         
-        # 优先使用用户填写的净值，如果没有则从数据库查询
+        # 优先使用用户填写的净值，如果没有则根据操作时间匹配净值
         nav_value = operation.nav
         nav_date = None
         if nav_value is None:
-            print(f"[调试] 操作中没有净值，尝试从数据库查询")
-            # 处理operation_date可能是字符串的情况
-            if isinstance(operation.operation_date, str):
-                nav_date = datetime.fromisoformat(operation.operation_date.replace('Z', '+00:00')).date()
-            else:
-                nav_date = operation.operation_date.date()
-            nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, nav_date)
+            print(f"[调试] 操作中没有净值，根据操作时间匹配净值")
+            # 根据操作时间获取对应的净值
+            nav_record = FundOperationService._get_nav_by_operation_time(db, operation.asset_code, operation.operation_date)
             nav_value = nav_record.nav if nav_record else None
             nav_date = nav_record.nav_date if nav_record else None
-            print(f"[调试] 数据库查询结果: nav_value={nav_value}, nav_date={nav_date}")
+            print(f"[调试] 根据操作时间匹配结果: nav_value={nav_value}, nav_date={nav_date}")
         else:
-            # 处理operation_date可能是字符串的情况
+            # 用户填写了净值，使用用户填写的净值日期
             if isinstance(operation.operation_date, str):
                 nav_date = datetime.fromisoformat(operation.operation_date.replace('Z', '+00:00')).date()
             else:
@@ -113,30 +109,7 @@ class FundOperationService:
                 operation.updated_at = datetime.utcnow()
             print(f"[调试] 重新计算份额: amount={operation.amount}, fee={fee}, nav={nav_value}, shares={shares}")
             
-            # 同步最新净值到数据库
-            try:
-                # 使用FundAPIService获取最新净值
-                api_service = FundAPIService()
-                import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                latest_nav_data = loop.run_until_complete(api_service.get_fund_nav_latest_tiantian(operation.asset_code))
-                loop.close()
-                
-                if latest_nav_data and latest_nav_data.get('nav'):
-                    print(f"[调试] 查到最新净值数据: {latest_nav_data}")
-                    # 使用API返回的净值日期和净值，而不是操作日期
-                    api_nav_date = latest_nav_data.get('nav_date')
-                    api_nav = latest_nav_data.get('nav')
-                    if api_nav_date and api_nav:
-                        print(f"[调试] 写入最新净值到数据库: fund_code={operation.asset_code}, nav_date={api_nav_date}, nav={api_nav}")
-                        FundNavService.create_nav(db, operation.asset_code, api_nav_date, api_nav)
-                    else:
-                        print(f"[调试] API返回的净值数据不完整，跳过写入数据库")
-                else:
-                    print(f"[调试] 未查到最新净值数据")
-            except Exception as e:
-                print(f"[调试] 同步最新净值时出错: {e}")
+            # 不再同步最新净值到数据库，仅依赖akshare数据
             
             # 只有在状态为confirmed时才更新持仓
             if operation.status == "confirmed":
@@ -170,15 +143,11 @@ class FundOperationService:
                 print(f"[调试] operation_date转换失败: {e}")
                 raise ValueError(f"日期格式不正确: {operation.operation_date}")
         
-        # 优先使用用户填写的净值，如果没有则从数据库查询
+        # 优先使用用户填写的净值，如果没有则根据操作时间匹配净值
         nav_value = operation.nav
         if nav_value is None:
-            # 处理operation_date可能是字符串的情况
-            if isinstance(operation.operation_date, str):
-                nav_date = datetime.fromisoformat(operation.operation_date.replace('Z', '+00:00')).date()
-            else:
-                nav_date = operation.operation_date.date()
-            nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, nav_date)
+            # 根据操作时间获取对应的净值
+            nav_record = FundOperationService._get_nav_by_operation_time(db, operation.asset_code, operation.operation_date)
             nav_value = nav_record.nav if nav_record else None
         
         if not nav_value:
@@ -525,11 +494,16 @@ class FundOperationService:
         print(f"[调试]   字段变化条件: {nav_check or amount_check or fee_check}")
         print(f"[调试]   最终条件: {operation.operation_type == 'buy' and (nav_check or amount_check or fee_check)}")
         
-        # 只有在真正需要重新计算时才执行，避免重复计算
+        # 检查是否需要重新匹配净值（操作时间改变时）
+        operation_date_changed = 'operation_date' in update_dict
         should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check)
         
         # 重新计算份额
-        if should_recalculate:
+        if operation_date_changed:
+            print(f"[调试] 操作时间已改变，使用新的时间逻辑重新匹配净值")
+            # 使用新的时间逻辑重新计算
+            FundOperationService._recalculate_operation_with_time_logic(db, operation)
+        elif should_recalculate:
             print(f"[调试] 开始重新计算份额...")
             try:
                 if operation.operation_type == 'buy':
@@ -581,7 +555,8 @@ class FundOperationService:
         # 设置更新时间（只有在没有重新计算份额时才设置）
         if not should_recalculate:
             print(f"[调试] 设置updated_at...")
-            operation.updated_at = datetime.utcnow()
+            from datetime import datetime as dt
+            operation.updated_at = dt.utcnow()
             print(f"[调试] 设置updated_at: {operation.updated_at}")
         else:
             print(f"[调试] 跳过设置updated_at（已在份额重新计算中设置）")
@@ -856,6 +831,108 @@ class FundOperationService:
             db.commit()
         
         return updated_count
+    
+    @staticmethod
+    def _get_next_trading_day(db: Session, fund_code: str, start_date: date) -> Optional[date]:
+        """获取下一个交易日（通过查询净值数据判断）"""
+        print(f"[调试] 查找基金 {fund_code} 从 {start_date} 开始的下一个交易日")
+        
+        # 查找从start_date开始未来30天内的所有净值记录
+        future_navs = db.query(FundNav).filter(
+                and_(
+                    FundNav.fund_code == fund_code,
+                FundNav.nav_date > start_date,
+                FundNav.nav_date <= start_date + timedelta(days=30)
+            )
+        ).order_by(FundNav.nav_date).all()
+        
+        if future_navs:
+            next_trading_day = future_navs[0].nav_date
+            print(f"[调试] 找到下一个交易日: {next_trading_day}")
+            return next_trading_day
+        else:
+            print(f"[调试] 未找到下一个交易日，仅依赖数据库中的akshare数据")
+        
+        print(f"[调试] 无法确定下一个交易日")
+        return None
+    
+    @staticmethod
+    def _get_nav_date_by_operation_time(db: Session, fund_code: str, operation_datetime: datetime) -> Optional[date]:
+        """根据操作时间确定对应的净值日期"""
+        operation_date = operation_datetime.date()
+        operation_time = operation_datetime.time()
+        
+        print(f"[调试] 根据操作时间确定净值日期: {operation_datetime}")
+        print(f"[调试] 操作日期: {operation_date}, 操作时间: {operation_time}")
+        
+        # 15:00之前使用当天净值，15:00之后使用下一个交易日净值
+        if operation_time < time(15, 0):
+            nav_date = operation_date
+            print(f"[调试] 15:00之前，使用当天净值日期: {nav_date}")
+        else:
+            # 15:00之后，查找下一个交易日
+            next_trading_day = FundOperationService._get_next_trading_day(db, fund_code, operation_date)
+            if next_trading_day:
+                nav_date = next_trading_day
+                print(f"[调试] 15:00之后，使用下一个交易日净值日期: {nav_date}")
+            else:
+                # 如果无法确定下一个交易日，使用当天
+                nav_date = operation_date
+                print(f"[调试] 无法确定下一个交易日，使用当天净值日期: {nav_date}")
+        
+        return nav_date
+    
+    @staticmethod
+    def _get_nav_by_operation_time(db: Session, fund_code: str, operation_datetime: datetime) -> Optional[FundNav]:
+        """根据操作时间获取对应的基金净值"""
+        nav_date = FundOperationService._get_nav_date_by_operation_time(db, fund_code, operation_datetime)
+        if nav_date:
+            return FundOperationService._get_nav_by_date(db, fund_code, nav_date)
+        return None
+
+    @staticmethod
+    def _recalculate_operation_with_time_logic(db: Session, operation: UserOperation) -> bool:
+        """根据操作时间重新计算操作（用于删除和修改操作）"""
+        try:
+            print(f"[调试] 重新计算操作 {operation.id} 的净值匹配")
+            print(f"[调试] 操作时间: {operation.operation_date}")
+            
+            # 根据操作时间重新获取净值
+            nav_record = FundOperationService._get_nav_by_operation_time(db, operation.asset_code, operation.operation_date)
+            
+            if nav_record:
+                print(f"[调试] 找到对应净值: {nav_record.nav}, 净值日期: {nav_record.nav_date}")
+                # 重新计算份额
+                if operation.operation_type == "buy":
+                    FundOperationService._calculate_buy_shares(db, operation)
+                elif operation.operation_type == "sell":
+                    FundOperationService._calculate_sell_shares(db, operation)
+                
+                # 更新操作状态为已确认
+                operation.status = "confirmed"
+                operation.updated_at = datetime.now()
+                print(f"[调试] 操作已确认，状态: {operation.status}")
+                return True
+            else:
+                # 检查是否是历史操作（操作日期早于今天）
+                today = date.today()
+                operation_date = operation.operation_date.date() if isinstance(operation.operation_date, datetime) else operation.operation_date
+                
+                if operation_date < today:
+                    print(f"[调试] 历史操作未找到净值，仅依赖数据库中的akshare数据")
+                    # 对于历史操作，不再调用API，仅依赖数据库中的akshare数据
+                
+                # 如果还是没找到净值，设置为待确认状态
+                print(f"[调试] 未找到对应净值，设置为待确认状态")
+                operation.status = "pending"
+                operation.quantity = None
+                operation.nav = None
+                operation.price = None
+                return False
+                
+        except Exception as e:
+            print(f"[调试] 重新计算操作失败: {e}")
+            return False
 
 
 class FundInfoService:
@@ -1349,15 +1426,10 @@ class DCAService:
         else:
             amount = plan.amount
         
-        # 获取当天净值（如果存在）
-        today = date.today()
+        # 根据定投执行时间获取对应的净值
+        execution_time = datetime.now()
         latest_nav = None
-        nav_obj = db.query(FundNav).filter(
-            and_(
-                FundNav.fund_code == plan.asset_code,
-                FundNav.nav_date == today
-            )
-        ).first()
+        nav_obj = FundOperationService._get_nav_by_operation_time(db, plan.asset_code, execution_time)
         
         if nav_obj:
             latest_nav = nav_obj.nav
@@ -1914,42 +1986,40 @@ class DCAService:
 
     @staticmethod
     def update_pending_operations(db: Session) -> int:
-        """更新所有待确认的定投操作记录"""
+        """更新所有待确认的操作记录（包括手动操作和定投操作）"""
         updated_count = 0
         
-        # 查找所有待确认的定投操作
+        # 查找所有待确认的操作（包括手动操作和定投操作）
         pending_operations = db.query(UserOperation).filter(
-            and_(
-                UserOperation.status == "pending",
-                UserOperation.dca_plan_id.isnot(None)
-            )
+            UserOperation.status == "pending"
         ).all()
         
-        print(f"[调试] 找到 {len(pending_operations)} 个待确认的定投操作")
+        print(f"[调试] 找到 {len(pending_operations)} 个待确认的操作")
         
         for operation in pending_operations:
             try:
                 print(f"[调试] 处理操作 {operation.id}: asset_code={operation.asset_code}, operation_date={operation.operation_date}")
                 
-                # 获取当天净值
-                today = date.today()
-                nav_record = db.query(FundNav).filter(
-                    and_(
-                        FundNav.fund_code == operation.asset_code,
-                        FundNav.nav_date == today
-                    )
-                ).first()
+                # 根据操作时间获取对应的净值
+                nav_record = FundOperationService._get_nav_by_operation_time(db, operation.asset_code, operation.operation_date)
                 
-                print(f"[调试] 操作 {operation.id} 的当天净值记录: {nav_record}")
+                print(f"[调试] 操作 {operation.id} 根据时间匹配的净值记录: {nav_record}")
                 
                 if nav_record:
                     print(f"[调试] 找到净值记录，开始计算份额: nav={nav_record.nav}")
                     # 计算份额并确认操作
-                    DCAService._calculate_and_confirm_operation(db, operation, nav_record.nav)
+                    if operation.operation_type == "buy":
+                        FundOperationService._calculate_buy_shares(db, operation)
+                    elif operation.operation_type == "sell":
+                        FundOperationService._calculate_sell_shares(db, operation)
+                    
+                    # 更新操作状态为已确认
+                    operation.status = "confirmed"
+                    operation.updated_at = datetime.now()
                     updated_count += 1
                     print(f"[调试] 操作 {operation.id} 更新成功")
                 else:
-                    print(f"[调试] 操作 {operation.id} 未找到当天净值记录")
+                    print(f"[调试] 操作 {operation.id} 未找到对应净值记录，保持待确认状态")
                     
             except Exception as e:
                 print(f"更新待确认操作 {operation.id} 失败: {e}")

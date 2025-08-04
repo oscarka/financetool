@@ -52,14 +52,18 @@ class FundNavUpdateTask(BaseTask):
                 
                 for fund_code in fund_codes:
                     try:
-                        # 获取最新净值
-                        api_service = FundAPIService()
-                        nav_data = await api_service.get_fund_nav_latest_tiantian(fund_code)
+                        # 使用akshare获取最新净值
+                        context.log(f"开始更新基金 {fund_code} 净值")
                         
-                        if nav_data and nav_data.get('nav'):
-                            # 更新或插入净值记录
-                            today = date.today()
-                            nav_value = nav_data['nav']
+                        # 调用akshare获取数据
+                        import akshare as ak
+                        df = ak.fund_open_fund_info_em(symbol=fund_code, indicator="单位净值走势")
+                        
+                        if not df.empty:
+                            # 获取最新的一条数据
+                            latest_row = df.iloc[0]
+                            nav_date = latest_row['净值日期']
+                            nav_value = latest_row['单位净值']
                             
                             # 确保nav是Decimal类型
                             from decimal import Decimal
@@ -68,17 +72,12 @@ class FundNavUpdateTask(BaseTask):
                             elif isinstance(nav_value, (int, float)):
                                 nav_value = Decimal(str(nav_value))
                             
-                            context.log(f"准备更新基金 {fund_code} 净值: {nav_value} (类型: {type(nav_value)})")
-                            
-                            # 添加调试日志
-                            context.log(f"🔍 FundNavService 类型: {type(FundNavService)}")
-                            context.log(f"🔍 FundNavService 属性: {dir(FundNavService)}")
-                            context.log(f"🔍 检查 update_fund_nav 方法是否存在: {'update_fund_nav' in dir(FundNavService)}")
+                            context.log(f"准备更新基金 {fund_code} 净值: {nav_value} (日期: {nav_date})")
                             
                             try:
                                 # 使用 create_nav 方法创建或更新净值记录
                                 nav_record = FundNavService.create_nav(
-                                    db, fund_code, today, nav_value
+                                    db, fund_code, nav_date, nav_value, source="akshare"
                                 )
                                 success = nav_record is not None
                                 context.log(f"🔍 create_nav 返回结果: {nav_record}")
@@ -90,10 +89,10 @@ class FundNavUpdateTask(BaseTask):
                             
                             if success:
                                 updated_count += 1
-                                context.log(f"成功更新基金 {fund_code} 净值: {nav_data['nav']}")
+                                context.log(f"成功更新基金 {fund_code} 净值: {nav_value}")
                                 
                                 # 发布事件
-                                context.set_variable(f'fund_{fund_code}_nav', nav_data['nav'])
+                                context.set_variable(f'fund_{fund_code}_nav', str(nav_value))
                             else:
                                 failed_codes.append(fund_code)
                                 context.log(f"更新基金 {fund_code} 净值失败", "WARNING")

@@ -1769,4 +1769,46 @@ def export_fund_positions_csv(
         
     except Exception as e:
         print(f"导出持仓CSV失败: {e}")
-        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+
+@router.get("/nav/{fund_code}/estimate", response_model=BaseResponse)
+async def get_fund_estimate(
+    fund_code: str,
+    db: Session = Depends(get_db)
+):
+    """获取基金当天估算净值（不入库）"""
+    try:
+        from app.services.fund_api_service import FundAPIService
+        
+        # 调用天天基金API获取估算数据
+        api_service = FundAPIService()
+        nav_data = await api_service.get_fund_nav_latest_tiantian(fund_code)
+        
+        if not nav_data:
+            return BaseResponse(
+                success=False, 
+                message=f"获取基金 {fund_code} 估算数据失败",
+                data=None
+            )
+        
+        # 构建返回数据
+        estimate_data = {
+            "fund_code": fund_code,
+            "estimate_nav": nav_data.get('gsz'),  # 估算净值
+            "estimate_time": nav_data.get('gztime'),  # 估算时间
+            "confirmed_nav": nav_data.get('dwjz'),  # 确认净值
+            "confirmed_date": nav_data.get('jzrq'),  # 确认日期
+            "growth_rate": nav_data.get('gszzl'),  # 涨跌幅
+            "source": "tiantian_estimated"
+        }
+        
+        return BaseResponse(
+            success=True,
+            message=f"获取基金 {fund_code} 估算数据成功",
+            data=estimate_data
+        )
+        
+    except Exception as e:
+        print(f"获取基金估算数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取估算数据失败: {str(e)}") 

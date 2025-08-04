@@ -101,6 +101,10 @@ export const fundAPI = {
     syncLatestNav: (fundCode: string): Promise<APIResponse> =>
         api.post(`/funds/nav/${fundCode}/sync/latest`),
 
+    // 获取基金估算净值
+    getFundEstimate: (fundCode: string): Promise<APIResponse> =>
+        api.get(`/funds/nav/${fundCode}/estimate`),
+
     // 创建基金操作
     createFundOperation: (data: any): Promise<APIResponse> =>
         api.post('/funds/operations', data),
