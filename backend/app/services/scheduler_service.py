@@ -38,10 +38,10 @@ class SchedulerService:
             replace_existing=True
         )
         
-        # 定投计划执行任务 - 每天15:45执行
+        # 定投计划执行任务 - 每天10:00执行
         self.scheduler.add_job(
             self._execute_dca_plans,
-            CronTrigger(hour=15, minute=45),
+            CronTrigger(hour=10, minute=0),
             id='execute_dca_plans',
             name='执行定投计划',
             replace_existing=True
