@@ -105,6 +105,18 @@ export const fundAPI = {
     getFundEstimate: (fundCode: string): Promise<APIResponse> =>
         api.get(`/funds/nav/${fundCode}/estimate`),
 
+    // 获取净值数据统计
+    getNavDataStats: (): Promise<APIResponse> =>
+        api.get('/funds/nav-stats'),
+
+    // 删除指定来源的净值数据
+    deleteNavBySource: (source: string): Promise<APIResponse> =>
+        api.delete(`/funds/nav-source/${source}`),
+
+    // 增量更新净值数据
+    incrementalUpdateNav: (fundCode: string): Promise<APIResponse> =>
+        api.post(`/funds/nav/${fundCode}/incremental-update`),
+
     // 创建基金操作
     createFundOperation: (data: any): Promise<APIResponse> =>
         api.post('/funds/operations', data),

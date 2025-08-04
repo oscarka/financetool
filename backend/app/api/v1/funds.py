@@ -1811,4 +1811,121 @@ async def get_fund_estimate(
         
     except Exception as e:
         print(f"获取基金估算数据失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取估算数据失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"获取估算数据失败: {str(e)}")
+
+
+@router.get("/nav-stats", response_model=BaseResponse)
+def get_nav_data_stats(db: Session = Depends(get_db)):
+    """获取净值数据统计信息"""
+    try:
+        from sqlalchemy import func
+        
+        # 统计数据来源分布
+        source_stats = db.query(
+            FundNav.source,
+            func.count(FundNav.id).label('count')
+        ).group_by(FundNav.source).all()
+        
+        # 统计基金数量
+        fund_count = db.query(func.count(func.distinct(FundNav.fund_code))).scalar()
+        
+        # 统计总记录数
+        total_count = db.query(func.count(FundNav.id)).scalar()
+        
+        # 构建统计结果
+        stats = {
+            'total_count': total_count,
+            'fund_count': fund_count,
+            'source_distribution': {}
+        }
+        
+        for source, count in source_stats:
+            stats['source_distribution'][source] = count
+            if source == 'akshare':
+                stats['akshare_count'] = count
+            elif source == 'api':
+                stats['api_count'] = count
+        
+        return BaseResponse(
+            success=True,
+            message="获取数据统计成功",
+            data=stats
+        )
+        
+    except Exception as e:
+        print(f"获取数据统计失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取数据统计失败: {str(e)}")
+
+
+@router.delete("/nav-source/{source}", response_model=BaseResponse)
+def delete_nav_by_source(source: str, db: Session = Depends(get_db)):
+    """删除指定来源的净值数据"""
+    try:
+        # 安全检查：只允许删除api来源的数据
+        if source != 'api':
+            raise HTTPException(status_code=400, detail="只能删除api来源的数据")
+        
+        # 删除指定来源的数据
+        deleted_count = db.query(FundNav).filter(FundNav.source == source).delete()
+        db.commit()
+        
+        return BaseResponse(
+            success=True,
+            message=f"成功删除 {deleted_count} 条{source}来源的数据",
+            data={'deleted_count': deleted_count}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"删除数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除数据失败: {str(e)}")
+
+
+@router.post("/nav/{fund_code}/incremental-update", response_model=BaseResponse)
+def incremental_update_nav(fund_code: str, db: Session = Depends(get_db)):
+    """增量更新基金净值数据"""
+    try:
+        # 获取最新的净值日期
+        latest_nav = db.query(FundNav).filter(
+            FundNav.fund_code == fund_code,
+            FundNav.source == 'akshare'
+        ).order_by(FundNav.nav_date.desc()).first()
+        
+        latest_date = latest_nav.nav_date if latest_nav else None
+        
+        # 使用akshare获取增量数据
+        import akshare as ak
+        df = ak.fund_open_fund_info_em(symbol=fund_code, indicator="单位净值走势")
+        
+        new_count = 0
+        if not df.empty:
+            for _, row in df.iterrows():
+                nav_date = row['净值日期']
+                nav_value = row['单位净值']
+                
+                # 检查是否已存在该日期的数据
+                existing = db.query(FundNav).filter(
+                    FundNav.fund_code == fund_code,
+                    FundNav.nav_date == nav_date,
+                    FundNav.source == 'akshare'
+                ).first()
+                
+                if not existing:
+                    # 创建新记录
+                    nav_record = FundNavService.create_nav(
+                        db, fund_code, nav_date, nav_value, source="akshare"
+                    )
+                    if nav_record:
+                        new_count += 1
+        
+        return BaseResponse(
+            success=True,
+            message=f"增量更新成功，新增 {new_count} 条记录",
+            data={'new_count': new_count}
+        )
+        
+    except Exception as e:
+        print(f"增量更新失败: {e}")
+        raise HTTPException(status_code=500, detail=f"增量更新失败: {str(e)}") 
