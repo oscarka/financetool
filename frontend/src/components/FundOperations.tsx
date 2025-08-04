@@ -418,7 +418,7 @@ const FundOperations: React.FC = () => {
                 }
                 return '/api/v1'
             }
-            
+
             const baseURL = getBaseURL()
             const response = await fetch(`${baseURL}/funds/operations/export-csv?${params.toString()}`, {
                 method: 'GET',
@@ -723,9 +723,74 @@ const FundOperations: React.FC = () => {
                                 </Space>
                             </Form.Item>
                         </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item>
+                                <Space>
+                                    <Button
+                                        type="default"
+                                        onClick={checkNavMatching}
+                                        loading={navCheckLoading}
+                                    >
+                                        净值匹配检查
+                                    </Button>
+                                    <Button
+                                        type="default"
+                                        onClick={getNavMatchingIssues}
+                                    >
+                                        查看问题
+                                    </Button>
+                                    <Button
+                                        type="default"
+                                        onClick={markIncorrectOperations}
+                                    >
+                                        标记错误
+                                    </Button>
+                                </Space>
+                            </Form.Item>
+                        </Col>
                     </Row>
                 </Form>
             </Card>
+
+            {/* 净值匹配检查结果 */}
+            {navCheckResults && (
+                <Card title="净值匹配检查结果" style={{ marginBottom: 16 }}>
+                    <Row gutter={16}>
+                        <Col span={6}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1890ff' }}>
+                                    {navCheckResults.total_operations}
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#666' }}>总操作数</div>
+                            </div>
+                        </Col>
+                        <Col span={6}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#52c41a' }}>
+                                    {navCheckResults.correct_matching}
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#666' }}>正确匹配</div>
+                            </div>
+                        </Col>
+                        <Col span={6}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#faad14' }}>
+                                    {navCheckResults.incorrect_matching}
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#666' }}>错误匹配</div>
+                            </div>
+                        </Col>
+                        <Col span={6}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff4d4f' }}>
+                                    {navCheckResults.no_nav_data}
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#666' }}>无净值数据</div>
+                            </div>
+                        </Col>
+                    </Row>
+                </Card>
+            )}
 
             {/* 操作记录表格 */}
             <Card>
