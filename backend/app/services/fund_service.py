@@ -92,6 +92,7 @@ class FundOperationService:
             else:
                 nav_date = operation.operation_date.date()
             print(f"[调试] 使用操作中的净值: nav_value={nav_value}, nav_date={nav_date}")
+            print(f"[调试] 用户设置的净值: {nav_value}，将用于计算份额")
         
         fee = operation.fee or 0
         print(f"[调试] 手续费: {fee}")
