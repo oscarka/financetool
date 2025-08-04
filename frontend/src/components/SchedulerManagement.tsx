@@ -482,7 +482,34 @@ const SchedulerManagement: React.FC = () => {
       dataIndex: 'next_run_time',
       key: 'next_run_time',
       width: 180,
-      render: (time: string) => time ? new Date(time).toLocaleString() : '无',
+      render: (time: string) => {
+        if (!time) return '无';
+        
+        try {
+          // 解析ISO时间字符串，避免时区转换问题
+          const date = new Date(time);
+          
+          // 检查时间是否包含时区信息
+          if (time.includes('+') || time.includes('Z')) {
+            // 如果包含时区信息，直接使用原始时间
+            return date.toLocaleString('zh-CN', {
+              timeZone: 'Asia/Shanghai',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            });
+          } else {
+            // 如果没有时区信息，假设是本地时间
+            return date.toLocaleString('zh-CN');
+          }
+        } catch (error) {
+          console.error('时间解析错误:', error);
+          return time;
+        }
+      },
     },
     {
       title: '状态',
