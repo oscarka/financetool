@@ -95,12 +95,12 @@ const FundNavManagement: React.FC = () => {
 
             if (response.success && response.data) {
                 let history = response.data.nav_history || []
-                
+
                 // 根据来源筛选
                 if (sourceFilter !== 'all') {
                     history = history.filter((item: NavHistoryItem) => item.source === sourceFilter)
                 }
-                
+
                 setNavHistory(history)
                 setNavPagination(prev => ({
                     ...prev,
@@ -229,17 +229,17 @@ const FundNavManagement: React.FC = () => {
 
             if (response.success && response.data) {
                 let history = response.data.nav_history || []
-                
+
                 // 根据来源筛选
                 if (sourceFilter !== 'all') {
                     history = history.filter((item: NavHistoryItem) => item.source === sourceFilter)
                 }
-                
+
                 // 如果只显示分红记录
                 if (onlyDividend) {
                     history = history.filter((item: NavHistoryItem) => item.dividend_amount && item.dividend_amount > 0)
                 }
-                
+
                 setNavHistory(history)
                 setNavPagination(prev => ({
                     ...prev,
@@ -377,11 +377,11 @@ const FundNavManagement: React.FC = () => {
             </Card>
 
             {/* 数据管理面板 */}
-            <Card 
-                title="数据管理" 
+            <Card
+                title="数据管理"
                 extra={
-                    <Button 
-                        type="primary" 
+                    <Button
+                        type="primary"
                         onClick={() => {
                             setShowDataManagement(!showDataManagement)
                             if (!showDataManagement) {
@@ -401,7 +401,7 @@ const FundNavManagement: React.FC = () => {
                             type="info"
                             showIcon
                         />
-                        
+
                         {dataStats && (
                             <Row gutter={16}>
                                 <Col span={6}>
@@ -434,12 +434,15 @@ const FundNavManagement: React.FC = () => {
                                 </Col>
                             </Row>
                         )}
-                        
+
                         <Space>
                             <Button
                                 danger
                                 icon={<DeleteOutlined />}
-                                onClick={() => setDeleteModalVisible(true)}
+                                onClick={() => {
+                                    setSelectedSource('api')
+                                    setDeleteModalVisible(true)
+                                }}
                                 disabled={!dataStats || (dataStats.api_count || 0) === 0}
                             >
                                 删除api来源数据
