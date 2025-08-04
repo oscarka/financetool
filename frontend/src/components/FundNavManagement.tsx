@@ -44,14 +44,6 @@ const FundNavManagement: React.FC = () => {
     const [deleteLoading, setDeleteLoading] = useState(false)
     const [selectedSource, setSelectedSource] = useState<string>('')
 
-    // 数据管理相关状态
-    const [sourceFilter, setSourceFilter] = useState<string>('all')
-    const [showDataManagement, setShowDataManagement] = useState(false)
-    const [dataStats, setDataStats] = useState<any>(null)
-    const [deleteModalVisible, setDeleteModalVisible] = useState(false)
-    const [deleteLoading, setDeleteLoading] = useState(false)
-    const [selectedSource, setSelectedSource] = useState<string>('')
-
     // 查询基金估算净值
     const fetchEstimate = async () => {
         if (!fundCode.trim()) {
