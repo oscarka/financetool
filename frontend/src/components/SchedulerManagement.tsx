@@ -83,7 +83,7 @@ const parseCronObjectToReadable = (cronObject: string): string => {
 };
 
 // 解析cron各部分为易读格式
-const parseCronPartsToReadable = (minute: string, hour: string, day: string, month: string, dayOfWeek: string): string => {
+const parseCronPartsToReadable = (minute: string, hour: string, day: string, _month: string, dayOfWeek: string): string => {
   const timeStr = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
 
   // 处理间隔执行
@@ -533,7 +533,7 @@ const SchedulerManagement: React.FC = () => {
       width: 180,
       render: (_: any, record: ScheduledJob) => (
         <Space size="small">
-          {record.state === 'running' ? (
+          {record.state && record.state === 'running' ? (
             <Tooltip title="暂停任务">
               <Button
                 type="text"
@@ -663,21 +663,21 @@ const SchedulerManagement: React.FC = () => {
               <Col span={6}>
                 <Statistic
                   title="运行中"
-                  value={jobs.filter(job => job.state === 'running').length}
+                  value={jobs.filter(job => job.state && job.state === 'running').length}
                   valueStyle={{ color: '#52c41a' }}
                 />
               </Col>
               <Col span={6}>
                 <Statistic
                   title="已暂停"
-                  value={jobs.filter(job => job.state === 'paused').length}
+                  value={jobs.filter(job => job.state && job.state === 'paused').length}
                   valueStyle={{ color: '#faad14' }}
                 />
               </Col>
               <Col span={6}>
                 <Statistic
                   title="错误状态"
-                  value={jobs.filter(job => job.state === 'error').length}
+                  value={jobs.filter(job => job.state && job.state === 'error').length}
                   valueStyle={{ color: '#ff4d4f' }}
                 />
               </Col>
@@ -705,7 +705,7 @@ const SchedulerManagement: React.FC = () => {
                   icon={<PlayCircleOutlined />}
                   onClick={() => {
                     jobs.forEach(job => {
-                      if (job.state !== 'running') {
+                      if (!job.state || job.state !== 'running') {
                         handleToggleJob(job, 'resume');
                       }
                     });
@@ -717,7 +717,7 @@ const SchedulerManagement: React.FC = () => {
                   icon={<PauseCircleOutlined />}
                   onClick={() => {
                     jobs.forEach(job => {
-                      if (job.state === 'running') {
+                      if (job.state && job.state === 'running') {
                         handleToggleJob(job, 'pause');
                       }
                     });

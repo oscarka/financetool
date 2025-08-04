@@ -23,6 +23,7 @@ export interface ScheduledJob {
   name: string;
   next_run_time: string | null;
   trigger: string;
+  state?: string; // 任务状态：running, paused, stopped, error
 }
 
 // 任务配置接口
@@ -137,7 +138,7 @@ export class SchedulerAPI {
     const params = new URLSearchParams();
     if (eventType) params.append('event_type', eventType);
     params.append('limit', limit.toString());
-    
+
     const response = await api.get(`/scheduler/events?${params.toString()}`);
     return response.data.data;
   }
