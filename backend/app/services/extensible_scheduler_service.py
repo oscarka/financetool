@@ -55,6 +55,17 @@ class ExtensibleSchedulerService:
         import os
         import json
         try:
+            # 添加时区调试信息
+            import pytz
+            from datetime import datetime
+            
+            logger.info("=== 调度器初始化时区调试 ===")
+            logger.info(f"调度器时区设置: {settings.scheduler_timezone}")
+            logger.info(f"系统当前时间: {datetime.now()}")
+            logger.info(f"系统UTC时间: {datetime.utcnow()}")
+            logger.info(f"调度器时区对象: {self.scheduler.timezone}")
+            logger.info("=== 调度器初始化时区调试结束 ===")
+            
             # 加载插件
             await self._load_plugins()
 
@@ -80,13 +91,39 @@ class ExtensibleSchedulerService:
                     try:
                         from apscheduler.triggers.cron import CronTrigger
                         cron_fields = cron_expr.strip().split()
+                        
+                        # 添加cron解析调试信息
+                        logger.info(f"=== Cron表达式调试: {task['id']} ===")
+                        logger.info(f"Cron表达式: {cron_expr}")
+                        logger.info(f"Cron字段: {cron_fields}")
+                        
                         if len(cron_fields) == 5:
-                            trigger = CronTrigger(minute=cron_fields[0], hour=cron_fields[1], day=cron_fields[2], month=cron_fields[3], day_of_week=cron_fields[4])
+                            trigger = CronTrigger(
+                                minute=cron_fields[0], 
+                                hour=cron_fields[1], 
+                                day=cron_fields[2], 
+                                month=cron_fields[3], 
+                                day_of_week=cron_fields[4],
+                                timezone=self.scheduler.timezone  # 明确设置时区
+                            )
                         elif len(cron_fields) == 6:
-                            trigger = CronTrigger(second=cron_fields[0], minute=cron_fields[1], hour=cron_fields[2], day=cron_fields[3], month=cron_fields[4], day_of_week=cron_fields[5])
+                            trigger = CronTrigger(
+                                second=cron_fields[0], 
+                                minute=cron_fields[1], 
+                                hour=cron_fields[2], 
+                                day=cron_fields[3], 
+                                month=cron_fields[4], 
+                                day_of_week=cron_fields[5],
+                                timezone=self.scheduler.timezone  # 明确设置时区
+                            )
                         else:
                             logger.error(f"无效的cron表达式: {cron_expr}")
                             continue
+                        
+                        logger.info(f"创建的触发器: {trigger}")
+                        logger.info(f"触发器时区: {trigger.timezone}")
+                        logger.info("=== Cron表达式调试结束 ===")
+                        
                     except Exception as e:
                         logger.error(f"解析cron表达式失败: {cron_expr}, 错误: {e}")
                         continue
@@ -288,16 +325,42 @@ class ExtensibleSchedulerService:
             # 确保时间使用正确的时区
             next_run_time = None
             if job.next_run_time:
-                # 强制转换为Asia/Shanghai时区
+                # 添加详细的时区调试信息
                 import pytz
+                from datetime import datetime
+                
+                logger.info(f"=== 时区调试信息: {job.id} ===")
+                logger.info(f"原始时间: {job.next_run_time}")
+                logger.info(f"原始时间类型: {type(job.next_run_time)}")
+                logger.info(f"原始时间时区: {job.next_run_time.tzinfo}")
+                
+                # 检查系统当前时间
+                now_utc = datetime.utcnow()
+                now_local = datetime.now()
+                logger.info(f"系统UTC时间: {now_utc}")
+                logger.info(f"系统本地时间: {now_local}")
+                
+                # 检查时区设置
                 shanghai_tz = pytz.timezone('Asia/Shanghai')
+                utc_tz = pytz.UTC
+                logger.info(f"上海时区: {shanghai_tz}")
+                logger.info(f"UTC时区: {utc_tz}")
+                
+                # 强制转换为Asia/Shanghai时区
                 if job.next_run_time.tzinfo is None:
-                    # 如果没有时区信息，假设是UTC时间
+                    logger.info("原始时间无时区信息，假设为UTC时间")
                     next_run_time = job.next_run_time.replace(tzinfo=pytz.UTC).astimezone(shanghai_tz)
                 else:
-                    # 如果有时区信息，转换到上海时区
+                    logger.info("原始时间有时区信息，转换到上海时区")
                     next_run_time = job.next_run_time.astimezone(shanghai_tz)
+                
+                logger.info(f"转换后时间: {next_run_time}")
+                logger.info(f"转换后时间类型: {type(next_run_time)}")
+                logger.info(f"转换后时间时区: {next_run_time.tzinfo}")
+                
                 next_run_time = next_run_time.isoformat()
+                logger.info(f"最终ISO格式: {next_run_time}")
+                logger.info(f"=== 时区调试信息结束 ===")
             
             jobs.append({
                 'job_id': job.id,
