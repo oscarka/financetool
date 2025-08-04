@@ -1559,7 +1559,25 @@ class DCAService:
         plan.execution_count = len(operations)
         plan.total_invested = sum(op.amount for op in operations)
         plan.total_shares = sum(op.quantity for op in operations if op.quantity is not None)
-        plan.last_execution_date = max(op.operation_date.date() for op in operations) if operations else None
+        
+        # 修改：基于实际执行时间计算last_execution_date，而不是操作记录中的历史日期
+        from datetime import date
+        today = date.today()
+        
+        # 如果有操作记录，检查是否有最近执行的操作
+        if operations:
+            # 查找最近7天内的操作记录
+            recent_operations = [op for op in operations if (today - op.operation_date.date()).days <= 7]
+            if recent_operations:
+                # 如果有最近的操作，使用最新的操作日期
+                plan.last_execution_date = max(op.operation_date.date() for op in recent_operations)
+            else:
+                # 如果没有最近的操作，使用今天作为最后执行日期（表示计划是活跃的）
+                plan.last_execution_date = today
+        else:
+            # 没有操作记录，设置为None
+            plan.last_execution_date = None
+        
         plan.updated_at = datetime.now()
         
         db.commit()
@@ -1980,7 +1998,25 @@ class DCAService:
         plan.execution_count = len(operations)
         plan.total_invested = sum(op.amount for op in operations)
         plan.total_shares = sum(op.quantity for op in operations if op.quantity is not None)
-        plan.last_execution_date = max(op.operation_date.date() for op in operations) if operations else None
+        
+        # 修改：基于实际执行时间计算last_execution_date，而不是操作记录中的历史日期
+        from datetime import date
+        today = date.today()
+        
+        # 如果有操作记录，检查是否有最近执行的操作
+        if operations:
+            # 查找最近7天内的操作记录
+            recent_operations = [op for op in operations if (today - op.operation_date.date()).days <= 7]
+            if recent_operations:
+                # 如果有最近的操作，使用最新的操作日期
+                plan.last_execution_date = max(op.operation_date.date() for op in recent_operations)
+            else:
+                # 如果没有最近的操作，使用今天作为最后执行日期（表示计划是活跃的）
+                plan.last_execution_date = today
+        else:
+            # 没有操作记录，设置为None
+            plan.last_execution_date = None
+        
         plan.updated_at = datetime.now()
         
         db.commit()
@@ -2017,7 +2053,24 @@ class DCAService:
             plan.execution_count = len(remaining_operations)
             plan.total_invested = sum(op.amount for op in remaining_operations)
             plan.total_shares = sum(op.quantity for op in remaining_operations if op.quantity is not None)
-            plan.last_execution_date = max(op.operation_date.date() for op in remaining_operations) if remaining_operations else None
+            
+            # 修改：基于实际执行时间计算last_execution_date，而不是操作记录中的历史日期
+            from datetime import date
+            today = date.today()
+            
+            # 如果有操作记录，检查是否有最近执行的操作
+            if remaining_operations:
+                # 查找最近7天内的操作记录
+                recent_operations = [op for op in remaining_operations if (today - op.operation_date.date()).days <= 7]
+                if recent_operations:
+                    # 如果有最近的操作，使用最新的操作日期
+                    plan.last_execution_date = max(op.operation_date.date() for op in recent_operations)
+                else:
+                    # 如果没有最近的操作，使用今天作为最后执行日期（表示计划是活跃的）
+                    plan.last_execution_date = today
+            else:
+                # 没有操作记录，设置为None
+                plan.last_execution_date = None
             
             # 如果没有历史操作了，状态改为active，但保持其他状态不变
             if len(remaining_operations) == 0:
