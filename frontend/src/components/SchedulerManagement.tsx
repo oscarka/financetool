@@ -18,7 +18,8 @@ import {
   Tooltip,
   Badge,
   Alert,
-  Divider
+  Divider,
+  Statistic
 } from 'antd';
 import {
   PlayCircleOutlined,
@@ -35,6 +36,100 @@ import type { TaskDefinition, ScheduledJob, JobConfig } from '../services/schedu
 
 const { Option } = Select;
 const { TextArea } = Input;
+
+// 解析cron表达式为易读格式
+const parseCronToReadable = (cronExpression: string): string => {
+  if (!cronExpression) return '无';
+
+  try {
+    // 处理cron[month='*', day='*', day_of_week='*', hour='*/4', minute='0']格式
+    if (cronExpression.includes('cron[')) {
+      return parseCronObjectToReadable(cronExpression);
+    }
+
+    // 处理标准cron表达式格式
+    const parts = cronExpression.split(' ');
+    if (parts.length >= 5) {
+      const [minute, hour, day, month, dayOfWeek] = parts;
+      return parseCronPartsToReadable(minute, hour, day, month, dayOfWeek);
+    }
+
+    return cronExpression;
+  } catch (error) {
+    return cronExpression;
+  }
+};
+
+// 解析cron对象格式
+const parseCronObjectToReadable = (cronObject: string): string => {
+  try {
+    // 提取cron对象中的参数
+    const hourMatch = cronObject.match(/hour='([^']+)'/);
+    const minuteMatch = cronObject.match(/minute='([^']+)'/);
+    const dayOfWeekMatch = cronObject.match(/day_of_week='([^']+)'/);
+    const dayMatch = cronObject.match(/day='([^']+)'/);
+    const monthMatch = cronObject.match(/month='([^']+)'/);
+
+    const hour = hourMatch ? hourMatch[1] : '*';
+    const minute = minuteMatch ? minuteMatch[1] : '0';
+    const dayOfWeek = dayOfWeekMatch ? dayOfWeekMatch[1] : '*';
+    const day = dayMatch ? dayMatch[1] : '*';
+    const month = monthMatch ? monthMatch[1] : '*';
+
+    return parseCronPartsToReadable(minute, hour, day, month, dayOfWeek);
+  } catch (error) {
+    return cronObject;
+  }
+};
+
+// 解析cron各部分为易读格式
+const parseCronPartsToReadable = (minute: string, hour: string, day: string, month: string, dayOfWeek: string): string => {
+  const timeStr = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+
+  // 处理间隔执行
+  if (hour.includes('*/')) {
+    const interval = hour.replace('*/', '');
+    return `每${interval}小时执行一次`;
+  }
+
+  if (minute.includes('*/')) {
+    const interval = minute.replace('*/', '');
+    return `每${interval}分钟执行一次`;
+  }
+
+  // 处理工作日
+  if (dayOfWeek === '1-5' || dayOfWeek === 'mon-fri') {
+    return `工作日 ${timeStr}`;
+  }
+
+  // 处理特定星期
+  if (dayOfWeek !== '*' && dayOfWeek !== '?') {
+    const weekMap: { [key: string]: string } = {
+      '0': '周日', '1': '周一', '2': '周二', '3': '周三', '4': '周四', '5': '周五', '6': '周六',
+      'sun': '周日', 'mon': '周一', 'tue': '周二', 'wed': '周三', 'thu': '周四', 'fri': '周五', 'sat': '周六'
+    };
+
+    if (dayOfWeek.includes(',')) {
+      const days = dayOfWeek.split(',').map(d => weekMap[d] || d);
+      return `${days.join('、')} ${timeStr}`;
+    } else {
+      return `${weekMap[dayOfWeek] || dayOfWeek} ${timeStr}`;
+    }
+  }
+
+  // 处理特定日期
+  if (day !== '*' && day !== '?') {
+    if (day.includes(',')) {
+      const days = day.split(',').map(d => `${d}号`);
+      return `每月${days.join('、')} ${timeStr}`;
+    } else {
+      return `每月${day}号 ${timeStr}`;
+    }
+  }
+
+  // 默认每天执行
+  return `每天 ${timeStr}`;
+};
 
 // 预设任务配置模板
 const TASK_TEMPLATES = {
@@ -372,7 +467,15 @@ const SchedulerManagement: React.FC = () => {
       title: '任务名称',
       dataIndex: 'name',
       key: 'name',
-      width: 150,
+      width: 200,
+      render: (name: string, record: ScheduledJob) => (
+        <div>
+          <div style={{ fontWeight: 'bold' }}>{name}</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {record.job_id}
+          </div>
+        </div>
+      ),
     },
     {
       title: '下次执行时间',
@@ -382,36 +485,87 @@ const SchedulerManagement: React.FC = () => {
       render: (time: string) => time ? new Date(time).toLocaleString() : '无',
     },
     {
-      title: '触发器',
+      title: '状态',
+      dataIndex: 'state',
+      key: 'state',
+      width: 100,
+      render: (state: string) => {
+        const statusMap: { [key: string]: { text: string; color: string } } = {
+          'running': { text: '运行中', color: '#52c41a' },
+          'paused': { text: '已暂停', color: '#faad14' },
+          'stopped': { text: '已停止', color: '#ff4d4f' },
+          'error': { text: '错误', color: '#ff4d4f' }
+        };
+
+        const status = statusMap[state] || { text: state || '未知', color: '#666' };
+
+        return (
+          <Tag color={status.color}>
+            {status.text}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: '执行计划',
       dataIndex: 'trigger',
       key: 'trigger',
-      width: 200,
+      width: 250,
+      render: (trigger: string) => {
+        if (!trigger) return '无';
+
+        try {
+          // 解析cron表达式并转换为易读格式
+          const readableSchedule = parseCronToReadable(trigger);
+          return (
+            <Tooltip title={`原始表达式: ${trigger}`}>
+              <span>{readableSchedule}</span>
+            </Tooltip>
+          );
+        } catch (error) {
+          return trigger;
+        }
+      },
     },
     {
       title: '操作',
       key: 'actions',
-      width: 200,
+      width: 180,
       render: (_: any, record: ScheduledJob) => (
         <Space size="small">
-          <Tooltip title="暂停任务">
+          {record.state === 'running' ? (
+            <Tooltip title="暂停任务">
+              <Button
+                type="text"
+                size="small"
+                icon={<PauseCircleOutlined />}
+                onClick={() => handleToggleJob(record, 'pause')}
+              />
+            </Tooltip>
+          ) : (
+            <Tooltip title="启动任务">
+              <Button
+                type="text"
+                size="small"
+                icon={<PlayCircleOutlined />}
+                onClick={() => handleToggleJob(record, 'resume')}
+              />
+            </Tooltip>
+          )}
+          <Tooltip title="立即执行">
             <Button
               type="text"
-              icon={<PauseCircleOutlined />}
-              onClick={() => handleToggleJob(record, 'pause')}
-            />
-          </Tooltip>
-          <Tooltip title="恢复任务">
-            <Button
-              type="text"
-              icon={<PlayCircleOutlined />}
-              onClick={() => handleToggleJob(record, 'resume')}
+              size="small"
+              icon={<ClockCircleOutlined />}
+              onClick={() => handleExecuteTask({ task_id: record.job_id })}
             />
           </Tooltip>
           <Popconfirm
             title="确定要删除这个任务吗？"
+            description="删除后无法恢复"
             onConfirm={() => handleRemoveJob(record.job_id)}
           >
-            <Button type="text" danger icon={<DeleteOutlined />} />
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
       ),
@@ -495,6 +649,42 @@ const SchedulerManagement: React.FC = () => {
           </Card>
         </Col>
 
+        {/* 任务统计 */}
+        <Col span={24}>
+          <Card title="任务统计">
+            <Row gutter={16}>
+              <Col span={6}>
+                <Statistic
+                  title="总任务数"
+                  value={jobs.length}
+                  prefix={<SettingOutlined />}
+                />
+              </Col>
+              <Col span={6}>
+                <Statistic
+                  title="运行中"
+                  value={jobs.filter(job => job.state === 'running').length}
+                  valueStyle={{ color: '#52c41a' }}
+                />
+              </Col>
+              <Col span={6}>
+                <Statistic
+                  title="已暂停"
+                  value={jobs.filter(job => job.state === 'paused').length}
+                  valueStyle={{ color: '#faad14' }}
+                />
+              </Col>
+              <Col span={6}>
+                <Statistic
+                  title="错误状态"
+                  value={jobs.filter(job => job.state === 'error').length}
+                  valueStyle={{ color: '#ff4d4f' }}
+                />
+              </Col>
+            </Row>
+          </Card>
+        </Col>
+
         {/* 定时任务管理 */}
         <Col span={24}>
           <Card
@@ -509,6 +699,40 @@ const SchedulerManagement: React.FC = () => {
               </Button>
             }
           >
+            <div style={{ marginBottom: 16 }}>
+              <Space>
+                <Button
+                  icon={<PlayCircleOutlined />}
+                  onClick={() => {
+                    jobs.forEach(job => {
+                      if (job.state !== 'running') {
+                        handleToggleJob(job, 'resume');
+                      }
+                    });
+                  }}
+                >
+                  启动所有任务
+                </Button>
+                <Button
+                  icon={<PauseCircleOutlined />}
+                  onClick={() => {
+                    jobs.forEach(job => {
+                      if (job.state === 'running') {
+                        handleToggleJob(job, 'pause');
+                      }
+                    });
+                  }}
+                >
+                  暂停所有任务
+                </Button>
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={loadData}
+                >
+                  刷新数据
+                </Button>
+              </Space>
+            </div>
             <Table
               dataSource={jobs}
               columns={jobColumns}
