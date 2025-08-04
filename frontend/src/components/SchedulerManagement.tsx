@@ -16,7 +16,6 @@ import {
   Col,
   Popconfirm,
   Tooltip,
-  Badge,
   Alert,
   Divider,
   Statistic
@@ -199,7 +198,6 @@ const SchedulerManagement: React.FC = () => {
   const tasksJsonRef = useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<any>(null);
   const [tasks, setTasks] = useState<TaskDefinition[]>([]);
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [plugins, setPlugins] = useState<any[]>([]);
@@ -227,14 +225,11 @@ const SchedulerManagement: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statusData, tasksData, jobsData, pluginsData] = await Promise.all([
-        schedulerAPI.getStatus(),
+      const [tasksData, jobsData, pluginsData] = await Promise.all([
         schedulerAPI.getTasks(),
         schedulerAPI.getJobs(),
         schedulerAPI.getPlugins()
       ]);
-
-      setStatus(statusData || {});
       const rawTasks = (tasksData as any).tasks;
 
       try {
@@ -484,11 +479,11 @@ const SchedulerManagement: React.FC = () => {
       width: 180,
       render: (time: string) => {
         if (!time) return '无';
-        
+
         try {
           // 解析ISO时间字符串，避免时区转换问题
           const date = new Date(time);
-          
+
           // 检查时间是否包含时区信息
           if (time.includes('+') || time.includes('Z')) {
             // 如果包含时区信息，直接使用原始时间
@@ -650,31 +645,7 @@ const SchedulerManagement: React.FC = () => {
   return (
     <div style={{ padding: '24px' }}>
       <Row gutter={[16, 16]}>
-        {/* 调度器状态 */}
-        <Col span={24}>
-          <Card title="调度器状态" extra={
-            <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
-              刷新
-            </Button>
-          }>
-            {status && (
-              <Descriptions bordered column={4}>
-                <Descriptions.Item label="运行状态">
-                  <Badge
-                    status={status.scheduler_running ? 'success' : 'error'}
-                    text={status.scheduler_running ? '运行中' : '已停止'}
-                  />
-                </Descriptions.Item>
-                <Descriptions.Item label="任务数量">{status.job_count}</Descriptions.Item>
-                <Descriptions.Item label="插件数量">{status.plugin_count}</Descriptions.Item>
-                <Descriptions.Item label="任务定义数量">{status.task_count}</Descriptions.Item>
-                <Descriptions.Item label="最后更新时间" span={4}>
-                  {status.timestamp && new Date(status.timestamp).toLocaleString()}
-                </Descriptions.Item>
-              </Descriptions>
-            )}
-          </Card>
-        </Col>
+
 
         {/* 任务统计 */}
         <Col span={24}>
