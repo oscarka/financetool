@@ -404,6 +404,8 @@ class FundOperationService:
         
         print(f"[调试] 开始更新操作: id={operation_id}, operation_type={operation.operation_type}")
         print(f"[调试] 更新数据: {update_data}")
+        print(f"[调试] 更新数据字典: {update_data.dict()}")
+        print(f"[调试] 更新数据exclude_unset: {update_data.dict(exclude_unset=True)}")
         
         # 构建更新字典
         update_dict = {}
@@ -495,6 +497,8 @@ class FundOperationService:
         print(f"[调试]   买入条件: {operation.operation_type == 'buy'}")
         print(f"[调试]   字段变化条件: {nav_check or amount_check or fee_check}")
         print(f"[调试]   最终条件: {operation.operation_type == 'buy' and (nav_check or amount_check or fee_check)}")
+        print(f"[调试]   是否重新计算: {should_recalculate}")
+        print(f"[调试]   用户修改了quantity: {quantity_check}")
         
         # 检查是否需要重新匹配净值（操作时间改变时）
         operation_date_changed = 'operation_date' in update_dict
