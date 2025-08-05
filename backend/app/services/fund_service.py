@@ -417,7 +417,8 @@ class FundOperationService:
         # 构建更新字典
         update_dict = {}
         for field, value in update_data.dict(exclude_unset=True).items():
-            if value is not None:
+            # 特殊处理：quantity字段即使是None也要包含在更新中
+            if value is not None or field == 'quantity':
                 update_dict[field] = value
                 print(f"[调试] 字段 {field} 将被更新为: {value}")
         
