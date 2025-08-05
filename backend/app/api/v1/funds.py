@@ -175,28 +175,17 @@ def update_fund_operation(
         if not result:
             raise HTTPException(status_code=404, detail="操作记录不存在")
         
-        # 重新计算持仓（更新操作记录会影响持仓）
+        # 重新计算持仓（静默执行）
         try:
-            recalculate_result = FundOperationService.recalculate_all_positions(db)
-            if recalculate_result["success"]:
-                return FundOperationResponse(
-                    success=True,
-                    message="基金操作记录更新成功，持仓已重新计算",
-                    data=result
-                )
-            else:
-                return FundOperationResponse(
-                    success=True,
-                    message="基金操作记录更新成功，但持仓重新计算失败",
-                    data=result
-                )
+            FundOperationService.recalculate_all_positions(db)
         except Exception as e:
             print(f"重新计算持仓失败: {e}")
-            return FundOperationResponse(
-                success=True,
-                message="基金操作记录更新成功，但持仓重新计算失败",
-                data=result
-            )
+        
+        return FundOperationResponse(
+            success=True,
+            message="基金操作记录更新成功",
+            data=result
+        )
     except HTTPException:
         raise
     except Exception as e:

@@ -502,12 +502,14 @@ class FundOperationService:
         print(f"[关键调试] should_recalculate={should_recalculate}, nav_check={nav_check}, quantity_check={quantity_check}")
         
         # 重新计算份额
+        print(f"[关键调试] 分支判断: operation_date_changed={operation_date_changed}, nav_check={nav_check}, should_recalculate={should_recalculate}")
+        
         if operation_date_changed and not nav_check:
-            print(f"[关键调试] 操作时间已改变，使用新的时间逻辑重新匹配净值")
+            print(f"[关键调试] 走时间逻辑分支：操作时间已改变，使用新的时间逻辑重新匹配净值")
             # 使用新的时间逻辑重新计算
             FundOperationService._recalculate_operation_with_time_logic(db, operation)
         elif should_recalculate:
-            print(f"[关键调试] 开始重新计算份额...")
+            print(f"[关键调试] 走重新计算分支：开始重新计算份额...")
             try:
                 if operation.operation_type == 'buy':
                     print(f"[关键调试] 调用_calculate_buy_shares...")
@@ -554,6 +556,8 @@ class FundOperationService:
                 import traceback
                 print(f"[关键调试] 错误堆栈: {traceback.format_exc()}")
                 raise e
+        else:
+            print(f"[关键调试] 不走任何重新计算分支")
         
         # 设置更新时间（只有在没有重新计算份额时才设置）
         if not should_recalculate:
@@ -745,12 +749,9 @@ class FundOperationService:
     def recalculate_all_positions(db: Session) -> dict:
         """重新计算所有持仓（基于所有已确认的操作记录）"""
         try:
-            print(f"[重新计算持仓] 开始重新计算所有持仓...")
-            
             # 清空所有持仓
             deleted_count = db.query(AssetPosition).filter(AssetPosition.asset_type == "基金").delete()
             db.commit()
-            print(f"[重新计算持仓] 清空了 {deleted_count} 条持仓记录")
             
             # 获取所有已确认的操作记录，按时间排序
             operations = db.query(UserOperation).filter(
@@ -759,8 +760,6 @@ class FundOperationService:
                     UserOperation.status == "confirmed"
                 )
             ).order_by(UserOperation.operation_date).all()
-            
-            print(f"[重新计算持仓] 找到 {len(operations)} 条已确认的操作记录")
             
             processed_count = 0
             for operation in operations:
@@ -774,10 +773,8 @@ class FundOperationService:
                         FundOperationService._update_position(db, operation)
                         processed_count += 1
                 except Exception as e:
-                    print(f"[重新计算持仓] 处理操作 {operation.id} 时出错: {e}")
+                    print(f"[错误] 处理操作 {operation.id} 时出错: {e}")
                     continue
-            
-            print(f"[重新计算持仓] 成功处理了 {processed_count} 条操作记录")
             return {
                 "success": True,
                 "message": f"重新计算了 {processed_count} 条操作记录的持仓",
