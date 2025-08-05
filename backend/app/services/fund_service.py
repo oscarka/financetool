@@ -467,6 +467,12 @@ class FundOperationService:
                 print(f"[调试] 错误堆栈: {traceback.format_exc()}")
                 raise e
         
+        # 特殊处理：如果用户明确设置quantity为None，则清空数据库中的quantity值
+        if 'quantity' in update_dict and update_dict['quantity'] is None:
+            print(f"[关键调试] 用户明确设置quantity为None，清空数据库中的quantity值")
+            operation.quantity = None
+            print(f"[关键调试] 已清空quantity字段")
+        
         # 如果有nav字段，自动写入/更新净值表
         nav = update_dict.get('nav', None)
         if nav is not None:
