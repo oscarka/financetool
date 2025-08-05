@@ -99,6 +99,7 @@ class FundOperationService:
         print(f"[调试] 手续费: {fee}")
 
         # 如果用户已经明确设置了quantity，则跳过自动计算
+        print(f"[关键调试] 检查quantity: operation.quantity={operation.quantity}, 类型={type(operation.quantity)}")
         if operation.quantity is not None:
             print(f"[调试] 用户已明确设置quantity={operation.quantity}，跳过自动计算")
             operation.nav = nav_value
@@ -410,9 +411,6 @@ class FundOperationService:
             raise ValueError("操作记录不存在")
         
         print(f"[调试] 开始更新操作: id={operation_id}, operation_type={operation.operation_type}")
-        print(f"[调试] 更新数据: {update_data}")
-        print(f"[调试] 更新数据字典: {update_data.dict()}")
-        print(f"[调试] 更新数据exclude_unset: {update_data.dict(exclude_unset=True)}")
         
         # 构建更新字典
         update_dict = {}
@@ -423,6 +421,7 @@ class FundOperationService:
                 print(f"[调试] 字段 {field} 将被更新为: {value}")
         
         print(f"[调试] 最终更新字典: {update_dict}")
+        print(f"[关键调试] quantity字段检查: {'quantity' in update_dict}, quantity值: {update_dict.get('quantity')}")
         
         # 先处理类型转换，尤其是 operation_date
         print(f"[调试] 检查operation_date字段: {'operation_date' in update_dict}")
@@ -455,17 +454,11 @@ class FundOperationService:
             print(f"[调试] update_dict中没有operation_date字段")
         
         # 先更新字段
-        print(f"[调试] 开始设置字段...")
         for field, value in update_dict.items():
-            print(f"[调试] 准备设置字段 {field}: 值={value}, 类型={type(value)}")
             try:
                 setattr(operation, field, value)
-                print(f"[调试] 已更新字段 {field}: {value}")
             except Exception as e:
-                print(f"[调试] 设置字段 {field} 失败: {e}")
-                print(f"[调试] 错误类型: {type(e)}")
-                import traceback
-                print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+                print(f"[错误] 设置字段 {field} 失败: {e}")
                 raise e
         
         # 特殊处理：如果用户明确设置quantity为None，则清空数据库中的quantity值
@@ -473,6 +466,9 @@ class FundOperationService:
             print(f"[关键调试] 用户明确设置quantity为None，清空数据库中的quantity值")
             operation.quantity = None
             print(f"[关键调试] 已清空quantity字段")
+            print(f"[关键调试] 清空后operation.quantity: {operation.quantity}")
+        else:
+            print(f"[关键调试] quantity处理: 在update_dict中={'quantity' in update_dict}, 值={update_dict.get('quantity')}")
         
         # 如果有nav字段，自动写入/更新净值表
         nav = update_dict.get('nav', None)
@@ -506,7 +502,13 @@ class FundOperationService:
         # 如果用户明确修改了quantity字段，则不重新计算份额
         should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check) and not quantity_check
         
-        print(f"[关键调试] should_recalculate={should_recalculate}, nav_check={nav_check}, quantity_check={quantity_check}")
+        print(f"[关键调试] 重新计算条件检查:")
+        print(f"[关键调试]   nav_check={nav_check} (nav={nav})")
+        print(f"[关键调试]   amount_check={amount_check} (amount={update_dict.get('amount')})")
+        print(f"[关键调试]   fee_check={fee_check} (fee={update_dict.get('fee')})")
+        print(f"[关键调试]   quantity_check={quantity_check} (quantity={update_dict.get('quantity')})")
+        print(f"[关键调试]   should_recalculate={should_recalculate}")
+        print(f"[关键调试]   operation_date_changed={operation_date_changed}")
         
         # 重新计算份额
         print(f"[关键调试] 分支判断: operation_date_changed={operation_date_changed}, nav_check={nav_check}, should_recalculate={should_recalculate}")
@@ -575,26 +577,16 @@ class FundOperationService:
         else:
             print(f"[调试] 跳过设置updated_at（已在份额重新计算中设置）")
         
-        print(f"[调试] 准备提交数据库事务...")
         try:
             db.commit()
-            print(f"[调试] 数据库事务提交成功")
         except Exception as e:
-            print(f"[调试] 数据库事务提交失败: {e}")
-            print(f"[调试] 错误类型: {type(e)}")
-            import traceback
-            print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+            print(f"[错误] 数据库事务提交失败: {e}")
             raise e
         
-        print(f"[调试] 准备刷新操作对象...")
         try:
             db.refresh(operation)
-            print(f"[调试] 操作对象刷新成功")
         except Exception as e:
-            print(f"[调试] 操作对象刷新失败: {e}")
-            print(f"[调试] 错误类型: {type(e)}")
-            import traceback
-            print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+            print(f"[错误] 操作对象刷新失败: {e}")
             raise e
         
         print(f"[调试] update_operation 完成")
