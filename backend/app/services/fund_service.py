@@ -494,35 +494,23 @@ class FundOperationService:
         status_check = update_dict.get('status') is not None
         quantity_check = update_dict.get('quantity') is not None
         
-        print(f"[调试] 份额重新计算条件检查:")
-        print(f"[调试]   operation_type={operation.operation_type}")
-        print(f"[调试]   nav_check={nav_check} (nav={nav})")
-        print(f"[调试]   amount_check={amount_check} (amount={update_dict.get('amount')})")
-        print(f"[调试]   fee_check={fee_check} (fee={update_dict.get('fee')})")
-        print(f"[调试]   status_check={status_check} (status={update_dict.get('status')})")
-        print(f"[调试]   quantity_check={quantity_check} (quantity={update_dict.get('quantity')})")
-        print(f"[调试]   买入条件: {operation.operation_type == 'buy'}")
-        print(f"[调试]   字段变化条件: {nav_check or amount_check or fee_check}")
-        print(f"[调试]   最终条件: {operation.operation_type == 'buy' and (nav_check or amount_check or fee_check)}")
-        
         # 检查是否需要重新匹配净值（操作时间改变时）
         operation_date_changed = 'operation_date' in update_dict
         # 如果用户明确修改了quantity字段，则不重新计算份额
         should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check) and not quantity_check
         
-        print(f"[调试]   是否重新计算: {should_recalculate}")
-        print(f"[调试]   用户修改了quantity: {quantity_check}")
+        print(f"[关键调试] should_recalculate={should_recalculate}, nav_check={nav_check}, quantity_check={quantity_check}")
         
         # 重新计算份额
         if operation_date_changed:
-            print(f"[调试] 操作时间已改变，使用新的时间逻辑重新匹配净值")
+            print(f"[关键调试] 操作时间已改变，使用新的时间逻辑重新匹配净值")
             # 使用新的时间逻辑重新计算
             FundOperationService._recalculate_operation_with_time_logic(db, operation)
         elif should_recalculate:
-            print(f"[调试] 开始重新计算份额...")
+            print(f"[关键调试] 开始重新计算份额...")
             try:
                 if operation.operation_type == 'buy':
-                    print(f"[调试] 调用_calculate_buy_shares...")
+                    print(f"[关键调试] 调用_calculate_buy_shares...")
                     # 只有在状态为confirmed时才清空现有持仓，避免重复累加
                     if operation.status == "confirmed":
                         existing_position = db.query(AssetPosition).filter(
@@ -533,38 +521,38 @@ class FundOperationService:
                             )
                         ).first()
                         if existing_position:
-                            print(f"[调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
+                            print(f"[关键调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
                             db.delete(existing_position)
                             db.commit()
                     else:
-                        print(f"[调试] 跳过清空持仓，状态为: {operation.status}")
+                        print(f"[关键调试] 跳过清空持仓，状态为: {operation.status}")
                     
                     FundOperationService._calculate_buy_shares(db, operation)
-                    print(f"[调试] _calculate_buy_shares调用完成")
+                    print(f"[关键调试] _calculate_buy_shares调用完成")
                 elif operation.operation_type == 'sell':
-                    print(f"[调试] 调用_calculate_sell_shares...")
+                    print(f"[关键调试] 调用_calculate_sell_shares...")
                     FundOperationService._calculate_sell_shares(db, operation)
-                    print(f"[调试] _calculate_sell_shares调用完成")
-                print(f"[调试] 份额重新计算完成")
+                    print(f"[关键调试] _calculate_sell_shares调用完成")
+                print(f"[关键调试] 份额重新计算完成")
                 
                 # 份额重新计算后，重新获取操作对象以确保状态一致
-                print(f"[调试] 重新获取操作对象...")
-                print(f"[调试] 刷新前状态: {operation.status}")
+                print(f"[关键调试] 重新获取操作对象...")
+                print(f"[关键调试] 刷新前状态: {operation.status}")
                 db.refresh(operation)
-                print(f"[调试] 刷新后状态: {operation.status}")
+                print(f"[关键调试] 刷新后状态: {operation.status}")
                 
                 # 如果状态被覆盖了，重新设置用户指定的状态
                 if 'status' in update_dict and operation.status != update_dict['status']:
-                    print(f"[调试] 状态被覆盖，重新设置为: {update_dict['status']}")
+                    print(f"[关键调试] 状态被覆盖，重新设置为: {update_dict['status']}")
                     operation.status = update_dict['status']
-                    print(f"[调试] 重新设置后状态: {operation.status}")
+                    print(f"[关键调试] 重新设置后状态: {operation.status}")
                 
-                print(f"[调试] 操作对象重新获取成功")
+                print(f"[关键调试] 操作对象重新获取成功")
             except Exception as e:
-                print(f"[调试] 份额重新计算失败: {e}")
-                print(f"[调试] 错误类型: {type(e)}")
+                print(f"[关键调试] 份额重新计算失败: {e}")
+                print(f"[关键调试] 错误类型: {type(e)}")
                 import traceback
-                print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+                print(f"[关键调试] 错误堆栈: {traceback.format_exc()}")
                 raise e
         
         # 设置更新时间（只有在没有重新计算份额时才设置）
