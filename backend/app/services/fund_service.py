@@ -502,7 +502,7 @@ class FundOperationService:
         print(f"[关键调试] should_recalculate={should_recalculate}, nav_check={nav_check}, quantity_check={quantity_check}")
         
         # 重新计算份额
-        if operation_date_changed:
+        if operation_date_changed and not nav_check:
             print(f"[关键调试] 操作时间已改变，使用新的时间逻辑重新匹配净值")
             # 使用新的时间逻辑重新计算
             FundOperationService._recalculate_operation_with_time_logic(db, operation)
