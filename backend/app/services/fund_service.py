@@ -267,7 +267,7 @@ class FundOperationService:
     @staticmethod
     def _update_position(db: Session, operation: UserOperation):
         """更新基金持仓"""
-        print(f"[持仓计算] 处理操作: {operation.operation_type} {operation.asset_code}, amount={operation.amount}, quantity={operation.quantity}")
+        # 处理操作: {operation.operation_type} {operation.asset_code}
         
         # 查找现有持仓
         position = db.query(AssetPosition).filter(
@@ -294,7 +294,7 @@ class FundOperationService:
                 position.profit_rate = position.total_profit / total_cost if total_cost > 0 else Decimal("0")
                 position.last_updated = datetime.now()
                 
-                print(f"[持仓计算] 更新持仓: {operation.asset_code} -> quantity={total_shares}, total_invested={total_cost}")
+                # 更新持仓: {operation.asset_code}
             else:
                 # PostgreSQL序列修复：检查并重置序列
                 try:
@@ -332,7 +332,7 @@ class FundOperationService:
                     profit_rate=Decimal("0"),
                     last_updated=datetime.now()
                 )
-                print(f"[持仓计算] 创建新持仓: {operation.asset_code} -> quantity={operation.quantity}, total_invested={operation.amount}")
+                # 创建新持仓: {operation.asset_code}
                 db.add(position)
         
         elif operation.operation_type == "sell":
@@ -349,13 +349,14 @@ class FundOperationService:
                     position.total_profit = position.current_value - position.total_invested
                     position.profit_rate = position.total_profit / position.total_invested if position.total_invested > 0 else Decimal("0")
                     
-                    print(f"[持仓计算] 卖出持仓: {operation.asset_code} -> quantity={remaining_shares}, total_invested={position.total_invested}")
+                    # 卖出持仓: {operation.asset_code}
                 else:
                     # 全部卖出，删除持仓记录
-                    print(f"[持仓计算] 全部卖出: {operation.asset_code}")
+                    # 全部卖出: {operation.asset_code}
                     db.delete(position)
             else:
-                print(f"[持仓计算] 卖出失败: {operation.asset_code}, 持仓不存在或份额不足")
+                # 卖出失败: {operation.asset_code}, 持仓不存在或份额不足
+                pass
         
         db.commit()
     
@@ -2312,19 +2313,29 @@ class NavMatchingCheckService:
             
             # 验证用户填写的净值是否真的对应这个日期
             nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, expected_nav_date_for_check)
+            print(f"[净值匹配调试] 操作ID: {operation.id}")
+            print(f"[净值匹配调试] 用户填写净值: {operation.nav}")
+            print(f"[净值匹配调试] 预期净值日期: {expected_nav_date_for_check}")
+            print(f"[净值匹配调试] 数据库净值记录: {nav_record.nav if nav_record else 'None'}")
+            
             if nav_record:
                 # 如果数据库中有对应日期的净值，比较用户填写的净值是否匹配
-                if abs(float(operation.nav) - float(nav_record.nav)) < 0.001:  # 允许0.001的误差
+                nav_diff = abs(float(operation.nav) - float(nav_record.nav))
+                print(f"[净值匹配调试] 净值差异: {nav_diff}")
+                if nav_diff < 0.001:  # 允许0.001的误差
                     actual_nav_date = expected_nav_date_for_check
                     nav_source = "用户填写(验证正确)"
+                    print(f"[净值匹配调试] 净值匹配正确")
                 else:
                     # 用户填写的净值与预期日期不匹配，尝试找到匹配的日期
                     actual_nav_date = None
                     nav_source = "用户填写(净值不匹配)"
+                    print(f"[净值匹配调试] 净值不匹配")
             else:
                 # 数据库中没有对应日期的净值，无法验证
                 actual_nav_date = expected_nav_date_for_check
                 nav_source = "用户填写(无验证数据)"
+                print(f"[净值匹配调试] 无验证数据")
         else:
             # 查找数据库中对应的净值记录
             nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, expected_nav_date)
