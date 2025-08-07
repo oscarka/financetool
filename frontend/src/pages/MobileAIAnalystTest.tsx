@@ -12,9 +12,11 @@ const { TabPane } = Tabs;
 
 interface ApiResult {
   success: boolean;
-  data: any;
-  status: number;
+  data?: any;
+  error?: string;
+  status?: number;
   responseTime?: number;
+  timestamp?: string;
 }
 
 interface TestScenario {
@@ -56,7 +58,7 @@ const MobileAIAnalystTest: React.FC = () => {
     ]
   };
 
-  const apiCall = async (apiFunction: () => Promise<any>, params: any = {}) => {
+  const apiCall = async (apiFunction: () => Promise<any>) => {
     const startTime = Date.now();
 
     try {
@@ -82,7 +84,7 @@ const MobileAIAnalystTest: React.FC = () => {
     }
   };
 
-  const handleApiTest = async (testType: string, apiFunction: () => Promise<any>, params: any = {}) => {
+  const handleApiTest = async (testType: string, apiFunction: () => Promise<any>) => {
     setLoading(prev => ({ ...prev, [testType]: true }));
 
     try {
@@ -120,9 +122,9 @@ const MobileAIAnalystTest: React.FC = () => {
 
     setTimeout(() => {
       const apiFunctionMap = {
-        asset: () => aiAnalystAPI.getAssetData(scenario.params, apiKey),
-        transaction: () => aiAnalystAPI.getTransactionData(scenario.params, apiKey),
-        historical: () => aiAnalystAPI.getHistoricalData(scenario.params, apiKey)
+        asset: () => aiAnalystAPI.getAssetData(apiKey, scenario.params),
+        transaction: () => aiAnalystAPI.getTransactionData(apiKey, scenario.params),
+        historical: () => aiAnalystAPI.getHistoricalData(apiKey, scenario.params)
       };
       handleApiTest(testType, apiFunctionMap[testType as keyof typeof apiFunctionMap]);
     }, 100);
@@ -301,10 +303,10 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 type="primary"
                 icon={<PlayCircleOutlined />}
-                onClick={() => handleApiTest('asset', () => aiAnalystAPI.getAssetData({
+                onClick={() => handleApiTest('asset', () => aiAnalystAPI.getAssetData(apiKey, {
                   base_currency: baseCurrency,
                   include_small_amounts: includeSmall
-                }, apiKey))}
+                }))}
                 loading={loading.asset}
                 style={{ width: '100%' }}
                 size="small"
@@ -386,12 +388,12 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 type="primary"
                 icon={<PlayCircleOutlined />}
-                onClick={() => handleApiTest('transaction', () => aiAnalystAPI.getTransactionData({
+                onClick={() => handleApiTest('transaction', () => aiAnalystAPI.getTransactionData(apiKey, {
                   start_date: startDate.format('YYYY-MM-DD'),
                   end_date: endDate.format('YYYY-MM-DD'),
                   platform: platform,
                   limit: limit
-                }, apiKey))}
+                }))}
                 loading={loading.transaction}
                 style={{ width: '100%' }}
                 size="small"
@@ -456,10 +458,10 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 type="primary"
                 icon={<PlayCircleOutlined />}
-                onClick={() => handleApiTest('historical', () => aiAnalystAPI.getHistoricalData({
+                onClick={() => handleApiTest('historical', () => aiAnalystAPI.getHistoricalData(apiKey, {
                   days: days,
-                  asset_codes: assetCodes
-                }, apiKey))}
+                  asset_codes: assetCodes ? assetCodes.split(',').map(code => code.trim()) : []
+                }))}
                 loading={loading.historical}
                 style={{ width: '100%' }}
                 size="small"

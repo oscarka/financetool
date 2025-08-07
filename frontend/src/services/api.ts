@@ -600,10 +600,10 @@ export const aiAnalystAPI = {
         }),
 
     // 获取资产数据
-    getAssetData: (params?: {
+    getAssetData: (apiKey: string, params?: {
         base_currency?: string;
         include_small_amounts?: boolean;
-    }, apiKey: string): Promise<APIResponse> =>
+    }): Promise<APIResponse> =>
         api.get('/ai-analyst/asset-data', {
             params,
             headers: {
@@ -612,12 +612,12 @@ export const aiAnalystAPI = {
         }),
 
     // 获取交易数据
-    getTransactionData: (params?: {
+    getTransactionData: (apiKey: string, params?: {
         start_date?: string;
         end_date?: string;
         platform?: string;
         limit?: number;
-    }, apiKey: string): Promise<APIResponse> =>
+    }): Promise<APIResponse> =>
         api.get('/ai-analyst/transaction-data', {
             params,
             headers: {
@@ -626,10 +626,10 @@ export const aiAnalystAPI = {
         }),
 
     // 获取历史数据
-    getHistoricalData: (params?: {
+    getHistoricalData: (apiKey: string, params?: {
         days?: number;
         asset_codes?: string[];
-    }, apiKey: string): Promise<APIResponse> =>
+    }): Promise<APIResponse> =>
         api.get('/ai-analyst/historical-data', {
             params,
             headers: {
