@@ -14,7 +14,8 @@ import {
     MenuOutlined,
     StockOutlined,
     ToolOutlined,
-    ClockCircleOutlined
+    ClockCircleOutlined,
+    RobotOutlined
 } from '@ant-design/icons'
 
 const { Header, Content } = AntLayout
@@ -30,6 +31,7 @@ const navigation = [
     { name: '基金', href: '/funds', icon: DollarOutlined },
     { name: '汇率', href: '/exchange-rates', icon: GlobalOutlined },
     { name: '分析', href: '/analysis', icon: PieChartOutlined },
+    { name: 'AI测试', href: '/ai-analyst-test', icon: RobotOutlined },
     { name: 'OKX', href: '/okx', icon: SettingOutlined },
     { name: 'Wise', href: '/wise', icon: BankOutlined },
     { name: 'PayPal', href: '/paypal', icon: PayCircleOutlined },
@@ -48,119 +50,70 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
         label: <Link to={item.href} onClick={() => setDrawerVisible(false)}>{item.name}</Link>,
     }))
 
-    // 底部导航主要功能
-    const bottomNavItems = navigation.slice(0, 4)
+    // 获取当前页面名称
+    const currentPage = navigation.find(item => item.href === location.pathname)?.name || '首页'
 
     return (
         <AntLayout style={{ minHeight: '100vh' }}>
-            {/* 顶部导航栏 */}
-            <Header 
-                style={{ 
-                    background: '#fff', 
-                    padding: '0 16px',
-                    borderBottom: '1px solid #f0f0f0',
+            <Header
+                style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    background: '#001529',
+                    padding: '0 16px',
                     position: 'fixed',
                     top: 0,
                     left: 0,
                     right: 0,
                     zIndex: 1000,
-                    height: '56px'
+                    height: '56px',
                 }}
             >
-                <h1 style={{ 
-                    margin: 0, 
-                    fontSize: '18px', 
-                    fontWeight: 600, 
-                    color: '#262626',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                }}>
-                    投资管理
-                </h1>
+                <div style={{ color: 'white', fontSize: '16px', fontWeight: 500 }}>
+                    {currentPage}
+                </div>
                 <Button
                     type="text"
                     icon={<MenuOutlined />}
                     onClick={() => setDrawerVisible(true)}
-                    size="large"
+                    style={{
+                        color: 'white',
+                        border: 'none',
+                        background: 'transparent',
+                        fontSize: '18px',
+                    }}
                 />
             </Header>
 
-            {/* 主内容区域 */}
-            <Content 
-                style={{ 
-                    margin: '56px 0 60px 0', // 为顶部和底部导航留出空间
-                    padding: '16px',
-                    background: '#f5f5f5',
-                    minHeight: 'calc(100vh - 116px)'
-                }}
-            >
-                {children}
-            </Content>
-
-            {/* 底部导航栏 */}
-            <div
-                style={{
-                    position: 'fixed',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    background: '#fff',
-                    borderTop: '1px solid #f0f0f0',
-                    padding: '8px 0',
-                    zIndex: 1000,
-                    height: '60px'
-                }}
-            >
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-around',
-                    alignItems: 'center',
-                    height: '100%'
-                }}>
-                    {bottomNavItems.map((item) => {
-                        const isActive = location.pathname === item.href
-                        const IconComponent = item.icon
-                        return (
-                            <Link
-                                key={item.href}
-                                to={item.href}
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    textDecoration: 'none',
-                                    color: isActive ? '#1890ff' : '#666',
-                                    fontSize: '12px',
-                                    minWidth: '60px'
-                                }}
-                            >
-                                <IconComponent style={{ fontSize: '20px', marginBottom: '2px' }} />
-                                <span>{item.name}</span>
-                            </Link>
-                        )
-                    })}
-                </div>
-            </div>
-
-            {/* 侧边抽屉菜单 */}
             <Drawer
-                title="菜单"
+                title="个人财务管理系统"
                 placement="right"
                 onClose={() => setDrawerVisible(false)}
                 open={drawerVisible}
                 width={280}
+                styles={{
+                    body: { padding: 0 }
+                }}
             >
                 <Menu
                     mode="inline"
                     selectedKeys={[location.pathname]}
-                    style={{ border: 'none' }}
+                    style={{ height: '100%', borderRight: 0 }}
                     items={menuItems}
                 />
             </Drawer>
+
+            <Content
+                style={{
+                    marginTop: '56px', // Header高度
+                    padding: '16px',
+                    background: '#f5f5f5',
+                    minHeight: 'calc(100vh - 56px)',
+                }}
+            >
+                {children}
+            </Content>
         </AntLayout>
     )
 }
