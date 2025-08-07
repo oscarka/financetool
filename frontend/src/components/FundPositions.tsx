@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Table, Statistic, Row, Col, Tag, Button, message, Typography, Divider } from 'antd'
-import { SyncOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
+import { SyncOutlined, ArrowUpOutlined, ArrowDownOutlined, DownloadOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
 
 
@@ -74,6 +74,48 @@ const FundPositions: React.FC = () => {
     }, [])
 
     console.log('[调试] summary:', summary)
+
+    // 导出持仓信息为CSV
+    const handleExportPositions = async () => {
+        try {
+            // 获取API基础URL
+            const getBaseURL = () => {
+                if (import.meta.env.VITE_API_BASE_URL) {
+                    return import.meta.env.VITE_API_BASE_URL
+                }
+                if (import.meta.env.DEV) {
+                    return 'http://localhost:8000/api/v1'
+                }
+                return '/api/v1'
+            }
+            
+            const baseURL = getBaseURL()
+            const response = await fetch(`${baseURL}/funds/positions/export-csv`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+
+            if (response.ok) {
+                const blob = await response.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `fund_positions_${new Date().toISOString().slice(0, 10)}.csv`
+                document.body.appendChild(a)
+                a.click()
+                window.URL.revokeObjectURL(url)
+                document.body.removeChild(a)
+                message.success('导出成功')
+            } else {
+                message.error('导出失败')
+            }
+        } catch (error) {
+            console.error('导出失败:', error)
+            message.error('导出失败，请重试')
+        }
+    }
 
     // 表格列定义
     const columns = [
@@ -303,14 +345,48 @@ const FundPositions: React.FC = () => {
             <Card
                 title="基金持仓明细（表格）"
                 extra={
-                    <Button
-                        type="primary"
-                        icon={<SyncOutlined />}
-                        loading={loading}
-                        onClick={fetchPositions}
-                    >
-                        刷新数据
-                    </Button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <Button
+                            type="primary"
+                            icon={<SyncOutlined />}
+                            loading={loading}
+                            onClick={fetchPositions}
+                        >
+                            刷新数据
+                        </Button>
+                        <Button
+                            type="default"
+                            icon={<SyncOutlined />}
+                            loading={loading}
+                            onClick={async () => {
+                                setLoading(true)
+                                try {
+                                    const response = await fundAPI.recalculatePositions()
+                                    if (response.success) {
+                                        message.success('持仓重新计算成功')
+                                        await fetchPositions() // 重新获取数据
+                                    } else {
+                                        message.error('持仓重新计算失败')
+                                    }
+                                } catch (error: any) {
+                                    console.error('重新计算持仓失败:', error)
+                                    message.error('重新计算持仓失败')
+                                } finally {
+                                    setLoading(false)
+                                }
+                            }}
+                        >
+                            重新计算持仓
+                        </Button>
+                        <Button
+                            type="default"
+                            icon={<DownloadOutlined />}
+                            onClick={handleExportPositions}
+                            loading={loading}
+                        >
+                            导出CSV
+                        </Button>
+                    </div>
                 }
                 style={{ marginTop: 32 }}
             >

@@ -18,8 +18,12 @@ class SchedulerService:
     """定时任务服务类"""
     
     def __init__(self):
+        # 确保时区设置正确
+        import pytz
+        timezone = pytz.timezone(settings.scheduler_timezone)
+        
         self.scheduler = AsyncIOScheduler(
-            timezone=settings.scheduler_timezone,
+            timezone=timezone,
             job_defaults={
                 'coalesce': True,
                 'max_instances': 1
@@ -38,10 +42,10 @@ class SchedulerService:
             replace_existing=True
         )
         
-        # 定投计划执行任务 - 每天15:45执行
+        # 定投计划执行任务 - 每天10:00执行
         self.scheduler.add_job(
             self._execute_dca_plans,
-            CronTrigger(hour=15, minute=45),
+            CronTrigger(hour=10, minute=0),
             id='execute_dca_plans',
             name='执行定投计划',
             replace_existing=True
@@ -93,19 +97,22 @@ class SchedulerService:
             updated_count = 0
             for fund_code in fund_codes:
                 try:
-                    # 获取最新净值
-                    api_service = FundAPIService()
-                    nav_data = await api_service.get_fund_nav_latest_tiantian(fund_code)
-                    if nav_data and nav_data.get('nav'):
-                        # 更新或插入净值记录
-                        from datetime import date
-                        today = date.today()
+                    # 使用akshare获取最新净值
+                    import akshare as ak
+                    df = ak.fund_open_fund_info_em(symbol=fund_code, indicator="单位净值走势")
+                    
+                    if not df.empty:
+                        # 获取最新的一条数据
+                        latest_row = df.iloc[0]
+                        nav_date = latest_row['净值日期']
+                        nav_value = latest_row['单位净值']
+                        
                         success = FundOperationService.update_fund_nav(
-                            db, fund_code, nav_data['nav'], today
+                            db, fund_code, nav_value, nav_date
                         )
                         if success:
                             updated_count += 1
-                            logger.info(f"成功更新基金 {fund_code} 净值: {nav_data['nav']}")
+                            logger.info(f"成功更新基金 {fund_code} 净值: {nav_value} (日期: {nav_date})")
                         else:
                             logger.warning(f"更新基金 {fund_code} 净值失败")
                     else:
@@ -114,6 +121,15 @@ class SchedulerService:
                     logger.error(f"更新基金 {fund_code} 净值时出错: {e}")
             
             logger.info(f"基金净值更新任务完成，成功更新 {updated_count} 个基金")
+            
+            # 净值更新后，自动触发待确认操作的更新
+            if updated_count > 0:
+                logger.info("净值更新后，开始更新待确认操作")
+                try:
+                    pending_updated = FundOperationService.update_pending_operations(db)
+                    logger.info(f"待确认操作更新完成，更新了 {pending_updated} 条记录")
+                except Exception as e:
+                    logger.error(f"更新待确认操作失败: {e}")
             
         except Exception as e:
             logger.error(f"基金净值更新任务执行失败: {e}")
@@ -142,8 +158,8 @@ class SchedulerService:
         try:
             db = next(get_db())
             
-            # 更新所有待确认的定投操作记录
-            updated_count = DCAService.update_pending_operations(db)
+            # 更新所有待确认的操作记录（包括手动操作和定投操作）
+            updated_count = FundOperationService.update_pending_operations(db)
             
             logger.info(f"更新待确认操作任务完成，更新了 {updated_count} 条记录")
             

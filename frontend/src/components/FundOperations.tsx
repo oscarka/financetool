@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Button, Form, Input, Select, DatePicker, InputNumber, message, Table, Space, Tag, Modal, Popconfirm, Tooltip, Radio, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons'
 import { fundAPI } from '../services/api'
 
 import dayjs from 'dayjs'
@@ -86,6 +86,10 @@ const FundOperations: React.FC = () => {
     const [dividendModalVisible, setDividendModalVisible] = useState(false)
     const [processingDividend, setProcessingDividend] = useState<FundOperation | null>(null)
     const [dividendProcessType, setDividendProcessType] = useState<'reinvest' | 'withdraw' | 'skip'>('reinvest')
+
+    // 净值匹配检查相关状态
+    const [navCheckResults, setNavCheckResults] = useState<any>(null);
+    const [navCheckLoading, setNavCheckLoading] = useState(false);
 
     // 批量查所有基金的最新净值 - 已优化：后端已包含最新净值，无需前端单独获取
     const fetchLatestNavs = async (operations: FundOperation[]) => {
@@ -205,6 +209,82 @@ const FundOperations: React.FC = () => {
         }
     }
 
+    // 净值匹配检查功能
+    const checkNavMatching = async () => {
+        setNavCheckLoading(true);
+        try {
+            const response = await fundAPI.checkNavMatching();
+            if (response.success) {
+                setNavCheckResults(response.data);
+                message.success('净值匹配检查完成');
+            } else {
+                message.error('净值匹配检查失败');
+            }
+        } catch (error) {
+            console.error('净值匹配检查失败:', error);
+            message.error('净值匹配检查失败');
+        } finally {
+            setNavCheckLoading(false);
+        }
+    };
+
+    const markIncorrectOperations = async () => {
+        try {
+            const response = await fundAPI.markIncorrectNavMatching();
+            if (response.success) {
+                message.success(response.data.message);
+                // 刷新操作列表
+                fetchOperations(searchParams, pagination.current, pagination.pageSize);
+            } else {
+                message.error('标记错误操作失败');
+            }
+        } catch (error) {
+            console.error('标记错误操作失败:', error);
+            message.error('标记错误操作失败');
+        }
+    };
+
+    const getNavMatchingIssues = async () => {
+        try {
+            const response = await fundAPI.getNavMatchingIssues();
+            if (response.success) {
+                const issues = response.data.issues;
+                if (issues.length > 0) {
+                    // 显示问题列表
+                    Modal.info({
+                        title: '净值匹配问题列表',
+                        width: 800,
+                        content: (
+                            <div>
+                                <p>发现 {issues.length} 个净值匹配问题：</p>
+                                <Table
+                                    dataSource={issues}
+                                    columns={[
+                                        { title: '操作ID', dataIndex: 'operation_id', key: 'operation_id' },
+                                        { title: '操作日期', dataIndex: 'operation_date', key: 'operation_date' },
+                                        { title: '基金代码', dataIndex: 'asset_code', key: 'asset_code' },
+                                        { title: '操作类型', dataIndex: 'operation_type', key: 'operation_type' },
+                                        { title: '问题描述', dataIndex: 'issue', key: 'issue' },
+                                        { title: '状态', dataIndex: 'status', key: 'status' }
+                                    ]}
+                                    size="small"
+                                    pagination={false}
+                                />
+                            </div>
+                        )
+                    });
+                } else {
+                    message.success('没有发现净值匹配问题');
+                }
+            } else {
+                message.error('获取净值匹配问题失败');
+            }
+        } catch (error) {
+            console.error('获取净值匹配问题失败:', error);
+            message.error('获取净值匹配问题失败');
+        }
+    };
+
     useEffect(() => {
         fetchOperations({}, 1, 20)
         fetchAvailablePositions()
@@ -303,6 +383,67 @@ const FundOperations: React.FC = () => {
             } catch (e) {
                 message.error('查询基金信息失败')
             }
+        }
+    }
+
+    // 导出操作记录为CSV
+    const handleExportOperations = async () => {
+        try {
+            const searchValues = searchForm.getFieldsValue()
+            const params = new URLSearchParams()
+
+            // 添加搜索参数
+            if (searchValues.asset_code) params.append('fund_code', searchValues.asset_code)
+            if (searchValues.operation_type) params.append('operation_type', searchValues.operation_type)
+            if (searchValues.status) params.append('status', searchValues.status)
+            if (searchValues.dca_plan_id) params.append('dca_plan_id', searchValues.dca_plan_id.toString())
+
+            // 处理日期范围
+            if (searchValues.date_range && searchValues.date_range.length === 2) {
+                params.append('start_date', searchValues.date_range[0].format('YYYY-MM-DD'))
+                params.append('end_date', searchValues.date_range[1].format('YYYY-MM-DD'))
+            }
+
+            // 默认包含净值和分红信息
+            params.append('include_nav', 'true')
+            params.append('include_dividend', 'true')
+
+            // 获取API基础URL
+            const getBaseURL = () => {
+                if (import.meta.env.VITE_API_BASE_URL) {
+                    return import.meta.env.VITE_API_BASE_URL
+                }
+                if (import.meta.env.DEV) {
+                    return 'http://localhost:8000/api/v1'
+                }
+                return '/api/v1'
+            }
+
+            const baseURL = getBaseURL()
+            const response = await fetch(`${baseURL}/funds/operations/export-csv?${params.toString()}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+
+            if (response.ok) {
+                const blob = await response.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `fund_operations_${new Date().toISOString().slice(0, 10)}.csv`
+                document.body.appendChild(a)
+                a.click()
+                window.URL.revokeObjectURL(url)
+                document.body.removeChild(a)
+                message.success('导出成功')
+            } else {
+                message.error('导出失败')
+            }
+        } catch (error) {
+            console.error('导出失败:', error)
+            message.error('导出失败，请重试')
         }
     }
 
@@ -571,12 +712,85 @@ const FundOperations: React.FC = () => {
                                     <Button onClick={handleReset} icon={<ReloadOutlined />}>
                                         重置
                                     </Button>
+                                    <Button
+                                        type="default"
+                                        icon={<DownloadOutlined />}
+                                        onClick={handleExportOperations}
+                                        loading={loading}
+                                    >
+                                        导出CSV
+                                    </Button>
+                                </Space>
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item>
+                                <Space>
+                                    <Button
+                                        type="default"
+                                        onClick={checkNavMatching}
+                                        loading={navCheckLoading}
+                                    >
+                                        净值匹配检查
+                                    </Button>
+                                    <Button
+                                        type="default"
+                                        onClick={getNavMatchingIssues}
+                                    >
+                                        查看问题
+                                    </Button>
+                                    <Button
+                                        type="default"
+                                        onClick={markIncorrectOperations}
+                                    >
+                                        标记错误
+                                    </Button>
                                 </Space>
                             </Form.Item>
                         </Col>
                     </Row>
                 </Form>
             </Card>
+
+            {/* 净值匹配检查结果 */}
+            {navCheckResults && (
+                <Card title="净值匹配检查结果" style={{ marginBottom: 16 }}>
+                    <Row gutter={16}>
+                        <Col span={6}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1890ff' }}>
+                                    {navCheckResults.total_operations}
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#666' }}>总操作数</div>
+                            </div>
+                        </Col>
+                        <Col span={6}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#52c41a' }}>
+                                    {navCheckResults.correct_matching}
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#666' }}>正确匹配</div>
+                            </div>
+                        </Col>
+                        <Col span={6}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#faad14' }}>
+                                    {navCheckResults.incorrect_matching}
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#666' }}>错误匹配</div>
+                            </div>
+                        </Col>
+                        <Col span={6}>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff4d4f' }}>
+                                    {navCheckResults.no_nav_data}
+                                </div>
+                                <div style={{ fontSize: '14px', color: '#666' }}>无净值数据</div>
+                            </div>
+                        </Col>
+                    </Row>
+                </Card>
+            )}
 
             {/* 操作记录表格 */}
             <Card>

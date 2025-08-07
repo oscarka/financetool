@@ -21,8 +21,12 @@ class ExtensibleSchedulerService:
     """可扩展定时任务调度器服务"""
     
     def __init__(self):
+        # 确保时区设置正确
+        import pytz
+        timezone = pytz.timezone(settings.scheduler_timezone)
+        
         self.scheduler = AsyncIOScheduler(
-            timezone=settings.scheduler_timezone,
+            timezone=timezone,
             job_defaults={
                 'coalesce': True,
                 'max_instances': 1,
@@ -51,6 +55,17 @@ class ExtensibleSchedulerService:
         import os
         import json
         try:
+            # 添加时区调试信息
+            import pytz
+            from datetime import datetime
+            
+            logger.info("=== 调度器初始化时区调试 ===")
+            logger.info(f"调度器时区设置: {settings.scheduler_timezone}")
+            logger.info(f"系统当前时间: {datetime.now()}")
+            logger.info(f"系统UTC时间: {datetime.utcnow()}")
+            logger.info(f"调度器时区对象: {self.scheduler.timezone}")
+            logger.info("=== 调度器初始化时区调试结束 ===")
+            
             # 加载插件
             await self._load_plugins()
 
@@ -76,13 +91,39 @@ class ExtensibleSchedulerService:
                     try:
                         from apscheduler.triggers.cron import CronTrigger
                         cron_fields = cron_expr.strip().split()
+                        
+                        # 添加cron解析调试信息
+                        logger.info(f"=== Cron表达式调试: {task['id']} ===")
+                        logger.info(f"Cron表达式: {cron_expr}")
+                        logger.info(f"Cron字段: {cron_fields}")
+                        
                         if len(cron_fields) == 5:
-                            trigger = CronTrigger(minute=cron_fields[0], hour=cron_fields[1], day=cron_fields[2], month=cron_fields[3], day_of_week=cron_fields[4])
+                            trigger = CronTrigger(
+                                minute=cron_fields[0], 
+                                hour=cron_fields[1], 
+                                day=cron_fields[2], 
+                                month=cron_fields[3], 
+                                day_of_week=cron_fields[4],
+                                timezone=self.scheduler.timezone  # 明确设置时区
+                            )
                         elif len(cron_fields) == 6:
-                            trigger = CronTrigger(second=cron_fields[0], minute=cron_fields[1], hour=cron_fields[2], day=cron_fields[3], month=cron_fields[4], day_of_week=cron_fields[5])
+                            trigger = CronTrigger(
+                                second=cron_fields[0], 
+                                minute=cron_fields[1], 
+                                hour=cron_fields[2], 
+                                day=cron_fields[3], 
+                                month=cron_fields[4], 
+                                day_of_week=cron_fields[5],
+                                timezone=self.scheduler.timezone  # 明确设置时区
+                            )
                         else:
                             logger.error(f"无效的cron表达式: {cron_expr}")
                             continue
+                        
+                        logger.info(f"创建的触发器: {trigger}")
+                        logger.info(f"触发器时区: {trigger.timezone}")
+                        logger.info("=== Cron表达式调试结束 ===")
+                        
                     except Exception as e:
                         logger.error(f"解析cron表达式失败: {cron_expr}, 错误: {e}")
                         continue
@@ -256,11 +297,51 @@ class ExtensibleSchedulerService:
         """获取所有任务"""
         jobs = []
         for job in self.scheduler.get_jobs():
+            # 检查任务状态 - 暂停的任务next_run_time为None
+            state = 'running'  # 默认状态
+            if job.next_run_time is None:
+                state = 'paused'
+            elif job.next_run_time:
+                state = 'running'
+            
+            # 添加调试信息
+            logger.info(f"任务调试信息: {job.id}")
+            logger.info(f"  - 名称: {job.name}")
+            logger.info(f"  - 触发器: {job.trigger}")
+            logger.info(f"  - 下次执行时间: {job.next_run_time}")
+            logger.info(f"  - 状态: {state}")
+            
+            # 特别关注定投任务
+            if 'dca' in job.id.lower() or '定投' in job.name:
+                logger.info(f"*** 定投任务详细信息 ***")
+                logger.info(f"  - 任务ID: {job.id}")
+                logger.info(f"  - 任务名称: {job.name}")
+                logger.info(f"  - 触发器原始配置: {job.trigger}")
+                logger.info(f"  - 下次执行时间: {job.next_run_time}")
+                logger.info(f"  - 时区: {job.next_run_time.tzinfo if job.next_run_time else 'None'}")
+                logger.info(f"  - 状态: {state}")
+                logger.info(f"*** 定投任务信息结束 ***")
+                
+            # APScheduler已经返回了正确的时区感知时间，直接使用
+            next_run_time = None
+            if job.next_run_time:
+                # 添加简化的调试信息
+                logger.info(f"=== 时区调试信息: {job.id} ===")
+                logger.info(f"APScheduler原始时间: {job.next_run_time}")
+                logger.info(f"APScheduler原始时间类型: {type(job.next_run_time)}")
+                logger.info(f"APScheduler原始时间时区: {job.next_run_time.tzinfo}")
+                
+                # 直接使用APScheduler的时间，不做任何转换
+                next_run_time = job.next_run_time.isoformat()
+                logger.info(f"最终ISO格式: {next_run_time}")
+                logger.info(f"=== 时区调试信息结束 ===")
+            
             jobs.append({
                 'job_id': job.id,
                 'name': job.name,
-                'next_run_time': job.next_run_time.isoformat() if job.next_run_time else None,
-                'trigger': str(job.trigger)
+                'next_run_time': next_run_time,
+                'trigger': str(job.trigger),
+                'state': state
             })
         return jobs
         

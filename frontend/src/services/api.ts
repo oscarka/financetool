@@ -25,11 +25,26 @@ const api = axios.create({
     },
 })
 
+// 请求拦截器
+api.interceptors.request.use(
+    (config) => {
+        console.log('[API调试] 发送请求:', config.method?.toUpperCase(), config.url)
+        return config
+    },
+    (error) => {
+        console.error('[API调试] 请求错误:', error)
+        return Promise.reject(error)
+    }
+)
+
 // 响应拦截器
 api.interceptors.response.use(
-    (response) => response.data,
+    (response) => {
+        console.log('[API调试] 响应成功:', response.config.method?.toUpperCase(), response.config.url)
+        return response.data
+    },
     (error) => {
-        console.error('API Error:', error)
+        console.error('[API调试] 响应错误:', error.config?.method?.toUpperCase(), error.config?.url, error.message)
         throw error
     }
 )
@@ -86,6 +101,22 @@ export const fundAPI = {
     syncLatestNav: (fundCode: string): Promise<APIResponse> =>
         api.post(`/funds/nav/${fundCode}/sync/latest`),
 
+    // 获取基金估算净值
+    getFundEstimate: (fundCode: string): Promise<APIResponse> =>
+        api.get(`/funds/nav/${fundCode}/estimate`),
+
+    // 获取净值数据统计
+    getNavDataStats: (): Promise<APIResponse> =>
+        api.get('/funds/nav-stats'),
+
+    // 删除指定来源的净值数据
+    deleteNavBySource: (source: string): Promise<APIResponse> =>
+        api.delete(`/funds/nav-source/${source}`),
+
+    // 增量更新净值数据
+    incrementalUpdateNav: (fundCode: string): Promise<APIResponse> =>
+        api.post(`/funds/nav/${fundCode}/incremental-update`),
+
     // 创建基金操作
     createFundOperation: (data: any): Promise<APIResponse> =>
         api.post('/funds/operations', data),
@@ -113,6 +144,10 @@ export const fundAPI = {
     // 获取持仓汇总
     getPositionSummary: (): Promise<APIResponse> =>
         api.get('/funds/positions/summary'),
+
+    // 重新计算持仓
+    recalculatePositions: (): Promise<APIResponse> =>
+        api.post('/funds/positions/recalculate'),
 
     // 创建定投计划
     createDCAPlan: (data: any): Promise<APIResponse> =>
@@ -143,12 +178,21 @@ export const fundAPI = {
 
     // 删除定投计划
     deleteDCAPlan: (planId: number, params?: { delete_operations?: boolean }): Promise<APIResponse> => {
+        console.log('[API调试] deleteDCAPlan 开始调用')
+        console.log('[API调试] planId:', planId)
+        console.log('[API调试] params:', params)
+
         const queryParams = new URLSearchParams()
         if (params?.delete_operations) {
             queryParams.append('delete_operations', 'true')
         }
         const queryString = queryParams.toString()
-        return api.delete(`/funds/dca/plans/${planId}${queryString ? `?${queryString}` : ''}`)
+        const url = `/funds/dca/plans/${planId}${queryString ? `?${queryString}` : ''}`
+
+        console.log('[API调试] 请求URL:', url)
+        console.log('[API调试] 完整URL:', getBaseURL() + url)
+
+        return api.delete(url)
     },
 
     // 执行定投计划
@@ -230,6 +274,16 @@ export const fundAPI = {
     // 手动执行净值更新任务
     manualUpdateNavs: (): Promise<APIResponse> =>
         api.post('/funds/scheduler/update-navs'),
+
+    // 净值匹配检查相关API
+    checkNavMatching: (): Promise<APIResponse> =>
+        api.get('/funds/nav-matching-check'),
+
+    markIncorrectNavMatching: (): Promise<APIResponse> =>
+        api.post('/funds/nav-matching-mark'),
+
+    getNavMatchingIssues: (): Promise<APIResponse> =>
+        api.get('/funds/nav-matching-issues'),
 }
 
 // Wise相关API

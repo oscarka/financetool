@@ -32,11 +32,29 @@ def create_fund_operation(
     """创建基金操作记录"""
     try:
         result = FundOperationService.create_operation(db, operation)
-        return FundOperationResponse(
-            success=True,
-            message="基金操作记录创建成功",
-            data=result
-        )
+        
+        # 重新计算持仓（新增操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return FundOperationResponse(
+                    success=True,
+                    message="基金操作记录创建成功，持仓已重新计算",
+                    data=result
+                )
+            else:
+                return FundOperationResponse(
+                    success=True,
+                    message="基金操作记录创建成功，但持仓重新计算失败",
+                    data=result
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return FundOperationResponse(
+                success=True,
+                message="基金操作记录创建成功，但持仓重新计算失败",
+                data=result
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -156,6 +174,12 @@ def update_fund_operation(
         result = FundOperationService.update_operation(db, operation_id, update_data)
         if not result:
             raise HTTPException(status_code=404, detail="操作记录不存在")
+        
+        # 重新计算持仓（静默执行）
+        try:
+            FundOperationService.recalculate_all_positions(db)
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
         
         return FundOperationResponse(
             success=True,
@@ -583,8 +607,13 @@ def create_dca_plan(
     db: Session = Depends(get_db)
 ):
     """创建定投计划"""
+    print(f"[API调试] 开始创建定投计划")
+    print(f"[API调试] 接收到的计划数据: {plan}")
     try:
+        print(f"[API调试] 调用DCAService.create_dca_plan")
         result = DCAService.create_dca_plan(db, plan)
+        print(f"[API调试] DCAService.create_dca_plan调用成功")
+        
         # 修正：确保exclude_dates为List[str]类型
         if result and result.exclude_dates and isinstance(result.exclude_dates, str):
             import json
@@ -592,12 +621,19 @@ def create_dca_plan(
                 result.exclude_dates = json.loads(result.exclude_dates)
             except Exception:
                 result.exclude_dates = []
+        
+        print(f"[API调试] 准备返回成功响应")
         return DCAPlanResponse(
             success=True,
             message="定投计划创建成功",
             data=result
         )
     except Exception as e:
+        print(f"[API错误] 创建定投计划失败: {str(e)}")
+        print(f"[API错误] 错误类型: {type(e)}")
+        import traceback
+        print(f"[API错误] 完整错误堆栈:")
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -680,21 +716,34 @@ def delete_dca_plan(
     db: Session = Depends(get_db)
 ):
     """删除定投计划，支持批量删除操作记录"""
+    print(f"[API调试] 开始删除定投计划，ID: {plan_id}, delete_operations: {delete_operations}")
     try:
         if delete_operations:
+            print(f"[API调试] 调用delete_dca_plan_with_operations")
             success = DCAService.delete_dca_plan_with_operations(db, plan_id)
         else:
+            print(f"[API调试] 调用delete_dca_plan")
             success = DCAService.delete_dca_plan(db, plan_id)
+        
+        print(f"[API调试] 删除操作结果: {success}")
+        
         if not success:
+            print(f"[API调试] 删除失败，返回404")
             raise HTTPException(status_code=404, detail="定投计划不存在")
         
+        print(f"[API调试] 删除成功，准备返回响应")
         return BaseResponse(
             success=True,
             message="定投计划删除成功"
         )
     except HTTPException:
+        print(f"[API调试] 捕获HTTPException，重新抛出")
         raise
     except Exception as e:
+        print(f"[API错误] 删除定投计划异常: {str(e)}")
+        import traceback
+        print(f"[API错误] 完整错误堆栈:")
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -710,11 +759,28 @@ def execute_dca_plan(
         if not operation:
             raise HTTPException(status_code=400, detail="定投计划执行失败")
         
-        return FundOperationResponse(
-            success=True,
-            message="定投计划执行成功",
-            data=operation
-        )
+        # 重新计算持仓（定投执行会产生新的操作记录）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return FundOperationResponse(
+                    success=True,
+                    message="定投计划执行成功，持仓已重新计算",
+                    data=operation
+                )
+            else:
+                return FundOperationResponse(
+                    success=True,
+                    message="定投计划执行成功，但持仓重新计算失败",
+                    data=operation
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return FundOperationResponse(
+                success=True,
+                message="定投计划执行成功，但持仓重新计算失败",
+                data=operation
+            )
     except HTTPException:
         raise
     except Exception as e:
@@ -728,11 +794,29 @@ def execute_all_dca_plans(
     """执行所有到期的定投计划"""
     try:
         operations = DCAService.check_and_execute_dca_plans(db)
-        return BaseResponse(
-            success=True,
-            message=f"执行了 {len(operations)} 个定投计划",
-            data={"executed_count": len(operations)}
-        )
+        
+        # 重新计算持仓（批量执行定投会产生多个操作记录）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"执行了 {len(operations)} 个定投计划，持仓已重新计算",
+                    data={"executed_count": len(operations)}
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"执行了 {len(operations)} 个定投计划，但持仓重新计算失败",
+                    data={"executed_count": len(operations)}
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"执行了 {len(operations)} 个定投计划，但持仓重新计算失败",
+                data={"executed_count": len(operations)}
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -769,7 +853,8 @@ def get_fund_nav_history_with_cache(
     """获取基金历史净值，支持按需用akshare拉取并缓存，支持合并分红数据"""
     try:
         if force_update:
-            count = FundNavService.fetch_and_cache_nav_history(db, fund_code)
+            # 使用统一的净值更新方法，避免重复
+            count = FundNavService.force_update_nav_history(db, fund_code)
         
         navs = db.query(FundNav).filter_by(fund_code=fund_code).order_by(FundNav.nav_date.desc()).all()
         data = [
@@ -1000,11 +1085,29 @@ def generate_historical_operations(
                         print(f"[历史生成] exclude_dates解析失败: {d}, 错误: {e}")
         print(f"[历史生成] exclude_dates_parsed: {exclude_dates_parsed}, 类型: {type(exclude_dates_parsed)}")
         created_count = DCAService.generate_historical_operations(db, plan_id, end_date, exclude_dates=exclude_dates_parsed)
-        return BaseResponse(
-            success=True,
-            message=f"生成了 {created_count} 条历史定投记录",
-            data={"created_count": created_count}
-        )
+        
+        # 重新计算持仓（生成历史操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"生成了 {created_count} 条历史定投记录，持仓已重新计算",
+                    data={"created_count": created_count}
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"生成了 {created_count} 条历史定投记录，但持仓重新计算失败",
+                    data={"created_count": created_count}
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"生成了 {created_count} 条历史定投记录，但持仓重新计算失败",
+                data={"created_count": created_count}
+            )
     except Exception as e:
         import traceback
         print(f"[历史生成] 生成历史异常: {e}")
@@ -1036,11 +1139,29 @@ def delete_plan_operations(
     """删除定投计划的所有操作记录"""
     try:
         deleted_count = DCAService.delete_plan_operations(db, plan_id)
-        return BaseResponse(
-            success=True,
-            message=f"删除了 {deleted_count} 条操作记录",
-            data={"deleted_count": deleted_count}
-        )
+        
+        # 重新计算持仓（删除操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"删除了 {deleted_count} 条操作记录，持仓已重新计算",
+                    data={"deleted_count": deleted_count}
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"删除了 {deleted_count} 条操作记录，但持仓重新计算失败",
+                    data={"deleted_count": deleted_count}
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"删除了 {deleted_count} 条操作记录，但持仓重新计算失败",
+                data={"deleted_count": deleted_count}
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1074,11 +1195,29 @@ def clean_plan_operations(
     """清理定投计划超出新区间的历史操作记录"""
     try:
         deleted_count = DCAService.clean_plan_operations_by_date_range(db, plan_id, start_date, end_date)
-        return BaseResponse(
-            success=True,
-            message=f"清理了 {deleted_count} 条超出区间的历史操作记录",
-            data={"deleted_count": deleted_count}
-        )
+        
+        # 重新计算持仓（清理操作记录会影响持仓）
+        try:
+            recalculate_result = FundOperationService.recalculate_all_positions(db)
+            if recalculate_result["success"]:
+                return BaseResponse(
+                    success=True,
+                    message=f"清理了 {deleted_count} 条超出区间的历史操作记录，持仓已重新计算",
+                    data={"deleted_count": deleted_count}
+                )
+            else:
+                return BaseResponse(
+                    success=True,
+                    message=f"清理了 {deleted_count} 条超出区间的历史操作记录，但持仓重新计算失败",
+                    data={"deleted_count": deleted_count}
+                )
+        except Exception as e:
+            print(f"重新计算持仓失败: {e}")
+            return BaseResponse(
+                success=True,
+                message=f"清理了 {deleted_count} 条超出区间的历史操作记录，但持仓重新计算失败",
+                data={"deleted_count": deleted_count}
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1412,3 +1551,461 @@ def get_batch_latest_nav(
     except Exception as e:
         print(f"[调试] 批量获取净值异常: {e}")
         raise HTTPException(status_code=400, detail=str(e)) 
+
+@router.get("/operations/export-csv")
+def export_fund_operations_csv(
+    fund_code: Optional[str] = Query(None, description="基金代码，不填则导出所有基金"),
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    operation_type: Optional[str] = Query(None, description="操作类型"),
+    include_nav: bool = Query(True, description="是否包含净值信息"),
+    include_dividend: bool = Query(True, description="是否包含分红信息"),
+    include_nav_check: bool = Query(True, description="是否包含净值匹配检查"),
+    db: Session = Depends(get_db)
+):
+    """导出基金操作记录为CSV文件，包含所有计算因素"""
+    from fastapi.responses import StreamingResponse
+    import csv
+    import io
+    from datetime import datetime
+    
+    try:
+        # 获取所有操作记录（不分页）
+        operations, total = FundOperationService.get_operations(
+            db=db,
+            fund_code=fund_code,
+            operation_type=operation_type,
+            start_date=start_date,
+            end_date=end_date,
+            page=1,
+            page_size=10000  # 获取大量数据
+        )
+        
+        if not operations:
+            raise HTTPException(status_code=404, detail="没有找到符合条件的操作记录")
+        
+        # 创建CSV文件
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # 写入CSV头部
+        headers = [
+            "操作ID", "操作日期", "平台", "资产类型", "操作类型", "基金代码", "基金名称",
+            "金额", "货币", "数量", "价格", "净值", "手续费", "策略", "情绪评分",
+            "标签", "备注", "状态", "定投计划ID", "定投执行类型", "创建时间", "更新时间"
+        ]
+        
+        # 如果需要包含净值信息，添加净值相关字段
+        if include_nav:
+            headers.extend([
+                "净值日期", "累计净值", "净值增长率", "净值来源"
+            ])
+        
+        # 如果需要包含分红信息，添加分红相关字段
+        if include_dividend:
+            headers.extend([
+                "分红日期", "分红金额", "总分红", "公告日期"
+            ])
+        
+        # 如果需要包含净值匹配检查，添加检查相关字段
+        if include_nav_check:
+            headers.extend([
+                "净值匹配检查", "预期净值日期", "实际净值日期", "匹配状态", "问题描述"
+            ])
+        
+        writer.writerow(headers)
+        
+        # 批量获取净值信息
+        fund_codes = list(set(op.asset_code for op in operations))
+        nav_map = {}
+        if include_nav and fund_codes:
+            for fund_code in fund_codes:
+                nav_records = FundNavService.get_nav_history(db, fund_code, days=365)
+                nav_map[fund_code] = {nav.nav_date: nav for nav in nav_records}
+        
+        # 批量获取分红信息
+        dividend_map = {}
+        if include_dividend and fund_codes:
+            for fund_code in fund_codes:
+                dividend_records = FundDividendService.get_dividends_by_fund(
+                    db, fund_code, start_date=start_date, end_date=end_date
+                )
+                dividend_map[fund_code] = {div.dividend_date: div for div in dividend_records}
+        
+        # 批量获取净值匹配检查结果
+        nav_check_map = {}
+        if include_nav_check:
+            from app.services.fund_service import NavMatchingCheckService
+            for operation in operations:
+                check_result = NavMatchingCheckService._check_single_operation(db, operation)
+                nav_check_map[operation.id] = check_result
+        
+        # 写入数据行
+        for operation in operations:
+            row = [
+                operation.id,
+                operation.operation_date.strftime("%Y-%m-%d %H:%M:%S") if operation.operation_date else "",
+                operation.platform,
+                operation.asset_type,
+                operation.operation_type,
+                operation.asset_code,
+                operation.asset_name,
+                float(operation.amount) if operation.amount else 0,
+                operation.currency,
+                float(operation.quantity) if operation.quantity else 0,
+                float(operation.price) if operation.price else 0,
+                float(operation.nav) if operation.nav else 0,
+                float(operation.fee) if operation.fee else 0,
+                operation.strategy or "",
+                operation.emotion_score or 0,
+                operation.tags or "",
+                operation.notes or "",
+                operation.status,
+                operation.dca_plan_id or "",
+                operation.dca_execution_type or "",
+                operation.created_at.strftime("%Y-%m-%d %H:%M:%S") if operation.created_at else "",
+                operation.updated_at.strftime("%Y-%m-%d %H:%M:%S") if operation.updated_at else ""
+            ]
+            
+            # 添加净值信息
+            if include_nav:
+                nav_date = operation.operation_date.date() if operation.operation_date else None
+                nav_info = nav_map.get(operation.asset_code, {}).get(nav_date) if nav_date else None
+                
+                row.extend([
+                    nav_info.nav_date.strftime("%Y-%m-%d") if nav_info and nav_info.nav_date else "",
+                    float(nav_info.accumulated_nav) if nav_info and nav_info.accumulated_nav else "",
+                    float(nav_info.growth_rate) if nav_info and nav_info.growth_rate else "",
+                    nav_info.source if nav_info else ""
+                ])
+            
+            # 添加分红信息
+            if include_dividend:
+                op_date = operation.operation_date.date() if operation.operation_date else None
+                dividend_info = dividend_map.get(operation.asset_code, {}).get(op_date) if op_date else None
+                
+                row.extend([
+                    dividend_info.dividend_date.strftime("%Y-%m-%d") if dividend_info and dividend_info.dividend_date else "",
+                    float(dividend_info.dividend_amount) if dividend_info and dividend_info.dividend_amount else "",
+                    float(dividend_info.total_dividend) if dividend_info and dividend_info.total_dividend else "",
+                    dividend_info.announcement_date.strftime("%Y-%m-%d") if dividend_info and dividend_info.announcement_date else ""
+                ])
+            
+            # 添加净值匹配检查信息
+            if include_nav_check:
+                check_result = nav_check_map.get(operation.id, {})
+                
+                row.extend([
+                    "✓" if check_result.get('is_correct', False) else "✗",
+                    check_result.get('expected_nav_date', ''),
+                    check_result.get('actual_nav_date', ''),
+                    check_result.get('status', ''),
+                    check_result.get('issue_description', '')
+                ])
+            
+            writer.writerow(row)
+        
+        # 准备文件名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fund_suffix = f"_{fund_code}" if fund_code else "_all"
+        filename = f"fund_operations{fund_suffix}_{timestamp}.csv"
+        
+        # 返回CSV文件
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8-sig')),  # 使用UTF-8-BOM确保Excel正确显示中文
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        print(f"导出CSV失败: {e}")
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+
+@router.get("/positions/export-csv")
+def export_fund_positions_csv(
+    db: Session = Depends(get_db)
+):
+    """导出基金持仓信息为CSV文件"""
+    from fastapi.responses import StreamingResponse
+    import csv
+    import io
+    from datetime import datetime
+    
+    try:
+        # 获取所有持仓信息
+        positions = FundOperationService.get_fund_positions(db)
+        
+        if not positions:
+            raise HTTPException(status_code=404, detail="没有找到持仓信息")
+        
+        # 创建CSV文件
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # 写入CSV头部
+        headers = [
+            "持仓ID", "平台", "资产类型", "基金代码", "基金名称", "货币",
+            "持仓数量", "平均成本", "当前价格", "当前价值", "总投入", "总盈亏", "盈亏率",
+            "最后更新时间"
+        ]
+        writer.writerow(headers)
+        
+        # 写入数据行
+        for position in positions:
+            row = [
+                position.id,
+                position.platform,
+                position.asset_type,
+                position.asset_code,
+                position.asset_name,
+                position.currency,
+                float(position.quantity) if position.quantity else 0,
+                float(position.avg_cost) if position.avg_cost else 0,
+                float(position.current_price) if position.current_price else 0,
+                float(position.current_value) if position.current_value else 0,
+                float(position.total_invested) if position.total_invested else 0,
+                float(position.total_profit) if position.total_profit else 0,
+                float(position.profit_rate) if position.profit_rate else 0,
+                position.last_updated.strftime("%Y-%m-%d %H:%M:%S") if position.last_updated else ""
+            ]
+            writer.writerow(row)
+        
+        # 准备文件名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"fund_positions_{timestamp}.csv"
+        
+        # 返回CSV文件
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8-sig')),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        print(f"导出持仓CSV失败: {e}")
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+
+@router.get("/nav/{fund_code}/estimate", response_model=BaseResponse)
+async def get_fund_estimate(
+    fund_code: str,
+    db: Session = Depends(get_db)
+):
+    """获取基金当天估算净值（不入库）"""
+    try:
+        from app.services.fund_api_service import FundAPIService
+        
+        # 调用天天基金API获取估算数据
+        api_service = FundAPIService()
+        nav_data = await api_service.get_fund_nav_latest_tiantian(fund_code)
+        
+        if not nav_data:
+            return BaseResponse(
+                success=False, 
+                message=f"获取基金 {fund_code} 估算数据失败",
+                data=None
+            )
+        
+        # 构建返回数据
+        estimate_data = {
+            "fund_code": fund_code,
+            "estimate_nav": nav_data.get('gsz'),  # 估算净值
+            "estimate_time": nav_data.get('gztime'),  # 估算时间
+            "confirmed_nav": nav_data.get('dwjz'),  # 确认净值
+            "confirmed_date": nav_data.get('jzrq'),  # 确认日期
+            "growth_rate": nav_data.get('gszzl'),  # 涨跌幅
+            "source": "tiantian_estimated"
+        }
+        
+        return BaseResponse(
+            success=True,
+            message=f"获取基金 {fund_code} 估算数据成功",
+            data=estimate_data
+        )
+        
+    except Exception as e:
+        print(f"获取基金估算数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取估算数据失败: {str(e)}")
+
+
+@router.get("/nav-stats", response_model=BaseResponse)
+def get_nav_data_stats(db: Session = Depends(get_db)):
+    """获取净值数据统计信息"""
+    try:
+        from sqlalchemy import func
+        
+        # 统计数据来源分布
+        source_stats = db.query(
+            FundNav.source,
+            func.count(FundNav.id).label('count')
+        ).group_by(FundNav.source).all()
+        
+        # 统计基金数量
+        fund_count = db.query(func.count(func.distinct(FundNav.fund_code))).scalar()
+        
+        # 统计总记录数
+        total_count = db.query(func.count(FundNav.id)).scalar()
+        
+        # 构建统计结果
+        stats = {
+            'total_count': total_count,
+            'fund_count': fund_count,
+            'source_distribution': {}
+        }
+        
+        for source, count in source_stats:
+            stats['source_distribution'][source] = count
+            if source == 'akshare':
+                stats['akshare_count'] = count
+            elif source == 'api':
+                stats['api_count'] = count
+        
+        return BaseResponse(
+            success=True,
+            message="获取数据统计成功",
+            data=stats
+        )
+        
+    except Exception as e:
+        print(f"获取数据统计失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取数据统计失败: {str(e)}")
+
+
+@router.delete("/nav-source/{source}", response_model=BaseResponse)
+def delete_nav_by_source(source: str, db: Session = Depends(get_db)):
+    """删除指定来源的净值数据"""
+    try:
+        # 安全检查：只允许删除api来源的数据
+        if source != 'api':
+            raise HTTPException(status_code=400, detail="只能删除api来源的数据")
+        
+        # 删除指定来源的数据
+        deleted_count = db.query(FundNav).filter(FundNav.source == source).delete()
+        db.commit()
+        
+        return BaseResponse(
+            success=True,
+            message=f"成功删除 {deleted_count} 条{source}来源的数据",
+            data={'deleted_count': deleted_count}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"删除数据失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除数据失败: {str(e)}")
+
+
+@router.post("/nav/{fund_code}/incremental-update", response_model=BaseResponse)
+def incremental_update_nav(fund_code: str, db: Session = Depends(get_db)):
+    """增量更新基金净值数据"""
+    try:
+        # 获取最新的净值日期
+        latest_nav = db.query(FundNav).filter(
+            FundNav.fund_code == fund_code,
+            FundNav.source == 'akshare'
+        ).order_by(FundNav.nav_date.desc()).first()
+        
+        latest_date = latest_nav.nav_date if latest_nav else None
+        
+        # 使用akshare获取增量数据
+        import akshare as ak
+        df = ak.fund_open_fund_info_em(symbol=fund_code, indicator="单位净值走势")
+        
+        new_count = 0
+        if not df.empty:
+            for _, row in df.iterrows():
+                nav_date = row['净值日期']
+                nav_value = row['单位净值']
+                
+                # 检查是否已存在该日期的数据
+                existing = db.query(FundNav).filter(
+                    FundNav.fund_code == fund_code,
+                    FundNav.nav_date == nav_date,
+                    FundNav.source == 'akshare'
+                ).first()
+                
+                if not existing:
+                    # 创建新记录
+                    nav_record = FundNavService.create_nav(
+                        db, fund_code, nav_date, nav_value, source="akshare"
+                    )
+                    if nav_record:
+                        new_count += 1
+        
+        return BaseResponse(
+            success=True,
+            message=f"增量更新成功，新增 {new_count} 条记录",
+            data={'new_count': new_count}
+        )
+        
+    except Exception as e:
+        print(f"增量更新失败: {e}")
+        raise HTTPException(status_code=500, detail=f"增量更新失败: {str(e)}") 
+
+@router.get("/nav-matching-check")
+async def check_nav_matching_consistency(
+    db: Session = Depends(get_db)
+):
+    """检查净值匹配一致性"""
+    try:
+        from app.services.fund_service import NavMatchingCheckService
+        results = NavMatchingCheckService.check_nav_matching_consistency(db)
+        return {
+            "success": True,
+            "data": results
+        }
+    except Exception as e:
+        logger.error(f"净值匹配检查失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.post("/nav-matching-mark")
+async def mark_incorrect_nav_matching(
+    db: Session = Depends(get_db)
+):
+    """标记净值匹配错误的操作"""
+    try:
+        from app.services.fund_service import NavMatchingCheckService
+        marked_count = NavMatchingCheckService.mark_incorrect_operations(db)
+        return {
+            "success": True,
+            "data": {
+                "marked_count": marked_count,
+                "message": f"已标记 {marked_count} 条错误匹配的操作"
+            }
+        }
+    except Exception as e:
+        logger.error(f"标记净值匹配错误失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.get("/nav-matching-issues")
+async def get_nav_matching_issues(
+    db: Session = Depends(get_db)
+):
+    """获取有净值匹配问题的操作记录"""
+    try:
+        from app.services.fund_service import NavMatchingCheckService
+        issues = NavMatchingCheckService.get_operations_with_nav_issues(db)
+        return {
+            "success": True,
+            "data": {
+                "issues": issues,
+                "total_issues": len(issues)
+            }
+        }
+    except Exception as e:
+        logger.error(f"获取净值匹配问题失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }

@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, func, text
 from typing import List, Optional, Tuple
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from decimal import Decimal, ROUND_HALF_UP
 import json
 import akshare as ak
@@ -75,33 +75,37 @@ class FundOperationService:
                 print(f"[调试] operation_date转换失败: {e}")
                 raise ValueError(f"日期格式不正确: {operation.operation_date}")
         
-        # 优先使用用户填写的净值，如果没有则从数据库查询
+        # 优先使用用户填写的净值，如果没有则根据操作时间匹配净值
         nav_value = operation.nav
         nav_date = None
+        print(f"[调试] 检查净值来源: operation.nav={operation.nav}, nav_value={nav_value}")
         if nav_value is None:
-            print(f"[调试] 操作中没有净值，尝试从数据库查询")
-            # 处理operation_date可能是字符串的情况
-            if isinstance(operation.operation_date, str):
-                nav_date = datetime.fromisoformat(operation.operation_date.replace('Z', '+00:00')).date()
-            else:
-                nav_date = operation.operation_date.date()
-            nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, nav_date)
+            print(f"[调试] 操作中没有净值，根据操作时间匹配净值")
+            # 根据操作时间获取对应的净值
+            nav_record = FundOperationService._get_nav_by_operation_time(db, operation.asset_code, operation.operation_date)
             nav_value = nav_record.nav if nav_record else None
             nav_date = nav_record.nav_date if nav_record else None
-            print(f"[调试] 数据库查询结果: nav_value={nav_value}, nav_date={nav_date}")
+            print(f"[调试] 根据操作时间匹配结果: nav_value={nav_value}, nav_date={nav_date}")
         else:
-            # 处理operation_date可能是字符串的情况
+            # 用户填写了净值，使用用户填写的净值日期
             if isinstance(operation.operation_date, str):
                 nav_date = datetime.fromisoformat(operation.operation_date.replace('Z', '+00:00')).date()
             else:
                 nav_date = operation.operation_date.date()
             print(f"[调试] 使用操作中的净值: nav_value={nav_value}, nav_date={nav_date}")
+            print(f"[调试] 用户设置的净值: {nav_value}，将用于计算份额")
         
         fee = operation.fee or 0
         print(f"[调试] 手续费: {fee}")
 
-        # 如果有净值，就重新计算份额（无论quantity是否为None）
-        if nav_value:
+        # 如果用户已经明确设置了quantity，则跳过自动计算
+        print(f"[关键调试] 检查quantity: operation.quantity={operation.quantity}, 类型={type(operation.quantity)}")
+        if operation.quantity is not None:
+            print(f"[调试] 用户已明确设置quantity={operation.quantity}，跳过自动计算")
+            operation.nav = nav_value
+            operation.price = nav_value
+        elif nav_value:
+            # 只有在用户没有明确设置quantity时才自动计算
             shares = (operation.amount - fee) / nav_value
             # 四舍五入保留2位小数
             shares = Decimal(shares).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
@@ -113,30 +117,7 @@ class FundOperationService:
                 operation.updated_at = datetime.utcnow()
             print(f"[调试] 重新计算份额: amount={operation.amount}, fee={fee}, nav={nav_value}, shares={shares}")
             
-            # 同步最新净值到数据库
-            try:
-                # 使用FundAPIService获取最新净值
-                api_service = FundAPIService()
-                import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                latest_nav_data = loop.run_until_complete(api_service.get_fund_nav_latest_tiantian(operation.asset_code))
-                loop.close()
-                
-                if latest_nav_data and latest_nav_data.get('nav'):
-                    print(f"[调试] 查到最新净值数据: {latest_nav_data}")
-                    # 使用API返回的净值日期和净值，而不是操作日期
-                    api_nav_date = latest_nav_data.get('nav_date')
-                    api_nav = latest_nav_data.get('nav')
-                    if api_nav_date and api_nav:
-                        print(f"[调试] 写入最新净值到数据库: fund_code={operation.asset_code}, nav_date={api_nav_date}, nav={api_nav}")
-                        FundNavService.create_nav(db, operation.asset_code, api_nav_date, api_nav)
-                    else:
-                        print(f"[调试] API返回的净值数据不完整，跳过写入数据库")
-                else:
-                    print(f"[调试] 未查到最新净值数据")
-            except Exception as e:
-                print(f"[调试] 同步最新净值时出错: {e}")
+            # 不再同步最新净值到数据库，仅依赖akshare数据
             
             # 只有在状态为confirmed时才更新持仓
             if operation.status == "confirmed":
@@ -170,15 +151,11 @@ class FundOperationService:
                 print(f"[调试] operation_date转换失败: {e}")
                 raise ValueError(f"日期格式不正确: {operation.operation_date}")
         
-        # 优先使用用户填写的净值，如果没有则从数据库查询
+        # 优先使用用户填写的净值，如果没有则根据操作时间匹配净值
         nav_value = operation.nav
         if nav_value is None:
-            # 处理operation_date可能是字符串的情况
-            if isinstance(operation.operation_date, str):
-                nav_date = datetime.fromisoformat(operation.operation_date.replace('Z', '+00:00')).date()
-            else:
-                nav_date = operation.operation_date.date()
-            nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, nav_date)
+            # 根据操作时间获取对应的净值
+            nav_record = FundOperationService._get_nav_by_operation_time(db, operation.asset_code, operation.operation_date)
             nav_value = nav_record.nav if nav_record else None
         
         if not nav_value:
@@ -290,6 +267,8 @@ class FundOperationService:
     @staticmethod
     def _update_position(db: Session, operation: UserOperation):
         """更新基金持仓"""
+        # 处理操作: {operation.operation_type} {operation.asset_code}
+        
         # 查找现有持仓
         position = db.query(AssetPosition).filter(
             and_(
@@ -314,6 +293,8 @@ class FundOperationService:
                 position.total_profit = position.current_value - total_cost
                 position.profit_rate = position.total_profit / total_cost if total_cost > 0 else Decimal("0")
                 position.last_updated = datetime.now()
+                
+                # 更新持仓: {operation.asset_code}
             else:
                 # PostgreSQL序列修复：检查并重置序列
                 try:
@@ -351,6 +332,7 @@ class FundOperationService:
                     profit_rate=Decimal("0"),
                     last_updated=datetime.now()
                 )
+                # 创建新持仓: {operation.asset_code}
                 db.add(position)
         
         elif operation.operation_type == "sell":
@@ -366,9 +348,15 @@ class FundOperationService:
                     position.current_value = remaining_shares * operation.nav  # 使用净值作为当前价格
                     position.total_profit = position.current_value - position.total_invested
                     position.profit_rate = position.total_profit / position.total_invested if position.total_invested > 0 else Decimal("0")
+                    
+                    # 卖出持仓: {operation.asset_code}
                 else:
                     # 全部卖出，删除持仓记录
+                    # 全部卖出: {operation.asset_code}
                     db.delete(position)
+            else:
+                # 卖出失败: {operation.asset_code}, 持仓不存在或份额不足
+                pass
         
         db.commit()
     
@@ -424,16 +412,17 @@ class FundOperationService:
             raise ValueError("操作记录不存在")
         
         print(f"[调试] 开始更新操作: id={operation_id}, operation_type={operation.operation_type}")
-        print(f"[调试] 更新数据: {update_data}")
         
         # 构建更新字典
         update_dict = {}
         for field, value in update_data.dict(exclude_unset=True).items():
-            if value is not None:
+            # 特殊处理：quantity字段即使是None也要包含在更新中
+            if value is not None or field == 'quantity':
                 update_dict[field] = value
                 print(f"[调试] 字段 {field} 将被更新为: {value}")
         
         print(f"[调试] 最终更新字典: {update_dict}")
+        print(f"[关键调试] quantity字段检查: {'quantity' in update_dict}, quantity值: {update_dict.get('quantity')}")
         
         # 先处理类型转换，尤其是 operation_date
         print(f"[调试] 检查operation_date字段: {'operation_date' in update_dict}")
@@ -466,18 +455,21 @@ class FundOperationService:
             print(f"[调试] update_dict中没有operation_date字段")
         
         # 先更新字段
-        print(f"[调试] 开始设置字段...")
         for field, value in update_dict.items():
-            print(f"[调试] 准备设置字段 {field}: 值={value}, 类型={type(value)}")
             try:
                 setattr(operation, field, value)
-                print(f"[调试] 已更新字段 {field}: {value}")
             except Exception as e:
-                print(f"[调试] 设置字段 {field} 失败: {e}")
-                print(f"[调试] 错误类型: {type(e)}")
-                import traceback
-                print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+                print(f"[错误] 设置字段 {field} 失败: {e}")
                 raise e
+        
+        # 特殊处理：如果用户明确设置quantity为None，则清空数据库中的quantity值
+        if 'quantity' in update_dict and update_dict['quantity'] is None:
+            print(f"[关键调试] 用户明确设置quantity为None，清空数据库中的quantity值")
+            operation.quantity = None
+            print(f"[关键调试] 已清空quantity字段")
+            print(f"[关键调试] 清空后operation.quantity: {operation.quantity}")
+        else:
+            print(f"[关键调试] quantity处理: 在update_dict中={'quantity' in update_dict}, 值={update_dict.get('quantity')}")
         
         # 如果有nav字段，自动写入/更新净值表
         nav = update_dict.get('nav', None)
@@ -504,26 +496,33 @@ class FundOperationService:
         amount_check = update_dict.get('amount') is not None
         fee_check = update_dict.get('fee') is not None
         status_check = update_dict.get('status') is not None
+        quantity_check = update_dict.get('quantity') is not None
         
-        print(f"[调试] 份额重新计算条件检查:")
-        print(f"[调试]   operation_type={operation.operation_type}")
-        print(f"[调试]   nav_check={nav_check} (nav={nav})")
-        print(f"[调试]   amount_check={amount_check} (amount={update_dict.get('amount')})")
-        print(f"[调试]   fee_check={fee_check} (fee={update_dict.get('fee')})")
-        print(f"[调试]   status_check={status_check} (status={update_dict.get('status')})")
-        print(f"[调试]   买入条件: {operation.operation_type == 'buy'}")
-        print(f"[调试]   字段变化条件: {nav_check or amount_check or fee_check}")
-        print(f"[调试]   最终条件: {operation.operation_type == 'buy' and (nav_check or amount_check or fee_check)}")
+        # 检查是否需要重新匹配净值（操作时间改变时）
+        operation_date_changed = 'operation_date' in update_dict
+        # 如果用户明确修改了quantity字段，则不重新计算份额
+        should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check) and not quantity_check
         
-        # 只有在真正需要重新计算时才执行，避免重复计算
-        should_recalculate = (operation.operation_type == "buy" or operation.operation_type == "sell") and (nav_check or amount_check or fee_check)
+        print(f"[关键调试] 重新计算条件检查:")
+        print(f"[关键调试]   nav_check={nav_check} (nav={nav})")
+        print(f"[关键调试]   amount_check={amount_check} (amount={update_dict.get('amount')})")
+        print(f"[关键调试]   fee_check={fee_check} (fee={update_dict.get('fee')})")
+        print(f"[关键调试]   quantity_check={quantity_check} (quantity={update_dict.get('quantity')})")
+        print(f"[关键调试]   should_recalculate={should_recalculate}")
+        print(f"[关键调试]   operation_date_changed={operation_date_changed}")
         
         # 重新计算份额
-        if should_recalculate:
-            print(f"[调试] 开始重新计算份额...")
+        print(f"[关键调试] 分支判断: operation_date_changed={operation_date_changed}, nav_check={nav_check}, should_recalculate={should_recalculate}")
+        
+        if operation_date_changed and not nav_check:
+            print(f"[关键调试] 走时间逻辑分支：操作时间已改变，使用新的时间逻辑重新匹配净值")
+            # 使用新的时间逻辑重新计算
+            FundOperationService._recalculate_operation_with_time_logic(db, operation)
+        elif should_recalculate:
+            print(f"[关键调试] 走重新计算分支：开始重新计算份额...")
             try:
                 if operation.operation_type == 'buy':
-                    print(f"[调试] 调用_calculate_buy_shares...")
+                    print(f"[关键调试] 调用_calculate_buy_shares...")
                     # 只有在状态为confirmed时才清空现有持仓，避免重复累加
                     if operation.status == "confirmed":
                         existing_position = db.query(AssetPosition).filter(
@@ -534,68 +533,61 @@ class FundOperationService:
                             )
                         ).first()
                         if existing_position:
-                            print(f"[调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
+                            print(f"[关键调试] 清空现有持仓，避免重复计算: id={existing_position.id}")
                             db.delete(existing_position)
                             db.commit()
                     else:
-                        print(f"[调试] 跳过清空持仓，状态为: {operation.status}")
+                        print(f"[关键调试] 跳过清空持仓，状态为: {operation.status}")
                     
                     FundOperationService._calculate_buy_shares(db, operation)
-                    print(f"[调试] _calculate_buy_shares调用完成")
+                    print(f"[关键调试] _calculate_buy_shares调用完成")
                 elif operation.operation_type == 'sell':
-                    print(f"[调试] 调用_calculate_sell_shares...")
+                    print(f"[关键调试] 调用_calculate_sell_shares...")
                     FundOperationService._calculate_sell_shares(db, operation)
-                    print(f"[调试] _calculate_sell_shares调用完成")
-                print(f"[调试] 份额重新计算完成")
+                    print(f"[关键调试] _calculate_sell_shares调用完成")
+                print(f"[关键调试] 份额重新计算完成")
                 
                 # 份额重新计算后，重新获取操作对象以确保状态一致
-                print(f"[调试] 重新获取操作对象...")
-                print(f"[调试] 刷新前状态: {operation.status}")
+                print(f"[关键调试] 重新获取操作对象...")
+                print(f"[关键调试] 刷新前状态: {operation.status}")
                 db.refresh(operation)
-                print(f"[调试] 刷新后状态: {operation.status}")
+                print(f"[关键调试] 刷新后状态: {operation.status}")
                 
                 # 如果状态被覆盖了，重新设置用户指定的状态
                 if 'status' in update_dict and operation.status != update_dict['status']:
-                    print(f"[调试] 状态被覆盖，重新设置为: {update_dict['status']}")
+                    print(f"[关键调试] 状态被覆盖，重新设置为: {update_dict['status']}")
                     operation.status = update_dict['status']
-                    print(f"[调试] 重新设置后状态: {operation.status}")
+                    print(f"[关键调试] 重新设置后状态: {operation.status}")
                 
-                print(f"[调试] 操作对象重新获取成功")
+                print(f"[关键调试] 操作对象重新获取成功")
             except Exception as e:
-                print(f"[调试] 份额重新计算失败: {e}")
-                print(f"[调试] 错误类型: {type(e)}")
+                print(f"[关键调试] 份额重新计算失败: {e}")
+                print(f"[关键调试] 错误类型: {type(e)}")
                 import traceback
-                print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+                print(f"[关键调试] 错误堆栈: {traceback.format_exc()}")
                 raise e
+        else:
+            print(f"[关键调试] 不走任何重新计算分支")
         
         # 设置更新时间（只有在没有重新计算份额时才设置）
         if not should_recalculate:
             print(f"[调试] 设置updated_at...")
-            operation.updated_at = datetime.utcnow()
+            from datetime import datetime as dt
+            operation.updated_at = dt.utcnow()
             print(f"[调试] 设置updated_at: {operation.updated_at}")
         else:
             print(f"[调试] 跳过设置updated_at（已在份额重新计算中设置）")
         
-        print(f"[调试] 准备提交数据库事务...")
         try:
             db.commit()
-            print(f"[调试] 数据库事务提交成功")
         except Exception as e:
-            print(f"[调试] 数据库事务提交失败: {e}")
-            print(f"[调试] 错误类型: {type(e)}")
-            import traceback
-            print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+            print(f"[错误] 数据库事务提交失败: {e}")
             raise e
         
-        print(f"[调试] 准备刷新操作对象...")
         try:
             db.refresh(operation)
-            print(f"[调试] 操作对象刷新成功")
         except Exception as e:
-            print(f"[调试] 操作对象刷新失败: {e}")
-            print(f"[调试] 错误类型: {type(e)}")
-            import traceback
-            print(f"[调试] 错误堆栈: {traceback.format_exc()}")
+            print(f"[错误] 操作对象刷新失败: {e}")
             raise e
         
         print(f"[调试] update_operation 完成")
@@ -605,11 +597,28 @@ class FundOperationService:
     @auto_log("database", log_result=True)
     def get_fund_positions(db: Session) -> List[FundPosition]:
         """获取基金持仓列表 - 优化版本"""
+        print(f"[持仓查询] 开始查询基金持仓")
+        
+        # 查询所有基金持仓
         positions = db.query(AssetPosition).filter(
             AssetPosition.asset_type == "基金"
         ).all()
         
+        print(f"[持仓查询] 查询条件: asset_type='基金'")
+        print(f"[持仓查询] 查询到 {len(positions)} 条持仓记录")
+        
+        # 打印每个持仓的详细信息
+        for i, pos in enumerate(positions):
+            print(f"[持仓查询] 持仓{i+1}: asset_code={pos.asset_code}, asset_name={pos.asset_name}")
+            print(f"[持仓查询] 持仓{i+1}: quantity={pos.quantity}, avg_cost={pos.avg_cost}, total_invested={pos.total_invested}")
+            print(f"[持仓查询] 持仓{i+1}: current_price={pos.current_price}, current_value={pos.current_value}")
+            print(f"[持仓查询] 持仓{i+1}: total_profit={pos.total_profit}, profit_rate={pos.profit_rate}")
+            print(f"[持仓查询] 持仓{i+1}: platform={pos.platform}, currency={pos.currency}")
+            print(f"[持仓查询] 持仓{i+1}: last_updated={pos.last_updated}")
+            print(f"[持仓查询] ---")
+        
         if not positions:
+            print(f"[持仓查询] 无持仓记录，返回空列表")
             return []
         
         # 批量获取最新净值 - 优化：只查询数据库，避免外部API调用
@@ -666,13 +675,17 @@ class FundOperationService:
     @auto_log("database", log_result=True)
     def get_position_summary(db: Session) -> dict:
         """获取持仓汇总信息 - 优化版本（避免重复查询）"""
+        print(f"[持仓汇总] 开始计算持仓汇总")
         try:
             # 直接查询数据库计算汇总，避免调用get_fund_positions造成重复
             positions_data = db.query(AssetPosition).filter(
                 AssetPosition.asset_type == "基金"
             ).all()
             
+            print(f"[持仓汇总] 查询到 {len(positions_data)} 条基金持仓记录")
+            
             if not positions_data:
+                print(f"[持仓汇总] 无持仓记录，返回默认值")
                 return {
                     "total_invested": Decimal("0"),
                     "total_value": Decimal("0"),
@@ -715,6 +728,8 @@ class FundOperationService:
             total_profit = total_value - total_invested
             total_profit_rate = total_profit / total_invested if total_invested > 0 else Decimal("0")
             
+            print(f"[持仓汇总] 汇总结果: 投入={total_invested}, 市值={total_value}, 盈亏={total_profit}, 收益率={total_profit_rate:.2%}")
+            
             return {
                 "total_invested": total_invested,
                 "total_value": total_value,
@@ -734,12 +749,9 @@ class FundOperationService:
     def recalculate_all_positions(db: Session) -> dict:
         """重新计算所有持仓（基于所有已确认的操作记录）"""
         try:
-            print(f"[调试] 开始重新计算所有持仓...")
-            
             # 清空所有持仓
             deleted_count = db.query(AssetPosition).filter(AssetPosition.asset_type == "基金").delete()
             db.commit()
-            print(f"[调试] 清空了 {deleted_count} 条持仓记录")
             
             # 获取所有已确认的操作记录，按时间排序
             operations = db.query(UserOperation).filter(
@@ -749,12 +761,9 @@ class FundOperationService:
                 )
             ).order_by(UserOperation.operation_date).all()
             
-            print(f"[调试] 找到 {len(operations)} 条已确认的操作记录")
-            
             processed_count = 0
             for operation in operations:
                 try:
-                    print(f"[调试] 处理操作: id={operation.id}, type={operation.operation_type}, asset_code={operation.asset_code}, quantity={operation.quantity}")
                     if operation.operation_type == "buy":
                         # 对于买入操作，直接更新持仓
                         FundOperationService._update_position(db, operation)
@@ -764,10 +773,8 @@ class FundOperationService:
                         FundOperationService._update_position(db, operation)
                         processed_count += 1
                 except Exception as e:
-                    print(f"[调试] 处理操作 {operation.id} 时出错: {e}")
+                    print(f"[错误] 处理操作 {operation.id} 时出错: {e}")
                     continue
-            
-            print(f"[调试] 成功处理了 {processed_count} 条操作记录")
             return {
                 "success": True,
                 "message": f"重新计算了 {processed_count} 条操作记录的持仓",
@@ -824,6 +831,108 @@ class FundOperationService:
             db.commit()
         
         return updated_count
+    
+    @staticmethod
+    def _get_next_trading_day(db: Session, fund_code: str, start_date: date) -> Optional[date]:
+        """获取下一个交易日（通过查询净值数据判断）"""
+        print(f"[调试] 查找基金 {fund_code} 从 {start_date} 开始的下一个交易日")
+        
+        # 查找从start_date开始未来30天内的所有净值记录
+        future_navs = db.query(FundNav).filter(
+                and_(
+                    FundNav.fund_code == fund_code,
+                FundNav.nav_date > start_date,
+                FundNav.nav_date <= start_date + timedelta(days=30)
+            )
+        ).order_by(FundNav.nav_date).all()
+        
+        if future_navs:
+            next_trading_day = future_navs[0].nav_date
+            print(f"[调试] 找到下一个交易日: {next_trading_day}")
+            return next_trading_day
+        else:
+            print(f"[调试] 未找到下一个交易日，仅依赖数据库中的akshare数据")
+        
+        print(f"[调试] 无法确定下一个交易日")
+        return None
+    
+    @staticmethod
+    def _get_nav_date_by_operation_time(db: Session, fund_code: str, operation_datetime: datetime) -> Optional[date]:
+        """根据操作时间确定对应的净值日期"""
+        operation_date = operation_datetime.date()
+        operation_time = operation_datetime.time()
+        
+        print(f"[调试] 根据操作时间确定净值日期: {operation_datetime}")
+        print(f"[调试] 操作日期: {operation_date}, 操作时间: {operation_time}")
+        
+        # 15:00之前使用当天净值，15:00之后使用下一个交易日净值
+        if operation_time < time(15, 0):
+            nav_date = operation_date
+            print(f"[调试] 15:00之前，使用当天净值日期: {nav_date}")
+        else:
+            # 15:00之后，查找下一个交易日
+            next_trading_day = FundOperationService._get_next_trading_day(db, fund_code, operation_date)
+            if next_trading_day:
+                nav_date = next_trading_day
+                print(f"[调试] 15:00之后，使用下一个交易日净值日期: {nav_date}")
+            else:
+                # 如果无法确定下一个交易日，使用当天
+                nav_date = operation_date
+                print(f"[调试] 无法确定下一个交易日，使用当天净值日期: {nav_date}")
+        
+        return nav_date
+    
+    @staticmethod
+    def _get_nav_by_operation_time(db: Session, fund_code: str, operation_datetime: datetime) -> Optional[FundNav]:
+        """根据操作时间获取对应的基金净值"""
+        nav_date = FundOperationService._get_nav_date_by_operation_time(db, fund_code, operation_datetime)
+        if nav_date:
+            return FundOperationService._get_nav_by_date(db, fund_code, nav_date)
+        return None
+
+    @staticmethod
+    def _recalculate_operation_with_time_logic(db: Session, operation: UserOperation) -> bool:
+        """根据操作时间重新计算操作（用于删除和修改操作）"""
+        try:
+            print(f"[调试] 重新计算操作 {operation.id} 的净值匹配")
+            print(f"[调试] 操作时间: {operation.operation_date}")
+            
+            # 根据操作时间重新获取净值
+            nav_record = FundOperationService._get_nav_by_operation_time(db, operation.asset_code, operation.operation_date)
+            
+            if nav_record:
+                print(f"[调试] 找到对应净值: {nav_record.nav}, 净值日期: {nav_record.nav_date}")
+                # 重新计算份额
+                if operation.operation_type == "buy":
+                    FundOperationService._calculate_buy_shares(db, operation)
+                elif operation.operation_type == "sell":
+                    FundOperationService._calculate_sell_shares(db, operation)
+                
+                # 更新操作状态为已确认
+                operation.status = "confirmed"
+                operation.updated_at = datetime.now()
+                print(f"[调试] 操作已确认，状态: {operation.status}")
+                return True
+            else:
+                # 检查是否是历史操作（操作日期早于今天）
+                today = date.today()
+                operation_date = operation.operation_date.date() if isinstance(operation.operation_date, datetime) else operation.operation_date
+                
+                if operation_date < today:
+                    print(f"[调试] 历史操作未找到净值，仅依赖数据库中的akshare数据")
+                    # 对于历史操作，不再调用API，仅依赖数据库中的akshare数据
+                
+                # 如果还是没找到净值，设置为待确认状态
+                print(f"[调试] 未找到对应净值，设置为待确认状态")
+                operation.status = "pending"
+                operation.quantity = None
+                operation.nav = None
+                operation.price = None
+                return False
+                
+        except Exception as e:
+            print(f"[调试] 重新计算操作失败: {e}")
+            return False
 
 
 class FundInfoService:
@@ -995,6 +1104,52 @@ class FundNavService:
             raise e
 
     @staticmethod
+    def force_update_nav_history(db: Session, fund_code: str) -> int:
+        """强制更新基金历史净值（统一方法，避免重复）"""
+        try:
+            print(f"[调试] 开始强制更新基金 {fund_code} 的历史净值")
+            df = ak.fund_open_fund_info_em(symbol=fund_code, indicator="单位净值走势")
+            print(f"[调试] akshare返回数据行数: {len(df)}")
+            
+            count = 0
+            for _, row in df.iterrows():
+                try:
+                    nav_date_value = row['净值日期']
+                    # 处理日期可能是字符串或datetime.date对象的情况
+                    if isinstance(nav_date_value, str):
+                        nav_date = datetime.strptime(nav_date_value, '%Y-%m-%d').date()
+                    elif hasattr(nav_date_value, 'date'):
+                        nav_date = nav_date_value.date()
+                    else:
+                        nav_date = nav_date_value
+                    
+                    nav = Decimal(str(row['单位净值']))
+                    acc_nav = Decimal(str(row.get('累计净值', 0))) if row.get('累计净值') else None
+                    
+                    # 使用统一的create_nav方法，确保重复检查一致
+                    nav_record = FundNavService.create_nav(
+                        db, fund_code, nav_date, nav, 
+                        accumulated_nav=acc_nav, source="akshare"
+                    )
+                    
+                    # 如果是新创建的记录，计数加1
+                    if nav_record and not hasattr(nav_record, '_sa_instance_state') or nav_record._sa_instance_state.persistent:
+                        count += 1
+                        
+                except Exception as e:
+                    print(f"[调试] 处理单条净值记录失败: {e}, row={row}")
+                    continue
+            
+            # 提交事务
+            db.commit()
+            print(f"[调试] 强制更新完成，处理了 {count} 条记录")
+            return count
+        except Exception as e:
+            print(f"[调试] 强制更新历史净值失败: {e}")
+            db.rollback()
+            raise e
+
+    @staticmethod
     @auto_log("database", log_result=True)
     def get_batch_latest_nav(db: Session, fund_codes: List[str]) -> dict:
         """批量获取基金最新净值 - 优化性能"""
@@ -1036,46 +1191,133 @@ class DCAService:
         print(f"[调试]   start_date: {plan_data.start_date}, 类型: {type(plan_data.start_date)}")
         print(f"[调试]   end_date: {plan_data.end_date}, 类型: {type(plan_data.end_date)}")
         
-        # 计算下次执行日期
-        next_execution_date = DCAService._calculate_next_execution_date(
-            plan_data.start_date, 
-            plan_data.frequency, 
-            plan_data.frequency_value
-        )
-        
-        # 创建定投计划
-        plan = DCAPlan(
-            plan_name=plan_data.plan_name,
-            platform=plan_data.platform,
-            asset_type=plan_data.asset_type,
-            asset_code=plan_data.asset_code,
-            asset_name=plan_data.asset_name,
-            amount=plan_data.amount,
-            currency=plan_data.currency,
-            frequency=plan_data.frequency,
-            frequency_value=plan_data.frequency_value,
-            start_date=plan_data.start_date,
-            end_date=plan_data.end_date,
-            strategy=plan_data.strategy,
-            execution_time=plan_data.execution_time,
-            next_execution_date=next_execution_date,  # 添加下次执行日期
-            smart_dca=plan_data.smart_dca,
-            base_amount=plan_data.base_amount,
-            max_amount=plan_data.max_amount,
-            increase_rate=plan_data.increase_rate,
-            min_nav=plan_data.min_nav,
-            max_nav=plan_data.max_nav,
-            skip_holidays=plan_data.skip_holidays,
-            enable_notification=plan_data.enable_notification,
-            notification_before=plan_data.notification_before,
-            fee_rate=plan_data.fee_rate,
-            exclude_dates=json.dumps(plan_data.exclude_dates) if plan_data.exclude_dates else None
-        )
-        
-        db.add(plan)
-        db.commit()
-        db.refresh(plan)
-        return plan
+        try:
+            # 检查数据库状态
+            print(f"[调试] 检查数据库状态")
+            try:
+                # 查询现有定投计划数量
+                existing_count = db.query(DCAPlan).count()
+                print(f"[调试] 现有定投计划数量: {existing_count}")
+                
+                # 查询最大ID
+                max_id_result = db.query(func.max(DCAPlan.id)).scalar()
+                print(f"[调试] 最大ID: {max_id_result}")
+                
+                # 查询所有ID
+                all_ids = [row[0] for row in db.query(DCAPlan.id).all()]
+                print(f"[调试] 所有现有ID: {all_ids}")
+                
+                # 检查序列状态
+                try:
+                    # 获取序列的当前值
+                    sequence_result = db.execute(text("SELECT last_value FROM dca_plans_id_seq")).scalar()
+                    print(f"[调试] 序列当前值: {sequence_result}")
+                    
+                    # 获取序列的下一个值
+                    next_sequence_result = db.execute(text("SELECT nextval('dca_plans_id_seq')")).scalar()
+                    print(f"[调试] 序列下一个值: {next_sequence_result}")
+                    
+                    # 如果序列值小于最大ID，重置序列
+                    if sequence_result and max_id_result and sequence_result < max_id_result:
+                        print(f"[调试] 检测到序列不同步，重置序列")
+                        db.execute(text(f"SELECT setval('dca_plans_id_seq', {max_id_result})"))
+                        db.commit()
+                        print(f"[调试] 序列已重置为: {max_id_result}")
+                    
+                except Exception as seq_error:
+                    print(f"[调试] 序列检查失败: {seq_error}")
+                
+            except Exception as db_check_error:
+                print(f"[调试] 数据库状态检查失败: {db_check_error}")
+            
+            # 计算下次执行日期
+            print(f"[调试] 开始计算下次执行日期")
+            next_execution_date = DCAService._calculate_next_execution_date(
+                plan_data.start_date, 
+                plan_data.frequency, 
+                plan_data.frequency_value
+            )
+            print(f"[调试] 计算出的下次执行日期: {next_execution_date}")
+            
+            # 创建定投计划
+            print(f"[调试] 开始创建DCAPlan对象")
+            plan = DCAPlan(
+                plan_name=plan_data.plan_name,
+                platform=plan_data.platform,
+                asset_type=plan_data.asset_type,
+                asset_code=plan_data.asset_code,
+                asset_name=plan_data.asset_name,
+                amount=plan_data.amount,
+                currency=plan_data.currency,
+                frequency=plan_data.frequency,
+                frequency_value=plan_data.frequency_value,
+                start_date=plan_data.start_date,
+                end_date=plan_data.end_date,
+                strategy=plan_data.strategy,
+                execution_time=plan_data.execution_time,
+                next_execution_date=next_execution_date,  # 添加下次执行日期
+                smart_dca=plan_data.smart_dca,
+                base_amount=plan_data.base_amount,
+                max_amount=plan_data.max_amount,
+                increase_rate=plan_data.increase_rate,
+                min_nav=plan_data.min_nav,
+                max_nav=plan_data.max_nav,
+                skip_holidays=plan_data.skip_holidays,
+                enable_notification=plan_data.enable_notification,
+                notification_before=plan_data.notification_before,
+                fee_rate=plan_data.fee_rate,
+                exclude_dates=json.dumps(plan_data.exclude_dates) if plan_data.exclude_dates else None
+            )
+            print(f"[调试] DCAPlan对象创建成功")
+            print(f"[调试] 计划名称: {plan.plan_name}")
+            print(f"[调试] 资产代码: {plan.asset_code}")
+            print(f"[调试] 金额: {plan.amount}")
+            print(f"[调试] 频率: {plan.frequency}, 频率值: {plan.frequency_value}")
+            print(f"[调试] 开始日期: {plan.start_date}")
+            print(f"[调试] 结束日期: {plan.end_date}")
+            print(f"[调试] 下次执行日期: {plan.next_execution_date}")
+            
+            print(f"[调试] 准备添加到数据库")
+            db.add(plan)
+            print(f"[调试] 对象已添加到session")
+            
+            # 检查session中的对象
+            print(f"[调试] 检查session中的对象状态")
+            print(f"[调试] 对象状态: {plan._sa_instance_state}")
+            print(f"[调试] 对象是否在session中: {plan in db}")
+            
+            print(f"[调试] 准备提交到数据库")
+            db.commit()
+            print(f"[调试] 数据库提交成功")
+            
+            print(f"[调试] 准备刷新对象")
+            db.refresh(plan)
+            print(f"[调试] 对象刷新成功，ID: {plan.id}")
+            
+            return plan
+            
+        except Exception as e:
+            print(f"[错误] 创建定投计划失败: {str(e)}")
+            print(f"[错误] 错误类型: {type(e)}")
+            print(f"[错误] 错误详情: {e}")
+            
+            # 如果是主键冲突，提供更详细的信息
+            if "duplicate key value violates unique constraint" in str(e) or "already exists" in str(e):
+                print(f"[错误] 检测到主键冲突错误")
+                try:
+                    # 查询所有现有记录
+                    all_plans = db.query(DCAPlan).all()
+                    print(f"[错误] 现有定投计划:")
+                    for p in all_plans:
+                        print(f"[错误]   ID: {p.id}, 名称: {p.plan_name}, 创建时间: {p.created_at}")
+                except Exception as query_error:
+                    print(f"[错误] 查询现有记录失败: {query_error}")
+            
+            import traceback
+            print(f"[错误] 完整错误堆栈:")
+            traceback.print_exc()
+            db.rollback()
+            raise
     
     @staticmethod
     @auto_log("database", log_result=True)
@@ -1155,25 +1397,62 @@ class DCAService:
     @staticmethod
     def delete_dca_plan(db: Session, plan_id: int) -> bool:
         """删除定投计划（不删除操作）"""
-        plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
-        if not plan:
+        print(f"[调试] 开始删除定投计划，ID: {plan_id}")
+        try:
+            plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
+            if not plan:
+                print(f"[调试] 定投计划不存在，ID: {plan_id}")
+                return False
+            
+            print(f"[调试] 找到定投计划: {plan.plan_name}")
+            print(f"[调试] 准备删除计划")
+            db.delete(plan)
+            print(f"[调试] 计划已从session中删除")
+            db.commit()
+            print(f"[调试] 数据库提交成功")
+            return True
+        except Exception as e:
+            print(f"[错误] 删除定投计划失败: {str(e)}")
+            db.rollback()
             return False
-        db.delete(plan)
-        db.commit()
-        return True
     
     @staticmethod
     def delete_dca_plan_with_operations(db: Session, plan_id: int) -> bool:
         """删除定投计划及其所有关联操作记录"""
-        from app.models.database import UserOperation
-        plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
-        if not plan:
+        print(f"[调试] 开始删除定投计划及操作记录，ID: {plan_id}")
+        try:
+            from app.models.database import UserOperation
+            plan = db.query(DCAPlan).filter(DCAPlan.id == plan_id).first()
+            if not plan:
+                print(f"[调试] 定投计划不存在，ID: {plan_id}")
+                return False
+            
+            print(f"[调试] 找到定投计划: {plan.plan_name}")
+            
+            # 查询关联的操作记录数量
+            operations_count = db.query(UserOperation).filter(UserOperation.dca_plan_id == plan_id).count()
+            print(f"[调试] 关联操作记录数量: {operations_count}")
+            
+            # 删除所有关联操作
+            print(f"[调试] 开始删除关联操作记录")
+            deleted_operations = db.query(UserOperation).filter(UserOperation.dca_plan_id == plan_id).delete()
+            print(f"[调试] 删除了 {deleted_operations} 条操作记录")
+            
+            # 删除定投计划
+            print(f"[调试] 开始删除定投计划")
+            db.delete(plan)
+            print(f"[调试] 计划已从session中删除")
+            
+            db.commit()
+            print(f"[调试] 数据库提交成功")
+            return True
+        except Exception as e:
+            print(f"[错误] 删除定投计划及操作记录失败: {str(e)}")
+            import traceback
+            print(f"[错误] 完整错误堆栈:")
+            traceback.print_exc()
+            db.rollback()
             return False
-        # 删除所有关联操作
-        db.query(UserOperation).filter(UserOperation.dca_plan_id == plan_id).delete()
-        db.delete(plan)
-        db.commit()
-        return True
     
     @staticmethod
     def execute_dca_plan(db: Session, plan_id: int, execution_type: str = "scheduled") -> Optional[UserOperation]:
@@ -1193,15 +1472,10 @@ class DCAService:
         else:
             amount = plan.amount
         
-        # 获取当天净值（如果存在）
-        today = date.today()
+        # 根据定投执行时间获取对应的净值
+        execution_time = datetime.now()
         latest_nav = None
-        nav_obj = db.query(FundNav).filter(
-            and_(
-                FundNav.fund_code == plan.asset_code,
-                FundNav.nav_date == today
-            )
-        ).first()
+        nav_obj = FundOperationService._get_nav_by_operation_time(db, plan.asset_code, execution_time)
         
         if nav_obj:
             latest_nav = nav_obj.nav
@@ -1285,7 +1559,25 @@ class DCAService:
         plan.execution_count = len(operations)
         plan.total_invested = sum(op.amount for op in operations)
         plan.total_shares = sum(op.quantity for op in operations if op.quantity is not None)
-        plan.last_execution_date = max(op.operation_date.date() for op in operations) if operations else None
+        
+        # 修改：基于实际执行时间计算last_execution_date，而不是操作记录中的历史日期
+        from datetime import date
+        today = date.today()
+        
+        # 如果有操作记录，检查是否有最近执行的操作
+        if operations:
+            # 查找最近7天内的操作记录
+            recent_operations = [op for op in operations if (today - op.operation_date.date()).days <= 7]
+            if recent_operations:
+                # 如果有最近的操作，使用最新的操作日期
+                plan.last_execution_date = max(op.operation_date.date() for op in recent_operations)
+            else:
+                # 如果没有最近的操作，使用今天作为最后执行日期（表示计划是活跃的）
+                plan.last_execution_date = today
+        else:
+            # 没有操作记录，设置为None
+            plan.last_execution_date = None
+        
         plan.updated_at = datetime.now()
         
         db.commit()
@@ -1327,12 +1619,16 @@ class DCAService:
                     print(f"[警告] 计划 {plan_id} 缺少必要信息，跳过")
                     continue
             
+            # 检查计划是否已过期（只有设置了结束日期的计划才检查）
+            if end_date and end_date < today:
+                print(f"[警告] 定投计划 {plan_id} 已过期 (结束日期: {end_date})，跳过执行")
+                continue
+            
             # 检查是否应该执行
             print(f"[调试] 计划 {plan_id}: next_execution_date={next_execution_date}, end_date={end_date}")
             
             if (next_execution_date and 
-                next_execution_date <= today and
-                (not end_date or end_date >= today)):
+                next_execution_date <= today):
                 
                 print(f"[调试] 执行计划 {plan_id}")
                 operation = DCAService.execute_dca_plan(db, plan_id, "scheduled")
@@ -1351,20 +1647,37 @@ class DCAService:
         """计算下次执行日期"""
         from datetime import timedelta
         
-        if frequency == "daily":
-            return start_date + timedelta(days=frequency_value)
-        elif frequency == "weekly":
-            return start_date + timedelta(weeks=frequency_value)
-        elif frequency == "monthly":
-            # 简单的月份计算，实际应该考虑月份天数差异
-            year = start_date.year
-            month = start_date.month + frequency_value
-            while month > 12:
-                year += 1
-                month -= 12
-            return date(year, month, start_date.day)
-        else:
-            return start_date + timedelta(days=frequency_value)
+        print(f"[调试] _calculate_next_execution_date - 输入参数:")
+        print(f"[调试]   start_date: {start_date}, 类型: {type(start_date)}")
+        print(f"[调试]   frequency: {frequency}")
+        print(f"[调试]   frequency_value: {frequency_value}")
+        
+        try:
+            if frequency == "daily":
+                result = start_date + timedelta(days=frequency_value)
+                print(f"[调试] 每日频率计算: {start_date} + {frequency_value}天 = {result}")
+                return result
+            elif frequency == "weekly":
+                result = start_date + timedelta(weeks=frequency_value)
+                print(f"[调试] 每周频率计算: {start_date} + {frequency_value}周 = {result}")
+                return result
+            elif frequency == "monthly":
+                # 简单的月份计算，实际应该考虑月份天数差异
+                year = start_date.year
+                month = start_date.month + frequency_value
+                while month > 12:
+                    year += 1
+                    month -= 12
+                result = date(year, month, start_date.day)
+                print(f"[调试] 每月频率计算: {start_date} + {frequency_value}月 = {result}")
+                return result
+            else:
+                result = start_date + timedelta(days=frequency_value)
+                print(f"[调试] 默认频率计算: {start_date} + {frequency_value}天 = {result}")
+                return result
+        except Exception as e:
+            print(f"[错误] _calculate_next_execution_date计算失败: {str(e)}")
+            raise
     
     @staticmethod
     def _calculate_smart_amount(db: Session, plan: DCAPlan) -> Decimal:
@@ -1536,7 +1849,8 @@ class DCAService:
                 continue
             
             # 计算手续费和份额
-            fee = plan.amount * (plan.fee_rate or 0) / 100
+            fee_rate = plan.fee_rate or 0
+            fee = (plan.amount * fee_rate).quantize(Decimal('0.0001')) if fee_rate else Decimal('0')
             net_amount = plan.amount - fee
             quantity = net_amount / nav_record.nav
             
@@ -1684,7 +1998,25 @@ class DCAService:
         plan.execution_count = len(operations)
         plan.total_invested = sum(op.amount for op in operations)
         plan.total_shares = sum(op.quantity for op in operations if op.quantity is not None)
-        plan.last_execution_date = max(op.operation_date.date() for op in operations) if operations else None
+        
+        # 修改：基于实际执行时间计算last_execution_date，而不是操作记录中的历史日期
+        from datetime import date
+        today = date.today()
+        
+        # 如果有操作记录，检查是否有最近执行的操作
+        if operations:
+            # 查找最近7天内的操作记录
+            recent_operations = [op for op in operations if (today - op.operation_date.date()).days <= 7]
+            if recent_operations:
+                # 如果有最近的操作，使用最新的操作日期
+                plan.last_execution_date = max(op.operation_date.date() for op in recent_operations)
+            else:
+                # 如果没有最近的操作，使用今天作为最后执行日期（表示计划是活跃的）
+                plan.last_execution_date = today
+        else:
+            # 没有操作记录，设置为None
+            plan.last_execution_date = None
+        
         plan.updated_at = datetime.now()
         
         db.commit()
@@ -1721,7 +2053,24 @@ class DCAService:
             plan.execution_count = len(remaining_operations)
             plan.total_invested = sum(op.amount for op in remaining_operations)
             plan.total_shares = sum(op.quantity for op in remaining_operations if op.quantity is not None)
-            plan.last_execution_date = max(op.operation_date.date() for op in remaining_operations) if remaining_operations else None
+            
+            # 修改：基于实际执行时间计算last_execution_date，而不是操作记录中的历史日期
+            from datetime import date
+            today = date.today()
+            
+            # 如果有操作记录，检查是否有最近执行的操作
+            if remaining_operations:
+                # 查找最近7天内的操作记录
+                recent_operations = [op for op in remaining_operations if (today - op.operation_date.date()).days <= 7]
+                if recent_operations:
+                    # 如果有最近的操作，使用最新的操作日期
+                    plan.last_execution_date = max(op.operation_date.date() for op in recent_operations)
+                else:
+                    # 如果没有最近的操作，使用今天作为最后执行日期（表示计划是活跃的）
+                    plan.last_execution_date = today
+            else:
+                # 没有操作记录，设置为None
+                plan.last_execution_date = None
             
             # 如果没有历史操作了，状态改为active，但保持其他状态不变
             if len(remaining_operations) == 0:
@@ -1736,42 +2085,40 @@ class DCAService:
 
     @staticmethod
     def update_pending_operations(db: Session) -> int:
-        """更新所有待确认的定投操作记录"""
+        """更新所有待确认的操作记录（包括手动操作和定投操作）"""
         updated_count = 0
         
-        # 查找所有待确认的定投操作
+        # 查找所有待确认的操作（包括手动操作和定投操作）
         pending_operations = db.query(UserOperation).filter(
-            and_(
-                UserOperation.status == "pending",
-                UserOperation.dca_plan_id.isnot(None)
-            )
+            UserOperation.status == "pending"
         ).all()
         
-        print(f"[调试] 找到 {len(pending_operations)} 个待确认的定投操作")
+        print(f"[调试] 找到 {len(pending_operations)} 个待确认的操作")
         
         for operation in pending_operations:
             try:
                 print(f"[调试] 处理操作 {operation.id}: asset_code={operation.asset_code}, operation_date={operation.operation_date}")
                 
-                # 获取当天净值
-                today = date.today()
-                nav_record = db.query(FundNav).filter(
-                    and_(
-                        FundNav.fund_code == operation.asset_code,
-                        FundNav.nav_date == today
-                    )
-                ).first()
+                # 根据操作时间获取对应的净值
+                nav_record = FundOperationService._get_nav_by_operation_time(db, operation.asset_code, operation.operation_date)
                 
-                print(f"[调试] 操作 {operation.id} 的当天净值记录: {nav_record}")
+                print(f"[调试] 操作 {operation.id} 根据时间匹配的净值记录: {nav_record}")
                 
                 if nav_record:
                     print(f"[调试] 找到净值记录，开始计算份额: nav={nav_record.nav}")
                     # 计算份额并确认操作
-                    DCAService._calculate_and_confirm_operation(db, operation, nav_record.nav)
+                    if operation.operation_type == "buy":
+                        FundOperationService._calculate_buy_shares(db, operation)
+                    elif operation.operation_type == "sell":
+                        FundOperationService._calculate_sell_shares(db, operation)
+                    
+                    # 更新操作状态为已确认
+                    operation.status = "confirmed"
+                    operation.updated_at = datetime.now()
                     updated_count += 1
                     print(f"[调试] 操作 {operation.id} 更新成功")
                 else:
-                    print(f"[调试] 操作 {operation.id} 未找到当天净值记录")
+                    print(f"[调试] 操作 {operation.id} 未找到对应净值记录，保持待确认状态")
                     
             except Exception as e:
                 print(f"更新待确认操作 {operation.id} 失败: {e}")
@@ -1887,3 +2234,219 @@ class FundDividendService:
             db.commit()
         
         return saved_count 
+
+
+class NavMatchingCheckService:
+    """净值匹配检查服务"""
+    
+    @staticmethod
+    def check_nav_matching_consistency(db: Session) -> dict:
+        """检查所有操作记录的净值匹配一致性"""
+        print("[净值匹配检查] 开始检查所有操作记录...")
+        
+        # 获取所有操作记录
+        operations = db.query(UserOperation).filter(
+            UserOperation.asset_type == "基金"
+        ).order_by(UserOperation.operation_date).all()
+        
+        results = {
+            'total_operations': len(operations),
+            'correct_matching': 0,
+            'incorrect_matching': 0,
+            'no_nav_data': 0,
+            'details': []
+        }
+        
+        for operation in operations:
+            check_result = NavMatchingCheckService._check_single_operation(db, operation)
+            results['details'].append(check_result)
+            
+            if check_result['status'] == 'correct':
+                results['correct_matching'] += 1
+            elif check_result['status'] == 'incorrect':
+                results['incorrect_matching'] += 1
+            else:
+                results['no_nav_data'] += 1
+        
+        print(f"[净值匹配检查] 检查完成: 总计{results['total_operations']}条记录")
+        print(f"[净值匹配检查] 正确匹配: {results['correct_matching']}条")
+        print(f"[净值匹配检查] 错误匹配: {results['incorrect_matching']}条")
+        print(f"[净值匹配检查] 无净值数据: {results['no_nav_data']}条")
+        
+        return results
+    
+    @staticmethod
+    def _check_single_operation(db: Session, operation: UserOperation) -> dict:
+        """检查单个操作的净值匹配"""
+        operation_datetime = operation.operation_date
+        if isinstance(operation_datetime, str):
+            operation_datetime = datetime.fromisoformat(operation_datetime.replace('Z', '+00:00'))
+        
+        operation_date = operation_datetime.date()
+        operation_time = operation_datetime.time()
+        
+        # 根据15:00规则计算应该匹配的净值日期
+        if operation_time < time(15, 0):
+            expected_nav_date = operation_date
+            expected_nav_source = "当天净值"
+        else:
+            next_trading_day = FundOperationService._get_next_trading_day(db, operation.asset_code, operation_date)
+            expected_nav_date = next_trading_day if next_trading_day else operation_date
+            expected_nav_source = "下一个交易日净值" if next_trading_day else "当天净值(无法确定下一个交易日)"
+        
+        # 获取实际使用的净值
+        actual_nav = None
+        actual_nav_date = None
+        if operation.nav:
+            # 用户填写了净值，需要验证这个净值是否对应正确的日期
+            actual_nav = operation.nav
+            nav_source = "用户填写"
+            
+            # 根据操作时间确定应该使用的净值日期
+            if operation_time < time(15, 0):
+                # 15:00前操作，净值日期应该是当天
+                expected_nav_date_for_check = operation_date
+            else:
+                # 15:00后操作，净值日期应该是下一个交易日
+                next_trading_day = FundOperationService._get_next_trading_day(db, operation.asset_code, operation_date)
+                expected_nav_date_for_check = next_trading_day if next_trading_day else operation_date
+            
+            # 验证用户填写的净值是否真的对应这个日期
+            nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, expected_nav_date_for_check)
+            print(f"[净值匹配调试] 操作ID: {operation.id}")
+            print(f"[净值匹配调试] 用户填写净值: {operation.nav}")
+            print(f"[净值匹配调试] 预期净值日期: {expected_nav_date_for_check}")
+            print(f"[净值匹配调试] 数据库净值记录: {nav_record.nav if nav_record else 'None'}")
+            
+            if nav_record:
+                # 如果数据库中有对应日期的净值，比较用户填写的净值是否匹配
+                nav_diff = abs(float(operation.nav) - float(nav_record.nav))
+                print(f"[净值匹配调试] 净值差异: {nav_diff}")
+                if nav_diff < 0.001:  # 允许0.001的误差
+                    actual_nav_date = expected_nav_date_for_check
+                    nav_source = "用户填写(验证正确)"
+                    print(f"[净值匹配调试] 净值匹配正确")
+                else:
+                    # 用户填写的净值与预期日期不匹配，尝试找到匹配的日期
+                    actual_nav_date = None
+                    nav_source = "用户填写(净值不匹配)"
+                    print(f"[净值匹配调试] 净值不匹配")
+            else:
+                # 数据库中没有对应日期的净值，无法验证
+                actual_nav_date = expected_nav_date_for_check
+                nav_source = "用户填写(无验证数据)"
+                print(f"[净值匹配调试] 无验证数据")
+        else:
+            # 查找数据库中对应的净值记录
+            nav_record = FundOperationService._get_nav_by_date(db, operation.asset_code, expected_nav_date)
+            if nav_record:
+                actual_nav = nav_record.nav
+                actual_nav_date = nav_record.nav_date
+                nav_source = "数据库匹配"
+            else:
+                nav_source = "无净值数据"
+        
+        # 判断匹配是否正确
+        is_correct = False
+        if actual_nav_date and expected_nav_date:
+            is_correct = actual_nav_date == expected_nav_date
+        
+        result = {
+            'operation_id': operation.id,
+            'operation_date': operation_datetime.isoformat(),
+            'operation_time': operation_time.strftime('%H:%M:%S'),
+            'asset_code': operation.asset_code,
+            'asset_name': operation.asset_name,
+            'operation_type': operation.operation_type,
+            'amount': float(operation.amount) if operation.amount else None,
+            'expected_nav_date': expected_nav_date.isoformat() if expected_nav_date else None,
+            'expected_nav_source': expected_nav_source,
+            'actual_nav_date': actual_nav_date.isoformat() if actual_nav_date else None,
+            'actual_nav': float(actual_nav) if actual_nav else None,
+            'nav_source': nav_source,
+            'is_correct': is_correct,
+            'status': 'correct' if is_correct else ('incorrect' if actual_nav_date else 'no_nav'),
+            'issue_description': NavMatchingCheckService._get_issue_description(
+                operation_time, expected_nav_date, actual_nav_date, nav_source
+            )
+        }
+        
+        return result
+    
+    @staticmethod
+    def _get_issue_description(operation_time, expected_nav_date, actual_nav_date, nav_source):
+        """生成问题描述"""
+        if not actual_nav_date:
+            if "净值不匹配" in nav_source:
+                time_str = operation_time.strftime('%H:%M:%S')
+                if operation_time < time(15, 0):
+                    return f"15:00前操作({time_str})应使用当天净值，但用户填写的净值与当天净值不匹配"
+                else:
+                    return f"15:00后操作({time_str})应使用下一个交易日净值，但用户填写的净值与下一个交易日净值不匹配"
+            return "无净值数据"
+        
+        if expected_nav_date == actual_nav_date:
+            return "匹配正确"
+        
+        time_str = operation_time.strftime('%H:%M:%S')
+        if operation_time < time(15, 0):
+            return f"15:00前操作({time_str})应使用当天净值，但使用了{actual_nav_date}"
+        else:
+            return f"15:00后操作({time_str})应使用下一个交易日净值，但使用了{actual_nav_date}"
+    
+    @staticmethod
+    def mark_incorrect_operations(db: Session) -> int:
+        """标记净值匹配错误的操作记录"""
+        print("[净值匹配检查] 开始标记错误匹配的操作...")
+        
+        operations = db.query(UserOperation).filter(
+            UserOperation.asset_type == "基金"
+        ).all()
+        
+        marked_count = 0
+        
+        for operation in operations:
+            check_result = NavMatchingCheckService._check_single_operation(db, operation)
+            
+            if check_result['status'] == 'incorrect':
+                # 在notes字段中添加标记
+                current_notes = operation.notes or ""
+                issue_desc = check_result['issue_description']
+                
+                if "净值匹配检查" not in current_notes:
+                    new_notes = f"{current_notes}\n[净值匹配检查] {issue_desc}".strip()
+                    operation.notes = new_notes
+                    marked_count += 1
+                    print(f"[净值匹配检查] 标记操作 {operation.id}: {issue_desc}")
+        
+        if marked_count > 0:
+            db.commit()
+            print(f"[净值匹配检查] 已标记 {marked_count} 条错误匹配的操作")
+        
+        return marked_count
+    
+    @staticmethod
+    def get_operations_with_nav_issues(db: Session) -> List[dict]:
+        """获取有净值匹配问题的操作记录"""
+        operations = db.query(UserOperation).filter(
+            UserOperation.asset_type == "基金"
+        ).order_by(UserOperation.operation_date).all()
+        
+        issues = []
+        for operation in operations:
+            check_result = NavMatchingCheckService._check_single_operation(db, operation)
+            if check_result['status'] != 'correct':
+                issues.append({
+                    'operation_id': operation.id,
+                    'operation_date': operation.operation_date.isoformat() if isinstance(operation.operation_date, datetime) else str(operation.operation_date),
+                    'asset_code': operation.asset_code,
+                    'asset_name': operation.asset_name,
+                    'operation_type': operation.operation_type,
+                    'amount': float(operation.amount) if operation.amount else None,
+                    'issue': check_result['issue_description'],
+                    'expected_nav_date': check_result['expected_nav_date'],
+                    'actual_nav_date': check_result['actual_nav_date'],
+                    'status': check_result['status']
+                })
+        
+        return issues

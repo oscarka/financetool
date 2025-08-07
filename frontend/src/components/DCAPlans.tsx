@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
     Card, Button, Form, Input, Select, DatePicker, InputNumber, message, Table, Space, Tag, Modal, Tooltip,
-    Row, Col, Statistic, Tabs, Switch, Divider, Alert, Radio, Checkbox, Dropdown
+    Row, Col, Statistic, Tabs, Switch, Divider, Alert, Radio, Checkbox
 } from 'antd'
 import {
     PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, PlayCircleOutlined,
@@ -196,7 +196,7 @@ const DCAPlans: React.FC = () => {
             const planData = {
                 ...values,
                 start_date: dayjs(values.start_date).format('YYYY-MM-DD'),
-                end_date: isOngoing ? dayjs().format('YYYY-MM-DD') : (values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined),
+                end_date: isOngoing ? undefined : (values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined),
                 platform: '支付宝',
                 asset_type: '基金',
                 exclude_dates: values.exclude_dates
@@ -273,75 +273,52 @@ const DCAPlans: React.FC = () => {
         }
     }
 
-    // 删除定投计划
-    const handleDelete = async (record: DCAPlan) => {
-        // 显示确认对话框，询问是否一并删除操作记录
-        Modal.confirm({
-            title: '删除定投计划',
-            content: (
-                <div>
-                    <p>确定要删除定投计划 "{record.plan_name}" 吗？</p>
-                    <p style={{ color: '#ff4d4f', fontSize: '12px' }}>
-                        注意：删除后无法恢复，建议先备份重要数据
-                    </p>
-                </div>
-            ),
-            okText: '仅删除计划',
-            cancelText: '取消',
-            onOk: async () => {
-                setSubmitting(true)
-                try {
-                    const response = await fundAPI.deleteDCAPlan(record.id)
-                    if (response.success) {
-                        message.success('删除成功')
-                        fetchPlans()
-                    } else {
-                        message.error('删除失败')
-                    }
-                } catch (error: any) {
-                    console.error('删除定投计划失败:', error)
-                    message.error('删除失败，请稍后重试')
-                } finally {
-                    setSubmitting(false)
-                }
+
+
+
+
+    // 直接删除定投计划（无确认对话框）
+    const handleDeleteDirect = async (record: DCAPlan) => {
+        console.log('[前端调试] 直接删除定投计划:', record)
+        setSubmitting(true)
+        try {
+            console.log('[前端调试] 调用fundAPI.deleteDCAPlan，ID:', record.id)
+            const response = await fundAPI.deleteDCAPlan(record.id)
+            console.log('[前端调试] API响应:', response)
+            if (response.success) {
+                message.success('删除成功')
+                fetchPlans()
+            } else {
+                message.error('删除失败')
             }
-        })
+        } catch (error: any) {
+            console.error('[前端调试] 删除定投计划失败:', error)
+            message.error('删除失败，请稍后重试')
+        } finally {
+            setSubmitting(false)
+        }
     }
 
-    // 删除定投计划及所有操作记录
-    const handleDeleteWithOperations = async (record: DCAPlan) => {
-        // 显示确认对话框
-        Modal.confirm({
-            title: '删除定投计划及所有操作记录',
-            content: (
-                <div>
-                    <p>确定要删除定投计划 "{record.plan_name}" 及其所有关联的操作记录吗？</p>
-                    <p style={{ color: '#ff4d4f', fontSize: '12px' }}>
-                        ⚠️ 此操作将永久删除所有相关的操作记录，无法恢复！
-                    </p>
-                </div>
-            ),
-            okText: '确认删除',
-            cancelText: '取消',
-            okType: 'danger',
-            onOk: async () => {
-                setSubmitting(true)
-                try {
-                    const response = await fundAPI.deleteDCAPlan(record.id, { delete_operations: true })
-                    if (response.success) {
-                        message.success('删除成功')
-                        fetchPlans()
-                    } else {
-                        message.error('删除失败')
-                    }
-                } catch (error: any) {
-                    console.error('删除定投计划失败:', error)
-                    message.error('删除失败，请稍后重试')
-                } finally {
-                    setSubmitting(false)
-                }
+    // 直接删除定投计划及操作记录（无确认对话框）
+    const handleDeleteWithOperationsDirect = async (record: DCAPlan) => {
+        console.log('[前端调试] 直接删除定投计划及操作记录:', record)
+        setSubmitting(true)
+        try {
+            console.log('[前端调试] 调用fundAPI.deleteDCAPlan，ID:', record.id, 'delete_operations: true')
+            const response = await fundAPI.deleteDCAPlan(record.id, { delete_operations: true })
+            console.log('[前端调试] API响应:', response)
+            if (response.success) {
+                message.success('删除成功')
+                fetchPlans()
+            } else {
+                message.error('删除失败')
             }
-        })
+        } catch (error: any) {
+            console.error('[前端调试] 删除定投计划失败:', error)
+            message.error('删除失败，请稍后重试')
+        } finally {
+            setSubmitting(false)
+        }
     }
 
     // 执行定投计划
@@ -747,7 +724,7 @@ const DCAPlans: React.FC = () => {
                         <Button
                             type="link"
                             size="small"
-                            style={{ padding: 0, color: '#ff4d4f' }}
+                            style={{ padding: 0, color: '#fa8c16' }}
                             onClick={() => handleDeleteOperations(record)}
                         >
                             删除操作
@@ -757,39 +734,41 @@ const DCAPlans: React.FC = () => {
                         <Button
                             type="link"
                             size="small"
-                            style={{ padding: 0, color: '#52c41a' }}
+                            style={{ padding: 0, color: '#722ed1' }}
                             onClick={() => handleUpdateStatistics(record)}
                         >
                             更新统计
                         </Button>
                     </Tooltip>
-                    <Dropdown
-                        menu={{
-                            items: [
-                                {
-                                    key: 'delete_plan_only',
-                                    label: '仅删除计划',
-                                    onClick: () => handleDelete(record)
-                                },
-                                {
-                                    key: 'delete_plan_with_operations',
-                                    label: '删除计划及操作记录',
-                                    danger: true,
-                                    onClick: () => handleDeleteWithOperations(record)
-                                }
-                            ]
-                        }}
-                    >
-                        <Tooltip title="删除">
+                    <Space>
+                        <Tooltip title="删除计划（保留操作记录）">
                             <Button
                                 type="link"
                                 size="small"
                                 danger
                                 icon={<DeleteOutlined />}
-                                style={{ padding: 0 }}
+                                style={{ padding: 0, color: '#ff7875' }}
+                                onClick={() => {
+                                    console.log('[前端调试] 直接点击删除计划按钮')
+                                    handleDeleteDirect(record)
+                                }}
                             />
                         </Tooltip>
-                    </Dropdown>
+                        <Tooltip title="删除计划及所有操作记录">
+                            <Button
+                                type="link"
+                                size="small"
+                                danger
+                                style={{ padding: 0, color: '#ff4d4f' }}
+                                onClick={() => {
+                                    console.log('[前端调试] 直接点击删除计划及操作记录按钮')
+                                    handleDeleteWithOperationsDirect(record)
+                                }}
+                            >
+                                删除全部
+                            </Button>
+                        </Tooltip>
+                    </Space>
                 </Space>
             )
         }
@@ -1154,7 +1133,10 @@ const DCAPlans: React.FC = () => {
                                 rules={[{ required: true, message: '请选择开始日期' }]}
                             >
                                 <DatePicker style={{ width: '100%' }}
-                                    onChange={date => setHistoryRange([date, historyRange ? historyRange[1] : null])}
+                                    onChange={date => {
+                                        const endDate = isOngoing ? dayjs() : (historyRange ? historyRange[1] : null)
+                                        setHistoryRange([date, endDate])
+                                    }}
                                 />
                             </Form.Item>
                         </Col>
@@ -1175,14 +1157,18 @@ const DCAPlans: React.FC = () => {
                                     onChange={e => {
                                         setIsOngoing(e.target.checked)
                                         if (e.target.checked) {
-                                            form.setFieldsValue({ end_date: dayjs() })
-                                            setHistoryRange([historyRange ? historyRange[0] : null, dayjs()])
+                                            form.setFieldsValue({ end_date: undefined })
+                                            // 当选择持续进行中时，设置historyRange为从开始日期到今天，用于排除日期选择
+                                            const startDate = form.getFieldValue('start_date')
+                                                ? dayjs(form.getFieldValue('start_date'))
+                                                : dayjs().subtract(30, 'day')
+                                            setHistoryRange([startDate, dayjs()])
                                         } else {
                                             form.setFieldsValue({ end_date: undefined })
                                         }
                                     }}
                                 >
-                                    结束日期为当前/持续进行中
+                                    持续进行中（无结束日期）
                                 </Checkbox>
                             </Form.Item>
                         </Col>
