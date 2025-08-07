@@ -14,7 +14,8 @@ import {
     MenuOutlined,
     StockOutlined,
     ToolOutlined,
-    ClockCircleOutlined
+    ClockCircleOutlined,
+    RobotOutlined
 } from '@ant-design/icons'
 
 const { Header, Content } = AntLayout
@@ -30,6 +31,7 @@ const navigation = [
     { name: '基金', href: '/funds', icon: DollarOutlined },
     { name: '汇率', href: '/exchange-rates', icon: GlobalOutlined },
     { name: '分析', href: '/analysis', icon: PieChartOutlined },
+    { name: 'AI测试', href: '/ai-analyst-test', icon: RobotOutlined },
     { name: 'OKX', href: '/okx', icon: SettingOutlined },
     { name: 'Wise', href: '/wise', icon: BankOutlined },
     { name: 'PayPal', href: '/paypal', icon: PayCircleOutlined },

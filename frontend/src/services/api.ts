@@ -589,4 +589,69 @@ export const aggregationAPI = {
         api.get(`/aggregation/dashboard?base_currency=${baseCurrency}&days=${days}`),
 }
 
+// AI分析师相关API
+export const aiAnalystAPI = {
+    // 健康检查
+    getHealth: (apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/health', {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
+
+    // 获取资产数据
+    getAssetData: (apiKey: string, params?: {
+        base_currency?: string;
+        include_small_amounts?: boolean;
+    }): Promise<APIResponse> =>
+        api.get('/ai-analyst/asset-data', {
+            params,
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
+
+    // 获取交易数据
+    getTransactionData: (apiKey: string, params?: {
+        start_date?: string;
+        end_date?: string;
+        platform?: string;
+        limit?: number;
+    }): Promise<APIResponse> =>
+        api.get('/ai-analyst/transaction-data', {
+            params,
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
+
+    // 获取历史数据
+    getHistoricalData: (apiKey: string, params?: {
+        days?: number;
+        asset_codes?: string[];
+    }): Promise<APIResponse> =>
+        api.get('/ai-analyst/historical-data', {
+            params,
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
+
+    // 获取市场数据
+    getMarketData: (apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/market-data', {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
+
+    // 获取定投数据
+    getDCAData: (apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/dca-data', {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
+}
+
 export default api 
