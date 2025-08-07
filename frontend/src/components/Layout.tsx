@@ -13,12 +13,11 @@ import {
     PayCircleOutlined,
     StockOutlined,
     ToolOutlined,
-    ClockCircleOutlined
+    ClockCircleOutlined,
+    RobotOutlined
 } from '@ant-design/icons'
 
 const { Sider, Content } = AntLayout
-
-
 
 const navigation = [
     { name: '总览', href: '/', icon: HomeOutlined },
@@ -27,6 +26,7 @@ const navigation = [
     { name: '基金', href: '/funds', icon: DollarOutlined },
     { name: '汇率', href: '/exchange-rates', icon: GlobalOutlined },
     { name: '分析', href: '/analysis', icon: PieChartOutlined },
+    { name: 'AI分析师测试', href: '/ai-analyst-test', icon: RobotOutlined },
     { name: 'OKX管理', href: '/okx', icon: SettingOutlined },
     { name: 'Wise管理', href: '/wise', icon: BankOutlined },
     { name: 'PayPal管理', href: '/paypal', icon: PayCircleOutlined },
