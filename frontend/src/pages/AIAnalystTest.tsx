@@ -235,9 +235,9 @@ const AIAnalystTest: React.FC = () => {
     // 延迟执行以确保状态更新
     setTimeout(() => {
       const apiFunctionMap = {
-        asset: () => aiAnalystAPI.getAssetData(scenario.params),
-        transaction: () => aiAnalystAPI.getTransactionData(scenario.params),
-        historical: () => aiAnalystAPI.getHistoricalData(scenario.params)
+        asset: () => aiAnalystAPI.getAssetData(scenario.params, apiKey),
+        transaction: () => aiAnalystAPI.getTransactionData(scenario.params, apiKey),
+        historical: () => aiAnalystAPI.getHistoricalData(scenario.params, apiKey)
       };
       handleApiTest(testType, apiFunctionMap[testType as keyof typeof apiFunctionMap]);
     }, 100);
@@ -249,10 +249,10 @@ const AIAnalystTest: React.FC = () => {
   const batchTest = async () => {
     message.info('开始批量测试所有接口...');
     const tests = [
-      { type: 'health', apiFunction: () => aiAnalystAPI.getHealth() },
-      { type: 'market', apiFunction: () => aiAnalystAPI.getMarketData() },
-      { type: 'asset', apiFunction: () => aiAnalystAPI.getAssetData({ base_currency: baseCurrency, include_small_amounts: includeSmall }) },
-      { type: 'dca', apiFunction: () => aiAnalystAPI.getDCAData() }
+      { type: 'health', apiFunction: () => aiAnalystAPI.getHealth(apiKey) },
+      { type: 'market', apiFunction: () => aiAnalystAPI.getMarketData(apiKey) },
+      { type: 'asset', apiFunction: () => aiAnalystAPI.getAssetData({ base_currency: baseCurrency, include_small_amounts: includeSmall }, apiKey) },
+      { type: 'dca', apiFunction: () => aiAnalystAPI.getDCAData(apiKey) }
     ];
 
     for (const test of tests) {
@@ -305,7 +305,7 @@ const AIAnalystTest: React.FC = () => {
     handleApiTest('asset', () => aiAnalystAPI.getAssetData({
       base_currency: baseCurrency,
       include_small_amounts: includeSmall
-    }));
+    }, apiKey));
   };
 
   const testTransactionData = () => {
@@ -314,26 +314,26 @@ const AIAnalystTest: React.FC = () => {
       end_date: endDate.format('YYYY-MM-DD'),
       platform: platform,
       limit: limit
-    }));
+    }, apiKey));
   };
 
   const testHistoricalData = () => {
     handleApiTest('historical', () => aiAnalystAPI.getHistoricalData({
       days: days,
       asset_codes: assetCodes
-    }));
+    }, apiKey));
   };
 
   const testMarketData = () => {
-    handleApiTest('market', () => aiAnalystAPI.getMarketData());
+    handleApiTest('market', () => aiAnalystAPI.getMarketData(apiKey));
   };
 
   const testDCAData = () => {
-    handleApiTest('dca', () => aiAnalystAPI.getDCAData());
+    handleApiTest('dca', () => aiAnalystAPI.getDCAData(apiKey));
   };
 
   const testHealth = () => {
-    handleApiTest('health', () => aiAnalystAPI.getHealth());
+    handleApiTest('health', () => aiAnalystAPI.getHealth(apiKey));
   };
 
   // 增强的响应显示组件

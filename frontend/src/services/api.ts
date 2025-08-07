@@ -592,15 +592,24 @@ export const aggregationAPI = {
 // AI分析师相关API
 export const aiAnalystAPI = {
     // 健康检查
-    getHealth: (): Promise<APIResponse> =>
-        api.get('/ai-analyst/health'),
+    getHealth: (apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/health', {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
 
     // 获取资产数据
     getAssetData: (params?: {
         base_currency?: string;
         include_small_amounts?: boolean;
-    }): Promise<APIResponse> =>
-        api.get('/ai-analyst/asset-data', { params }),
+    }, apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/asset-data', {
+            params,
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
 
     // 获取交易数据
     getTransactionData: (params?: {
@@ -608,23 +617,41 @@ export const aiAnalystAPI = {
         end_date?: string;
         platform?: string;
         limit?: number;
-    }): Promise<APIResponse> =>
-        api.get('/ai-analyst/transaction-data', { params }),
+    }, apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/transaction-data', {
+            params,
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
 
     // 获取历史数据
     getHistoricalData: (params?: {
         days?: number;
         asset_codes?: string[];
-    }): Promise<APIResponse> =>
-        api.get('/ai-analyst/historical-data', { params }),
+    }, apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/historical-data', {
+            params,
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
 
     // 获取市场数据
-    getMarketData: (): Promise<APIResponse> =>
-        api.get('/ai-analyst/market-data'),
+    getMarketData: (apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/market-data', {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
 
     // 获取定投数据
-    getDCAData: (): Promise<APIResponse> =>
-        api.get('/ai-analyst/dca-data'),
+    getDCAData: (apiKey: string): Promise<APIResponse> =>
+        api.get('/ai-analyst/dca-data', {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        }),
 }
 
 export default api 

@@ -120,9 +120,9 @@ const MobileAIAnalystTest: React.FC = () => {
 
     setTimeout(() => {
       const apiFunctionMap = {
-        asset: () => aiAnalystAPI.getAssetData(scenario.params),
-        transaction: () => aiAnalystAPI.getTransactionData(scenario.params),
-        historical: () => aiAnalystAPI.getHistoricalData(scenario.params)
+        asset: () => aiAnalystAPI.getAssetData(scenario.params, apiKey),
+        transaction: () => aiAnalystAPI.getTransactionData(scenario.params, apiKey),
+        historical: () => aiAnalystAPI.getHistoricalData(scenario.params, apiKey)
       };
       handleApiTest(testType, apiFunctionMap[testType as keyof typeof apiFunctionMap]);
     }, 100);
@@ -250,7 +250,7 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 size="small"
                 icon={<ClockCircleOutlined />}
-                onClick={() => handleApiTest('health', () => aiAnalystAPI.getHealth())}
+                onClick={() => handleApiTest('health', () => aiAnalystAPI.getHealth(apiKey))}
                 loading={loading.health}
               >
                 健康检查
@@ -258,7 +258,7 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 size="small"
                 icon={<DollarOutlined />}
-                onClick={() => handleApiTest('market', () => aiAnalystAPI.getMarketData())}
+                onClick={() => handleApiTest('market', () => aiAnalystAPI.getMarketData(apiKey))}
                 loading={loading.market}
               >
                 市场数据
@@ -266,7 +266,7 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 size="small"
                 icon={<PieChartOutlined />}
-                onClick={() => handleApiTest('dca', () => aiAnalystAPI.getDCAData())}
+                onClick={() => handleApiTest('dca', () => aiAnalystAPI.getDCAData(apiKey))}
                 loading={loading.dca}
               >
                 定投数据
@@ -304,7 +304,7 @@ const MobileAIAnalystTest: React.FC = () => {
                 onClick={() => handleApiTest('asset', () => aiAnalystAPI.getAssetData({
                   base_currency: baseCurrency,
                   include_small_amounts: includeSmall
-                }))}
+                }, apiKey))}
                 loading={loading.asset}
                 style={{ width: '100%' }}
                 size="small"
@@ -391,7 +391,7 @@ const MobileAIAnalystTest: React.FC = () => {
                   end_date: endDate.format('YYYY-MM-DD'),
                   platform: platform,
                   limit: limit
-                }))}
+                }, apiKey))}
                 loading={loading.transaction}
                 style={{ width: '100%' }}
                 size="small"
@@ -459,7 +459,7 @@ const MobileAIAnalystTest: React.FC = () => {
                 onClick={() => handleApiTest('historical', () => aiAnalystAPI.getHistoricalData({
                   days: days,
                   asset_codes: assetCodes
-                }))}
+                }, apiKey))}
                 loading={loading.historical}
                 style={{ width: '100%' }}
                 size="small"
