@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Button, Input, Select, Checkbox, DatePicker, Space, Typography, Row, Col, Alert, Spin, Tag, Collapse, Tabs, Switch, Tooltip, message, Modal, List } from 'antd';
-import { PlayCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined, CopyOutlined, ReloadOutlined, BulbOutlined, QuestionCircleOutlined, SettingOutlined, ClockCircleOutlined, DollarOutlined, PieChartOutlined } from '@ant-design/icons';
+import { Card, Button, Input, Select, Checkbox, DatePicker, Space, Typography, Row, Col, Alert, Tag, Collapse, Tabs, Switch, Tooltip, message, List } from 'antd';
+import { PlayCircleOutlined, CopyOutlined, ReloadOutlined, QuestionCircleOutlined, ClockCircleOutlined, DollarOutlined, PieChartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
@@ -36,8 +36,8 @@ const AIAnalystTest: React.FC = () => {
   const [assetCodes, setAssetCodes] = useState('');
 
   // 响应状态
-  const [responses, setResponses] = useState<{[key: string]: ApiResult | null}>({});
-  const [loading, setLoading] = useState<{[key: string]: boolean}>({});
+  const [responses, setResponses] = useState<{ [key: string]: ApiResult | null }>({});
+  const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
@@ -67,7 +67,7 @@ const AIAnalystTest: React.FC = () => {
       {
         name: "近期交易活动",
         description: "查看最近7天的交易记录",
-        params: { 
+        params: {
           start_date: dayjs().subtract(7, 'day').format('YYYY-MM-DD'),
           end_date: dayjs().format('YYYY-MM-DD'),
           limit: 20
@@ -77,7 +77,7 @@ const AIAnalystTest: React.FC = () => {
       {
         name: "月度交易分析",
         description: "分析整个月的投资行为",
-        params: { 
+        params: {
           start_date: dayjs().startOf('month').format('YYYY-MM-DD'),
           end_date: dayjs().format('YYYY-MM-DD'),
           limit: 100
@@ -87,7 +87,7 @@ const AIAnalystTest: React.FC = () => {
       {
         name: "特定平台分析",
         description: "分析某个平台的交易情况",
-        params: { 
+        params: {
           start_date: dayjs().subtract(90, 'day').format('YYYY-MM-DD'),
           end_date: dayjs().format('YYYY-MM-DD'),
           platform: "IBKR",
@@ -130,7 +130,7 @@ const AIAnalystTest: React.FC = () => {
       ]
     },
     transaction: {
-      title: "💰 交易数据解读", 
+      title: "💰 交易数据解读",
       tips: [
         "交易频率反映投资风格（长期vs短期）",
         "买卖比例显示市场判断",
@@ -170,7 +170,7 @@ const AIAnalystTest: React.FC = () => {
     const startTime = Date.now();
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
     const url = new URL(`${baseUrl}/api/v1/ai-analyst${endpoint}`);
-    
+
     Object.keys(params).forEach(key => {
       if (params[key] !== '' && params[key] !== null && params[key] !== undefined) {
         url.searchParams.append(key, params[key]);
@@ -184,20 +184,20 @@ const AIAnalystTest: React.FC = () => {
           'Content-Type': 'application/json'
         }
       });
-      
+
       const data = await response.json();
       const responseTime = Date.now() - startTime;
-      
-      return { 
-        success: response.ok, 
-        data, 
+
+      return {
+        success: response.ok,
+        data,
         status: response.status,
-        responseTime 
+        responseTime
       };
     } catch (error: any) {
-      return { 
-        success: false, 
-        data: { error: error.message }, 
+      return {
+        success: false,
+        data: { error: error.message },
         status: 0,
         responseTime: Date.now() - startTime
       };
@@ -206,20 +206,20 @@ const AIAnalystTest: React.FC = () => {
 
   const handleApiTest = async (testType: string, endpoint: string, params: any = {}) => {
     setLoading(prev => ({ ...prev, [testType]: true }));
-    
+
     try {
       const result = await apiCall(endpoint, params);
       setResponses(prev => ({ ...prev, [testType]: result }));
-      
+
       if (result.success) {
         message.success(`${testType}接口调用成功 (${result.responseTime}ms)`);
       } else {
         message.error(`${testType}接口调用失败: ${result.data.error || '未知错误'}`);
       }
     } catch (error) {
-      setResponses(prev => ({ 
-        ...prev, 
-        [testType]: { success: false, data: { error: 'Network error' }, status: 0 } 
+      setResponses(prev => ({
+        ...prev,
+        [testType]: { success: false, data: { error: 'Network error' }, status: 0 }
       }));
       message.error('网络请求失败');
     } finally {
@@ -247,7 +247,7 @@ const AIAnalystTest: React.FC = () => {
     setTimeout(() => {
       const endpointMap = {
         asset: '/asset-data',
-        transaction: '/transaction-data', 
+        transaction: '/transaction-data',
         historical: '/historical-data'
       };
       handleApiTest(testType, endpointMap[testType as keyof typeof endpointMap], scenario.params);
@@ -362,15 +362,15 @@ const AIAnalystTest: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>✅ 成功 (Status: {result.status}) {result.responseTime && `- ${result.responseTime}ms`}</span>
                 <Space>
-                  <Button 
-                    size="small" 
+                  <Button
+                    size="small"
                     icon={<CopyOutlined />}
                     onClick={() => copyToClipboard(JSON.stringify(result.data, null, 2), 'API响应')}
                   >
                     复制
                   </Button>
-                  <Button 
-                    size="small" 
+                  <Button
+                    size="small"
                     icon={<CopyOutlined />}
                     onClick={() => exportData(result.data, `${type}_data`)}
                   >
@@ -440,7 +440,7 @@ const AIAnalystTest: React.FC = () => {
   return (
     <div style={{ padding: '24px' }}>
       {/* 页头 */}
-      <div style={{ 
+      <div style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         color: 'white',
         padding: '24px',
@@ -458,15 +458,15 @@ const AIAnalystTest: React.FC = () => {
           </div>
           <Space>
             <Tooltip title="自动刷新健康检查">
-              <Switch 
+              <Switch
                 checked={autoRefresh}
                 onChange={toggleAutoRefresh}
                 checkedChildren="自动"
                 unCheckedChildren="手动"
               />
             </Tooltip>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               ghost
               icon={<ReloadOutlined />}
               onClick={batchTest}
@@ -526,8 +526,8 @@ const AIAnalystTest: React.FC = () => {
       <Row gutter={[16, 16]}>
         {/* 资产数据 */}
         <Col xs={24} lg={12}>
-          <Card 
-            title={<><PieChartOutlined /> 资产数据</>} 
+          <Card
+            title={<><PieChartOutlined /> 资产数据</>}
             style={{ height: '100%' }}
             extra={
               <Tooltip title="查看测试场景">
@@ -547,15 +547,15 @@ const AIAnalystTest: React.FC = () => {
                       <Option value="GBP">🇬🇧 GBP</Option>
                     </Select>
                   </div>
-                  
+
                   <Checkbox checked={includeSmall} onChange={(e) => setIncludeSmall(e.target.checked)}>
-                    📊 包含小额资产 (< 100元等值)
+                    📊 包含小额资产 (&lt; 100元等值)
                   </Checkbox>
                 </Space>
 
                 <div style={{ marginTop: 16 }}>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlayCircleOutlined />}
                     onClick={testAssetData}
                     loading={loading.asset}
@@ -566,13 +566,13 @@ const AIAnalystTest: React.FC = () => {
                   </Button>
                 </div>
               </TabPane>
-              
+
               <TabPane tab="测试场景" key="scenarios">
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                   {testScenarios.asset.map((scenario, index) => (
-                    <Card 
-                      key={index} 
-                      size="small" 
+                    <Card
+                      key={index}
+                      size="small"
                       style={{ marginBottom: 8 }}
                       hoverable
                       onClick={() => quickTest('asset', scenario)}
@@ -597,8 +597,8 @@ const AIAnalystTest: React.FC = () => {
 
         {/* 交易数据 */}
         <Col xs={24} lg={12}>
-          <Card 
-            title={<><DollarOutlined /> 交易数据</>} 
+          <Card
+            title={<><DollarOutlined /> 交易数据</>}
             style={{ height: '100%' }}
             extra={
               <Space>
@@ -615,8 +615,8 @@ const AIAnalystTest: React.FC = () => {
                   <Row gutter={8}>
                     <Col span={12}>
                       <Text>开始日期:</Text>
-                      <DatePicker 
-                        value={startDate} 
+                      <DatePicker
+                        value={startDate}
                         onChange={(date) => setStartDate(date || dayjs())}
                         style={{ width: '100%', marginTop: 4 }}
                         size="small"
@@ -624,15 +624,15 @@ const AIAnalystTest: React.FC = () => {
                     </Col>
                     <Col span={12}>
                       <Text>结束日期:</Text>
-                      <DatePicker 
-                        value={endDate} 
+                      <DatePicker
+                        value={endDate}
                         onChange={(date) => setEndDate(date || dayjs())}
                         style={{ width: '100%', marginTop: 4 }}
                         size="small"
                       />
                     </Col>
                   </Row>
-                  
+
                   <div>
                     <Text>交易平台:</Text>
                     <Select
@@ -649,7 +649,7 @@ const AIAnalystTest: React.FC = () => {
                       <Option value="OKX">🪙 OKX</Option>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Text>记录数量:</Text>
                     <Select value={limit} onChange={setLimit} style={{ width: '100%', marginTop: 4 }} size="small">
@@ -662,8 +662,8 @@ const AIAnalystTest: React.FC = () => {
                 </Space>
 
                 <div style={{ marginTop: 16 }}>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlayCircleOutlined />}
                     onClick={testTransactionData}
                     loading={loading.transaction}
@@ -674,13 +674,13 @@ const AIAnalystTest: React.FC = () => {
                   </Button>
                 </div>
               </TabPane>
-              
+
               <TabPane tab="测试场景" key="scenarios">
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                   {testScenarios.transaction.map((scenario, index) => (
-                    <Card 
-                      key={index} 
-                      size="small" 
+                    <Card
+                      key={index}
+                      size="small"
                       style={{ marginBottom: 8 }}
                       hoverable
                       onClick={() => quickTest('transaction', scenario)}
@@ -705,8 +705,8 @@ const AIAnalystTest: React.FC = () => {
 
         {/* 历史数据 */}
         <Col xs={24} lg={12}>
-          <Card 
-            title={<><PieChartOutlined /> 历史数据</>} 
+          <Card
+            title={<><PieChartOutlined /> 历史数据</>}
             style={{ height: '100%' }}
             extra={
               <Tag color="warning">趋势分析</Tag>
@@ -724,7 +724,7 @@ const AIAnalystTest: React.FC = () => {
                       <Option value={365}>📋 365天 (年度回顾)</Option>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Text>资产代码:</Text>
                     <Input
@@ -743,8 +743,8 @@ const AIAnalystTest: React.FC = () => {
                 </Space>
 
                 <div style={{ marginTop: 16 }}>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlayCircleOutlined />}
                     onClick={testHistoricalData}
                     loading={loading.historical}
@@ -755,13 +755,13 @@ const AIAnalystTest: React.FC = () => {
                   </Button>
                 </div>
               </TabPane>
-              
+
               <TabPane tab="测试场景" key="scenarios">
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                   {testScenarios.historical.map((scenario, index) => (
-                    <Card 
-                      key={index} 
-                      size="small" 
+                    <Card
+                      key={index}
+                      size="small"
                       style={{ marginBottom: 8 }}
                       hoverable
                       onClick={() => quickTest('historical', scenario)}
@@ -796,8 +796,8 @@ const AIAnalystTest: React.FC = () => {
                     <br />
                     <Text type="secondary" style={{ fontSize: '12px' }}>无需参数，实时获取市场环境数据</Text>
                   </div>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlayCircleOutlined />}
                     onClick={testMarketData}
                     loading={loading.market}
@@ -818,8 +818,8 @@ const AIAnalystTest: React.FC = () => {
                     <br />
                     <Text type="secondary" style={{ fontSize: '12px' }}>DCA策略数据，包含成本均价和收益统计</Text>
                   </div>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlayCircleOutlined />}
                     onClick={testDCAData}
                     loading={loading.dca}
@@ -838,10 +838,10 @@ const AIAnalystTest: React.FC = () => {
                   <div>
                     <Text>API服务状态监控</Text>
                     <br />
-                    <Text type="secondary" style={{ fontSize: '12px' }}>验证服务可用性和响应时间 {autoRefresh && <Tag size="small" color="green">自动刷新</Tag>}</Text>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>验证服务可用性和响应时间 {autoRefresh && <Tag color="green">自动刷新</Tag>}</Text>
                   </div>
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<PlayCircleOutlined />}
                     onClick={testHealth}
                     loading={loading.health}
@@ -883,7 +883,7 @@ const AIAnalystTest: React.FC = () => {
               </Col>
             </Row>
           </TabPane>
-          
+
           <TabPane tab="🔍 数据说明" key="data">
             <Row gutter={16}>
               <Col span={8}>
@@ -892,7 +892,7 @@ const AIAnalystTest: React.FC = () => {
                   <li><strong>资产数据</strong>: 当前持仓快照和汇总</li>
                   <li><strong>历史数据</strong>: 资产价值时间序列</li>
                   <li><strong>基准货币</strong>: 影响汇率换算</li>
-                  <li><strong>小额资产</strong>: 通常指<100元等值</li>
+                  <li><strong>小额资产</strong>: 通常指&lt;100元等值</li>
                 </ul>
               </Col>
               <Col span={8}>

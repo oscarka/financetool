@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Card, Button, Input, Select, Checkbox, DatePicker, Space, Typography, Alert, Tag, Collapse, Tabs, Switch, Tooltip, message, List, Divider } from 'antd';
-import { PlayCircleOutlined, CopyOutlined, ReloadOutlined, QuestionCircleOutlined, ClockCircleOutlined, DollarOutlined, PieChartOutlined, RobotOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Input, Select, Checkbox, DatePicker, Space, Typography, Alert, Tag, Collapse, Tabs, message } from 'antd';
+import { PlayCircleOutlined, CopyOutlined, ClockCircleOutlined, DollarOutlined, PieChartOutlined, RobotOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 const { Panel } = Collapse;
@@ -35,9 +35,9 @@ const MobileAIAnalystTest: React.FC = () => {
   const [assetCodes, setAssetCodes] = useState('');
 
   // 响应状态
-  const [responses, setResponses] = useState<{[key: string]: ApiResult | null}>({});
-  const [loading, setLoading] = useState<{[key: string]: boolean}>({});
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [responses, setResponses] = useState<{ [key: string]: ApiResult | null }>({});
+  const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
+
 
   // 移动端预设场景 (简化版)
   const mobileScenarios = {
@@ -59,7 +59,7 @@ const MobileAIAnalystTest: React.FC = () => {
     const startTime = Date.now();
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
     const url = new URL(`${baseUrl}/api/v1/ai-analyst${endpoint}`);
-    
+
     Object.keys(params).forEach(key => {
       if (params[key] !== '' && params[key] !== null && params[key] !== undefined) {
         url.searchParams.append(key, params[key]);
@@ -73,20 +73,20 @@ const MobileAIAnalystTest: React.FC = () => {
           'Content-Type': 'application/json'
         }
       });
-      
+
       const data = await response.json();
       const responseTime = Date.now() - startTime;
-      
-      return { 
-        success: response.ok, 
-        data, 
+
+      return {
+        success: response.ok,
+        data,
         status: response.status,
-        responseTime 
+        responseTime
       };
     } catch (error: any) {
-      return { 
-        success: false, 
-        data: { error: error.message }, 
+      return {
+        success: false,
+        data: { error: error.message },
         status: 0,
         responseTime: Date.now() - startTime
       };
@@ -95,20 +95,20 @@ const MobileAIAnalystTest: React.FC = () => {
 
   const handleApiTest = async (testType: string, endpoint: string, params: any = {}) => {
     setLoading(prev => ({ ...prev, [testType]: true }));
-    
+
     try {
       const result = await apiCall(endpoint, params);
       setResponses(prev => ({ ...prev, [testType]: result }));
-      
+
       if (result.success) {
         message.success(`${testType} 成功 (${result.responseTime}ms)`);
       } else {
         message.error(`${testType} 失败: ${result.data.error || '未知错误'}`);
       }
     } catch (error) {
-      setResponses(prev => ({ 
-        ...prev, 
-        [testType]: { success: false, data: { error: 'Network error' }, status: 0 } 
+      setResponses(prev => ({
+        ...prev,
+        [testType]: { success: false, data: { error: 'Network error' }, status: 0 }
       }));
       message.error('网络请求失败');
     } finally {
@@ -132,7 +132,7 @@ const MobileAIAnalystTest: React.FC = () => {
     setTimeout(() => {
       const endpointMap = {
         asset: '/asset-data',
-        transaction: '/transaction-data', 
+        transaction: '/transaction-data',
         historical: '/historical-data'
       };
       handleApiTest(testType, endpointMap[testType as keyof typeof endpointMap], scenario.params);
@@ -149,7 +149,7 @@ const MobileAIAnalystTest: React.FC = () => {
   };
 
   // 移动端响应显示组件
-  const MobileResponseDisplay = ({ result, type }: { result: ApiResult | null, type: string }) => {
+  const MobileResponseDisplay = ({ result }: { result: ApiResult | null }) => {
     if (!result) return null;
 
     return (
@@ -160,8 +160,8 @@ const MobileAIAnalystTest: React.FC = () => {
             message={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px' }}>✅ 成功 ({result.responseTime}ms)</span>
-                <Button 
-                  size="small" 
+                <Button
+                  size="small"
                   icon={<CopyOutlined />}
                   onClick={() => copyToClipboard(JSON.stringify(result.data, null, 2))}
                 >
@@ -203,7 +203,7 @@ const MobileAIAnalystTest: React.FC = () => {
   return (
     <div style={{ padding: '16px', background: '#f5f5f5', minHeight: '100vh' }}>
       {/* 移动端页头 */}
-      <Card style={{ 
+      <Card style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         color: 'white',
         marginBottom: '16px',
@@ -234,16 +234,16 @@ const MobileAIAnalystTest: React.FC = () => {
             />
           </div>
           <Space wrap>
-            <Tag 
-              color="green" 
-              style={{ cursor: 'pointer' }} 
+            <Tag
+              color="green"
+              style={{ cursor: 'pointer' }}
               onClick={() => setApiKey('ai_analyst_key_2024')}
             >
               测试密钥1
             </Tag>
-            <Tag 
-              color="blue" 
-              style={{ cursor: 'pointer' }} 
+            <Tag
+              color="blue"
+              style={{ cursor: 'pointer' }}
               onClick={() => setApiKey('demo_key_12345')}
             >
               测试密钥2
@@ -258,25 +258,25 @@ const MobileAIAnalystTest: React.FC = () => {
           <Text strong>🚀 快速测试</Text>
           <div style={{ marginTop: 8 }}>
             <Space wrap>
-              <Button 
-                size="small" 
-                icon={<ClockCircleOutlined />} 
+              <Button
+                size="small"
+                icon={<ClockCircleOutlined />}
                 onClick={() => handleApiTest('health', '/health')}
                 loading={loading.health}
               >
                 健康检查
               </Button>
-              <Button 
-                size="small" 
-                icon={<DollarOutlined />} 
+              <Button
+                size="small"
+                icon={<DollarOutlined />}
                 onClick={() => handleApiTest('market', '/market-data')}
                 loading={loading.market}
               >
                 市场数据
               </Button>
-              <Button 
-                size="small" 
-                icon={<PieChartOutlined />} 
+              <Button
+                size="small"
+                icon={<PieChartOutlined />}
                 onClick={() => handleApiTest('dca', '/dca-data')}
                 loading={loading.dca}
               >
@@ -300,17 +300,17 @@ const MobileAIAnalystTest: React.FC = () => {
                   <Option value="EUR">🇪🇺 EUR</Option>
                 </Select>
               </div>
-              
-              <Checkbox 
-                checked={includeSmall} 
+
+              <Checkbox
+                checked={includeSmall}
                 onChange={(e) => setIncludeSmall(e.target.checked)}
                 style={{ fontSize: '14px' }}
               >
                 包含小额资产
               </Checkbox>
 
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlayCircleOutlined />}
                 onClick={() => handleApiTest('asset', '/asset-data', {
                   base_currency: baseCurrency,
@@ -324,13 +324,13 @@ const MobileAIAnalystTest: React.FC = () => {
               </Button>
             </Space>
           </TabPane>
-          
+
           <TabPane tab="场景" key="scenarios">
             <Space direction="vertical" style={{ width: '100%' }}>
               {mobileScenarios.asset.map((scenario, index) => (
-                <Card 
-                  key={index} 
-                  size="small" 
+                <Card
+                  key={index}
+                  size="small"
                   hoverable
                   onClick={() => quickTest('asset', scenario)}
                   style={{ cursor: 'pointer' }}
@@ -349,7 +349,7 @@ const MobileAIAnalystTest: React.FC = () => {
           </TabPane>
         </Tabs>
 
-        <MobileResponseDisplay result={responses.asset} type="asset" />
+        <MobileResponseDisplay result={responses.asset} />
       </Card>
 
       {/* 交易数据测试 */}
@@ -359,24 +359,24 @@ const MobileAIAnalystTest: React.FC = () => {
             <Space direction="vertical" style={{ width: '100%' }}>
               <div>
                 <Text>开始日期:</Text>
-                <DatePicker 
-                  value={startDate} 
+                <DatePicker
+                  value={startDate}
                   onChange={(date) => setStartDate(date || dayjs())}
                   style={{ width: '100%', marginTop: 4 }}
                   size="small"
                 />
               </div>
-              
+
               <div>
                 <Text>结束日期:</Text>
-                <DatePicker 
-                  value={endDate} 
+                <DatePicker
+                  value={endDate}
                   onChange={(date) => setEndDate(date || dayjs())}
                   style={{ width: '100%', marginTop: 4 }}
                   size="small"
                 />
               </div>
-              
+
               <div>
                 <Text>平台:</Text>
                 <Select
@@ -394,8 +394,8 @@ const MobileAIAnalystTest: React.FC = () => {
                 </Select>
               </div>
 
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlayCircleOutlined />}
                 onClick={() => handleApiTest('transaction', '/transaction-data', {
                   start_date: startDate.format('YYYY-MM-DD'),
@@ -411,13 +411,13 @@ const MobileAIAnalystTest: React.FC = () => {
               </Button>
             </Space>
           </TabPane>
-          
+
           <TabPane tab="场景" key="scenarios">
             <Space direction="vertical" style={{ width: '100%' }}>
               {mobileScenarios.transaction.map((scenario, index) => (
-                <Card 
-                  key={index} 
-                  size="small" 
+                <Card
+                  key={index}
+                  size="small"
                   hoverable
                   onClick={() => quickTest('transaction', scenario)}
                   style={{ cursor: 'pointer' }}
@@ -436,7 +436,7 @@ const MobileAIAnalystTest: React.FC = () => {
           </TabPane>
         </Tabs>
 
-        <MobileResponseDisplay result={responses.transaction} type="transaction" />
+        <MobileResponseDisplay result={responses.transaction} />
       </Card>
 
       {/* 历史数据测试 */}
@@ -452,7 +452,7 @@ const MobileAIAnalystTest: React.FC = () => {
                   <Option value={90}>90天</Option>
                 </Select>
               </div>
-              
+
               <div>
                 <Text>资产代码:</Text>
                 <Input
@@ -464,8 +464,8 @@ const MobileAIAnalystTest: React.FC = () => {
                 />
               </div>
 
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlayCircleOutlined />}
                 onClick={() => handleApiTest('historical', '/historical-data', {
                   days: days,
@@ -479,13 +479,13 @@ const MobileAIAnalystTest: React.FC = () => {
               </Button>
             </Space>
           </TabPane>
-          
+
           <TabPane tab="场景" key="scenarios">
             <Space direction="vertical" style={{ width: '100%' }}>
               {mobileScenarios.historical.map((scenario, index) => (
-                <Card 
-                  key={index} 
-                  size="small" 
+                <Card
+                  key={index}
+                  size="small"
                   hoverable
                   onClick={() => quickTest('historical', scenario)}
                   style={{ cursor: 'pointer' }}
@@ -504,25 +504,25 @@ const MobileAIAnalystTest: React.FC = () => {
           </TabPane>
         </Tabs>
 
-        <MobileResponseDisplay result={responses.historical} type="historical" />
+        <MobileResponseDisplay result={responses.historical} />
       </Card>
 
       {/* 其他接口快速显示结果 */}
       {responses.health && (
         <Card style={{ marginBottom: '16px' }} title="🏥 健康检查结果">
-          <MobileResponseDisplay result={responses.health} type="health" />
+          <MobileResponseDisplay result={responses.health} />
         </Card>
       )}
 
       {responses.market && (
         <Card style={{ marginBottom: '16px' }} title="🌍 市场数据结果">
-          <MobileResponseDisplay result={responses.market} type="market" />
+          <MobileResponseDisplay result={responses.market} />
         </Card>
       )}
 
       {responses.dca && (
         <Card style={{ marginBottom: '16px' }} title="🔄 定投数据结果">
-          <MobileResponseDisplay result={responses.dca} type="dca" />
+          <MobileResponseDisplay result={responses.dca} />
         </Card>
       )}
 
