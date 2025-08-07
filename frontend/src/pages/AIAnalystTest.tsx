@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Button, Input, Select, Checkbox, DatePicker, Space, Typography, Row, Col, Alert, Tag, Collapse, Tabs, Switch, Tooltip, message, List } from 'antd';
 import { PlayCircleOutlined, CopyOutlined, ReloadOutlined, QuestionCircleOutlined, ClockCircleOutlined, DollarOutlined, PieChartOutlined } from '@ant-design/icons';
+import { aiAnalystAPI } from '../services/api';
 import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
@@ -166,60 +167,48 @@ const AIAnalystTest: React.FC = () => {
     }
   };
 
-  const apiCall = async (endpoint: string, params: any = {}) => {
+  const apiCall = async (apiFunction: () => Promise<any>, params: any = {}) => {
     const startTime = Date.now();
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-    const url = new URL(`${baseUrl}/api/v1/ai-analyst${endpoint}`);
-
-    Object.keys(params).forEach(key => {
-      if (params[key] !== '' && params[key] !== null && params[key] !== undefined) {
-        url.searchParams.append(key, params[key]);
-      }
-    });
 
     try {
-      const response = await fetch(url.toString(), {
-        headers: {
-          'X-API-Key': apiKey,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-      const responseTime = Date.now() - startTime;
+      const response = await apiFunction();
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
 
       return {
-        success: response.ok,
-        data,
-        status: response.status,
-        responseTime
+        success: true,
+        data: response,
+        responseTime,
+        timestamp: new Date().toISOString()
       };
-    } catch (error: any) {
+    } catch (error) {
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
       return {
         success: false,
-        data: { error: error.message },
-        status: 0,
-        responseTime: Date.now() - startTime
+        error: error instanceof Error ? error.message : '未知错误',
+        responseTime,
+        timestamp: new Date().toISOString()
       };
     }
   };
 
-  const handleApiTest = async (testType: string, endpoint: string, params: any = {}) => {
+  const handleApiTest = async (testType: string, apiFunction: () => Promise<any>, params: any = {}) => {
     setLoading(prev => ({ ...prev, [testType]: true }));
 
     try {
-      const result = await apiCall(endpoint, params);
+      const result = await apiCall(apiFunction, params);
       setResponses(prev => ({ ...prev, [testType]: result }));
 
       if (result.success) {
         message.success(`${testType}接口调用成功 (${result.responseTime}ms)`);
       } else {
-        message.error(`${testType}接口调用失败: ${result.data.error || '未知错误'}`);
+        message.error(`${testType}接口调用失败: ${result.error || '未知错误'}`);
       }
     } catch (error) {
       setResponses(prev => ({
         ...prev,
-        [testType]: { success: false, data: { error: 'Network error' }, status: 0 }
+        [testType]: { success: false, error: 'Network error', responseTime: 0 }
       }));
       message.error('网络请求失败');
     } finally {
@@ -245,12 +234,12 @@ const AIAnalystTest: React.FC = () => {
 
     // 延迟执行以确保状态更新
     setTimeout(() => {
-      const endpointMap = {
-        asset: '/asset-data',
-        transaction: '/transaction-data',
-        historical: '/historical-data'
+      const apiFunctionMap = {
+        asset: () => aiAnalystAPI.getAssetData(scenario.params),
+        transaction: () => aiAnalystAPI.getTransactionData(scenario.params),
+        historical: () => aiAnalystAPI.getHistoricalData(scenario.params)
       };
-      handleApiTest(testType, endpointMap[testType as keyof typeof endpointMap], scenario.params);
+      handleApiTest(testType, apiFunctionMap[testType as keyof typeof apiFunctionMap]);
     }, 100);
 
     message.info(`正在执行场景: ${scenario.name}`);
@@ -260,14 +249,14 @@ const AIAnalystTest: React.FC = () => {
   const batchTest = async () => {
     message.info('开始批量测试所有接口...');
     const tests = [
-      { type: 'health', endpoint: '/health', params: {} },
-      { type: 'market', endpoint: '/market-data', params: {} },
-      { type: 'asset', endpoint: '/asset-data', params: { base_currency: baseCurrency, include_small_amounts: includeSmall } },
-      { type: 'dca', endpoint: '/dca-data', params: {} }
+      { type: 'health', apiFunction: () => aiAnalystAPI.getHealth() },
+      { type: 'market', apiFunction: () => aiAnalystAPI.getMarketData() },
+      { type: 'asset', apiFunction: () => aiAnalystAPI.getAssetData({ base_currency: baseCurrency, include_small_amounts: includeSmall }) },
+      { type: 'dca', apiFunction: () => aiAnalystAPI.getDCAData() }
     ];
 
     for (const test of tests) {
-      await handleApiTest(test.type, test.endpoint, test.params);
+      await handleApiTest(test.type, test.apiFunction);
       await new Promise(resolve => setTimeout(resolve, 500)); // 避免请求过于频繁
     }
     message.success('批量测试完成！');
@@ -313,38 +302,38 @@ const AIAnalystTest: React.FC = () => {
 
   // API测试函数
   const testAssetData = () => {
-    handleApiTest('asset', '/asset-data', {
+    handleApiTest('asset', () => aiAnalystAPI.getAssetData({
       base_currency: baseCurrency,
       include_small_amounts: includeSmall
-    });
+    }));
   };
 
   const testTransactionData = () => {
-    handleApiTest('transaction', '/transaction-data', {
+    handleApiTest('transaction', () => aiAnalystAPI.getTransactionData({
       start_date: startDate.format('YYYY-MM-DD'),
       end_date: endDate.format('YYYY-MM-DD'),
       platform: platform,
       limit: limit
-    });
+    }));
   };
 
   const testHistoricalData = () => {
-    handleApiTest('historical', '/historical-data', {
+    handleApiTest('historical', () => aiAnalystAPI.getHistoricalData({
       days: days,
       asset_codes: assetCodes
-    });
+    }));
   };
 
   const testMarketData = () => {
-    handleApiTest('market', '/market-data');
+    handleApiTest('market', () => aiAnalystAPI.getMarketData());
   };
 
   const testDCAData = () => {
-    handleApiTest('dca', '/dca-data');
+    handleApiTest('dca', () => aiAnalystAPI.getDCAData());
   };
 
   const testHealth = () => {
-    handleApiTest('health', '/health');
+    handleApiTest('health', () => aiAnalystAPI.getHealth());
   };
 
   // 增强的响应显示组件

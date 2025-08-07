@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Button, Input, Select, Checkbox, DatePicker, Space, Typography, Alert, Tag, Collapse, Tabs, message } from 'antd';
 import { PlayCircleOutlined, CopyOutlined, ClockCircleOutlined, DollarOutlined, PieChartOutlined, RobotOutlined } from '@ant-design/icons';
+import { aiAnalystAPI } from '../services/api';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -55,60 +56,48 @@ const MobileAIAnalystTest: React.FC = () => {
     ]
   };
 
-  const apiCall = async (endpoint: string, params: any = {}) => {
+  const apiCall = async (apiFunction: () => Promise<any>, params: any = {}) => {
     const startTime = Date.now();
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-    const url = new URL(`${baseUrl}/api/v1/ai-analyst${endpoint}`);
-
-    Object.keys(params).forEach(key => {
-      if (params[key] !== '' && params[key] !== null && params[key] !== undefined) {
-        url.searchParams.append(key, params[key]);
-      }
-    });
 
     try {
-      const response = await fetch(url.toString(), {
-        headers: {
-          'X-API-Key': apiKey,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-      const responseTime = Date.now() - startTime;
+      const response = await apiFunction();
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
 
       return {
-        success: response.ok,
-        data,
-        status: response.status,
-        responseTime
+        success: true,
+        data: response,
+        responseTime,
+        timestamp: new Date().toISOString()
       };
-    } catch (error: any) {
+    } catch (error) {
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
       return {
         success: false,
-        data: { error: error.message },
-        status: 0,
-        responseTime: Date.now() - startTime
+        error: error instanceof Error ? error.message : '未知错误',
+        responseTime,
+        timestamp: new Date().toISOString()
       };
     }
   };
 
-  const handleApiTest = async (testType: string, endpoint: string, params: any = {}) => {
+  const handleApiTest = async (testType: string, apiFunction: () => Promise<any>, params: any = {}) => {
     setLoading(prev => ({ ...prev, [testType]: true }));
 
     try {
-      const result = await apiCall(endpoint, params);
+      const result = await apiCall(apiFunction, params);
       setResponses(prev => ({ ...prev, [testType]: result }));
 
       if (result.success) {
         message.success(`${testType} 成功 (${result.responseTime}ms)`);
       } else {
-        message.error(`${testType} 失败: ${result.data.error || '未知错误'}`);
+        message.error(`${testType} 失败: ${result.error || '未知错误'}`);
       }
     } catch (error) {
       setResponses(prev => ({
         ...prev,
-        [testType]: { success: false, data: { error: 'Network error' }, status: 0 }
+        [testType]: { success: false, error: 'Network error', responseTime: 0 }
       }));
       message.error('网络请求失败');
     } finally {
@@ -130,12 +119,12 @@ const MobileAIAnalystTest: React.FC = () => {
     }
 
     setTimeout(() => {
-      const endpointMap = {
-        asset: '/asset-data',
-        transaction: '/transaction-data',
-        historical: '/historical-data'
+      const apiFunctionMap = {
+        asset: () => aiAnalystAPI.getAssetData(scenario.params),
+        transaction: () => aiAnalystAPI.getTransactionData(scenario.params),
+        historical: () => aiAnalystAPI.getHistoricalData(scenario.params)
       };
-      handleApiTest(testType, endpointMap[testType as keyof typeof endpointMap], scenario.params);
+      handleApiTest(testType, apiFunctionMap[testType as keyof typeof apiFunctionMap]);
     }, 100);
 
     message.info(`运行: ${scenario.name}`);
@@ -261,7 +250,7 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 size="small"
                 icon={<ClockCircleOutlined />}
-                onClick={() => handleApiTest('health', '/health')}
+                onClick={() => handleApiTest('health', () => aiAnalystAPI.getHealth())}
                 loading={loading.health}
               >
                 健康检查
@@ -269,7 +258,7 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 size="small"
                 icon={<DollarOutlined />}
-                onClick={() => handleApiTest('market', '/market-data')}
+                onClick={() => handleApiTest('market', () => aiAnalystAPI.getMarketData())}
                 loading={loading.market}
               >
                 市场数据
@@ -277,7 +266,7 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 size="small"
                 icon={<PieChartOutlined />}
-                onClick={() => handleApiTest('dca', '/dca-data')}
+                onClick={() => handleApiTest('dca', () => aiAnalystAPI.getDCAData())}
                 loading={loading.dca}
               >
                 定投数据
@@ -312,10 +301,10 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 type="primary"
                 icon={<PlayCircleOutlined />}
-                onClick={() => handleApiTest('asset', '/asset-data', {
+                onClick={() => handleApiTest('asset', () => aiAnalystAPI.getAssetData({
                   base_currency: baseCurrency,
                   include_small_amounts: includeSmall
-                })}
+                }))}
                 loading={loading.asset}
                 style={{ width: '100%' }}
                 size="small"
@@ -397,12 +386,12 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 type="primary"
                 icon={<PlayCircleOutlined />}
-                onClick={() => handleApiTest('transaction', '/transaction-data', {
+                onClick={() => handleApiTest('transaction', () => aiAnalystAPI.getTransactionData({
                   start_date: startDate.format('YYYY-MM-DD'),
                   end_date: endDate.format('YYYY-MM-DD'),
                   platform: platform,
                   limit: limit
-                })}
+                }))}
                 loading={loading.transaction}
                 style={{ width: '100%' }}
                 size="small"
@@ -467,10 +456,10 @@ const MobileAIAnalystTest: React.FC = () => {
               <Button
                 type="primary"
                 icon={<PlayCircleOutlined />}
-                onClick={() => handleApiTest('historical', '/historical-data', {
+                onClick={() => handleApiTest('historical', () => aiAnalystAPI.getHistoricalData({
                   days: days,
                   asset_codes: assetCodes
-                })}
+                }))}
                 loading={loading.historical}
                 style={{ width: '100%' }}
                 size="small"
