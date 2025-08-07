@@ -88,7 +88,7 @@ const MobileAIAnalystTest: React.FC = () => {
     setLoading(prev => ({ ...prev, [testType]: true }));
 
     try {
-      const result = await apiCall(apiFunction, params);
+      const result = await apiCall(apiFunction);
       setResponses(prev => ({ ...prev, [testType]: result }));
 
       if (result.success) {

@@ -199,7 +199,7 @@ const AIAnalystTest: React.FC = () => {
     setLoading(prev => ({ ...prev, [testType]: true }));
 
     try {
-      const result = await apiCall(apiFunction, params);
+      const result = await apiCall(apiFunction);
       setResponses(prev => ({ ...prev, [testType]: result }));
 
       if (result.success) {
@@ -294,7 +294,7 @@ const AIAnalystTest: React.FC = () => {
       message.info('自动刷新已关闭');
     } else {
       const interval = setInterval(() => {
-        handleApiTest('health', '/health');
+        handleApiTest('health', () => aiAnalystAPI.getHealth(apiKey));
       }, 30000); // 30秒刷新一次健康检查
       setRefreshInterval(interval);
       setAutoRefresh(true);
