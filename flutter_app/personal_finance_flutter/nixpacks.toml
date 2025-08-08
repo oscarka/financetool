@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["flutter", "dart"]
+
+[phases.install]
+cmds = ["flutter pub get"]
+
+[phases.build]
+cmds = ["flutter build web"]
+
+[start]
+cmd = "flutter run -d web-server --web-port=$PORT --web-hostname=0.0.0.0"
