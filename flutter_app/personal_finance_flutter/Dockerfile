@@ -44,14 +44,21 @@ RUN flutter build web --release --no-tree-shake-icons
 # 使用nginx提供静态文件服务
 FROM nginx:alpine
 
+# 安装envsubst工具
+RUN apk add --no-cache bash
+
 # 复制构建的文件到nginx目录
 COPY --from=build-env /app/build/web /usr/share/nginx/html
 
-# 复制nginx配置
-COPY nginx.conf /etc/nginx/nginx.conf
+# 复制nginx配置模板
+COPY nginx.conf /etc/nginx/nginx.conf.template
+
+# 复制启动脚本
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
 # 暴露端口
 EXPOSE 80
 
 # 启动nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/start.sh"]
