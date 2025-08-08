@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["flutter", "dart"]
+nixPkgs = ["flutter"]
 
 [phases.install]
 cmds = ["flutter pub get"]
@@ -8,4 +8,4 @@ cmds = ["flutter pub get"]
 cmds = ["flutter build web"]
 
 [start]
-cmd = "flutter run -d web-server --web-port=$PORT --web-hostname=0.0.0.0"
+cmd = "cd build/web && python3 -m http.server $PORT"

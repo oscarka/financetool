@@ -4,7 +4,7 @@
         "builder": "NIXPACKS"
     },
     "deploy": {
-        "startCommand": "flutter build web && flutter run -d web-server --web-port=$PORT --web-hostname=0.0.0.0",
+        "startCommand": "flutter build web && cd build/web && python3 -m http.server $PORT",
         "healthcheckPath": "/",
         "healthcheckTimeout": 100,
         "restartPolicyType": "ON_FAILURE",
