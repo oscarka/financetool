@@ -38,8 +38,8 @@ RUN flutter pub get
 # 复制源代码
 COPY --chown=flutter:flutter . .
 
-# 构建Web版本
-RUN flutter build web --release
+# 构建Web版本（禁用图标树摇）
+RUN flutter build web --release --no-tree-shake-icons
 
 # 使用nginx提供静态文件服务
 FROM nginx:alpine
