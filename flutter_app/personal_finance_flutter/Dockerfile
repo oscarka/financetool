@@ -12,27 +12,31 @@ RUN apt-get update && apt-get install -y \
     python3 \
     && rm -rf /var/lib/apt/lists/*
 
+# 创建非root用户
+RUN useradd -m -s /bin/bash flutter
+USER flutter
+
 # 设置Flutter环境变量
-ENV FLUTTER_HOME="/opt/flutter"
+ENV FLUTTER_HOME="/home/flutter/flutter"
 ENV PATH="$FLUTTER_HOME/bin:$PATH"
 
 # 下载并安装Flutter
 RUN git clone https://github.com/flutter/flutter.git $FLUTTER_HOME
-RUN flutter channel stable
-RUN flutter upgrade
-RUN flutter doctor
+RUN $FLUTTER_HOME/bin/flutter channel stable
+RUN $FLUTTER_HOME/bin/flutter upgrade
+RUN $FLUTTER_HOME/bin/flutter doctor
 
 # 设置工作目录
 WORKDIR /app
 
 # 复制pubspec文件
-COPY pubspec.yaml pubspec.lock ./
+COPY --chown=flutter:flutter pubspec.yaml pubspec.lock ./
 
 # 获取依赖
 RUN flutter pub get
 
 # 复制源代码
-COPY . .
+COPY --chown=flutter:flutter . .
 
 # 构建Web版本
 RUN flutter build web --release
