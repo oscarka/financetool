@@ -17,3 +17,10 @@ __pycache__/
 *.db
 backend/data/*.db
 
+
+# Cloudflare Workers 个人配置
+cloudflare-workers/wrangler.toml
+cloudflare-workers/.wrangler/
+cloudflare-workers/node_modules/
+cloudflare-workers/package-lock.json
+backend/data/personalfinance.db

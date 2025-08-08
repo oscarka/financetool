@@ -12,8 +12,8 @@ const getBaseURL = () => {
         return 'http://localhost:8000/api/v1'
     }
 
-    // 生产环境默认值（如果没有设置环境变量）
-    return '/api/v1'
+    // 生产环境使用 Cloudflare Worker 代理
+    return 'https://financetool-proxy.oscarzhangunsw.workers.dev/api/v1'
 }
 
 // 创建axios实例
