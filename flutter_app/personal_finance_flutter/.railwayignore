@@ -1,14 +1,13 @@
-# Railway ignore file
-# 忽略这些文件，确保使用正确的构建配置
+# Railway ignore file - 确保使用自定义Dockerfile
 
-# 忽略旧的配置文件
+# 忽略所有可能干扰Railway检测的文件
 nixpacks.toml
 .nixpacks
+package.json
+package-lock.json
+yarn.lock
 
-# 忽略开发文件
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
+# 忽略构建缓存
 .dart_tool/
 .pub-cache/
 .pub/
@@ -26,5 +25,9 @@ build/
 .DS_Store
 Thumbs.db
 
-# 忽略日志
+# 忽略日志和临时文件
 *.log
+*.tmp
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
