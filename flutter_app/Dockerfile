@@ -52,49 +52,51 @@ RUN apk add --no-cache gettext net-tools
 # 从构建阶段复制web文件
 COPY --from=flutter-build /app/build/web /usr/share/nginx/html
 
-# 复制nginx配置模板和备用页面  
-COPY personal_finance_flutter/nginx.conf /etc/nginx/conf.d/default.conf.template
-COPY simple-index.html /simple-index.html
+# 内联创建nginx配置模板（避免文件复制问题）
+RUN cat > /etc/nginx/conf.d/default.conf.template << 'EOF'
+server {
+    listen $PORT;
+    server_name localhost;
+    
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+    
+    location /health {
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    location /debug {
+        return 200 "Container running on port $PORT\n";
+        add_header Content-Type text/plain;
+    }
+}
+EOF
 
-# 直接在Dockerfile中创建启动脚本（避免文件复制问题）
-RUN echo '#!/bin/bash' > /run.sh && \
-    echo 'set -e' >> /run.sh && \
-    echo 'echo "=== Container Starting $(date) ==="' >> /run.sh && \
-    echo 'export PORT=${PORT:-80}' >> /run.sh && \
-    echo 'echo "Using PORT: $PORT"' >> /run.sh && \
-    echo '' >> /run.sh && \
-    echo '# 创建基本nginx配置' >> /run.sh && \
-    echo 'cat > /etc/nginx/conf.d/default.conf << EOF' >> /run.sh && \
-    echo 'server {' >> /run.sh && \
-    echo '    listen $PORT;' >> /run.sh && \
-    echo '    server_name localhost;' >> /run.sh && \
-    echo '    ' >> /run.sh && \
-    echo '    location / {' >> /run.sh && \
-    echo '        root /usr/share/nginx/html;' >> /run.sh && \
-    echo '        index index.html;' >> /run.sh && \
-    echo '        try_files $$uri $$uri/ /index.html;' >> /run.sh && \
-    echo '    }' >> /run.sh && \
-    echo '    ' >> /run.sh && \
-    echo '    location /health {' >> /run.sh && \
-    echo '        return 200 "healthy\\n";' >> /run.sh && \
-    echo '        add_header Content-Type text/plain;' >> /run.sh && \
-    echo '    }' >> /run.sh && \
-    echo '}' >> /run.sh && \
-    echo 'EOF' >> /run.sh && \
-    echo '' >> /run.sh && \
-    echo 'echo "Generated nginx config:"' >> /run.sh && \
-    echo 'cat /etc/nginx/conf.d/default.conf' >> /run.sh && \
-    echo '' >> /run.sh && \
-    echo 'echo "Testing nginx config..."' >> /run.sh && \
-    echo 'nginx -t' >> /run.sh && \
-    echo '' >> /run.sh && \
-    echo 'echo "Starting nginx..."' >> /run.sh && \
-    echo 'exec nginx -g "daemon off;"' >> /run.sh && \
-    chmod +x /run.sh && \
-    echo "=== Created startup script ===" && \
-    ls -la /run.sh && \
-    echo "=== Script content ===" && \
-    cat /run.sh
+# 创建备用index.html（如果Flutter构建的不存在）
+RUN cat > /backup-index.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head><title>Flutter App - Container Running</title></head>
+<body style="font-family: Arial; text-align: center; padding: 50px;">
+<h1>🎉 Flutter App Container is Running!</h1>
+<p>✅ Docker build successful</p>
+<p>✅ Nginx configured</p>
+<p>✅ Container started</p>
+<p><a href="/health">Health Check</a> | <a href="/debug">Debug Info</a></p>
+</body>
+</html>
+EOF
+
+# 验证创建的文件
+RUN echo "=== Created files ===" && \
+    ls -la /etc/nginx/conf.d/default.conf.template && \
+    ls -la /backup-index.html && \
+    echo "=== Template content ===" && \
+    cat /etc/nginx/conf.d/default.conf.template
 
 # 设置环境变量
 ENV PORT=80
@@ -102,5 +104,20 @@ ENV PORT=80
 # 暴露端口
 EXPOSE $PORT
 
-# 使用内联创建的启动脚本（避免文件复制问题）
-CMD ["/run.sh"]
+# 完全自包含的启动命令
+CMD ["/bin/bash", "-c", "\
+export PORT=${PORT:-80} && \
+echo '=== Container Starting on port:' $PORT '===' && \
+if [ ! -f '/usr/share/nginx/html/index.html' ] || [ ! -s '/usr/share/nginx/html/index.html' ]; then \
+  echo 'Flutter index.html missing, using backup' && \
+  cp /backup-index.html /usr/share/nginx/html/index.html; \
+fi && \
+echo 'Processing nginx template...' && \
+envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && \
+echo 'Generated nginx config:' && \
+cat /etc/nginx/conf.d/default.conf && \
+echo 'Testing nginx config...' && \
+nginx -t && \
+echo 'Starting nginx...' && \
+exec nginx -g 'daemon off;'\
+"]
