@@ -2,7 +2,19 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
-  static const String baseUrl = 'http://localhost:8000/api/v1';
+  // 动态获取API基础URL
+  static String get baseUrl {
+    // 检查是否在开发环境
+    const bool isDebugMode = bool.fromEnvironment('dart.vm.product') == false;
+    
+    if (isDebugMode) {
+      // 开发环境：连接本地后端
+      return 'http://localhost:8000/api/v1';
+    } else {
+      // 生产环境：使用相对路径，通过nginx代理
+      return '/api/v1';
+    }
+  }
   
   // 获取聚合统计数据
   static Future<Map<String, dynamic>> getAggregatedStats(String baseCurrency) async {

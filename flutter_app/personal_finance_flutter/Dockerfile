@@ -44,20 +44,14 @@ RUN flutter build web --release --no-tree-shake-icons
 # 使用nginx提供静态文件服务
 FROM nginx:alpine
 
-# 安装envsubst工具
-RUN apk add --no-cache bash
+# 安装envsubst工具（用于环境变量替换）
+RUN apk add --no-cache gettext
 
 # 复制构建的文件到nginx目录
 COPY --from=build-env /app/build/web /usr/share/nginx/html
 
 # 复制nginx配置模板
-COPY nginx.conf /etc/nginx/nginx.conf.template
-
-# 创建启动脚本
-RUN echo '#!/bin/bash' > /start.sh && \
-    echo 'envsubst '\''$PORT'\'' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf' >> /start.sh && \
-    echo 'nginx -g "daemon off;"' >> /start.sh && \
-    chmod +x /start.sh
+COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 
 # 设置默认端口
 ENV PORT=80
@@ -65,5 +59,5 @@ ENV PORT=80
 # 暴露端口
 EXPOSE $PORT
 
-# 启动脚本
-CMD ["/start.sh"]
+# 启动时替换环境变量并启动nginx
+CMD envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
