@@ -1,6 +1,0 @@
-# 禁用Nixpacks自动检测，强制使用Dockerfile (参考backend配置)
-[phases.build]
-cmds = false
-
-[phases.install]
-cmds = false
