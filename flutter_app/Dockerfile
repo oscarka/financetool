@@ -52,23 +52,49 @@ RUN apk add --no-cache gettext net-tools
 # 从构建阶段复制web文件
 COPY --from=flutter-build /app/build/web /usr/share/nginx/html
 
-# 复制nginx配置模板、启动脚本和备用页面
+# 复制nginx配置模板和备用页面  
 COPY personal_finance_flutter/nginx.conf /etc/nginx/conf.d/default.conf.template
-COPY start.sh /start.sh
-COPY simple-start.sh /simple-start.sh
 COPY simple-index.html /simple-index.html
 
-# 调试：验证文件复制和权限
-RUN echo "=== Checking copied files ===" && \
-    ls -la /start.sh && \
-    ls -la /simple-index.html && \
-    echo "=== start.sh content preview ===" && \
-    head -5 /start.sh && \
-    echo "=== Setting permissions ===" && \
-    chmod +x /start.sh && \
-    chmod +x /simple-start.sh && \
-    ls -la /start.sh && \
-    ls -la /simple-start.sh
+# 直接在Dockerfile中创建启动脚本（避免文件复制问题）
+RUN echo '#!/bin/bash' > /run.sh && \
+    echo 'set -e' >> /run.sh && \
+    echo 'echo "=== Container Starting $(date) ==="' >> /run.sh && \
+    echo 'export PORT=${PORT:-80}' >> /run.sh && \
+    echo 'echo "Using PORT: $PORT"' >> /run.sh && \
+    echo '' >> /run.sh && \
+    echo '# 创建基本nginx配置' >> /run.sh && \
+    echo 'cat > /etc/nginx/conf.d/default.conf << EOF' >> /run.sh && \
+    echo 'server {' >> /run.sh && \
+    echo '    listen $PORT;' >> /run.sh && \
+    echo '    server_name localhost;' >> /run.sh && \
+    echo '    ' >> /run.sh && \
+    echo '    location / {' >> /run.sh && \
+    echo '        root /usr/share/nginx/html;' >> /run.sh && \
+    echo '        index index.html;' >> /run.sh && \
+    echo '        try_files $$uri $$uri/ /index.html;' >> /run.sh && \
+    echo '    }' >> /run.sh && \
+    echo '    ' >> /run.sh && \
+    echo '    location /health {' >> /run.sh && \
+    echo '        return 200 "healthy\\n";' >> /run.sh && \
+    echo '        add_header Content-Type text/plain;' >> /run.sh && \
+    echo '    }' >> /run.sh && \
+    echo '}' >> /run.sh && \
+    echo 'EOF' >> /run.sh && \
+    echo '' >> /run.sh && \
+    echo 'echo "Generated nginx config:"' >> /run.sh && \
+    echo 'cat /etc/nginx/conf.d/default.conf' >> /run.sh && \
+    echo '' >> /run.sh && \
+    echo 'echo "Testing nginx config..."' >> /run.sh && \
+    echo 'nginx -t' >> /run.sh && \
+    echo '' >> /run.sh && \
+    echo 'echo "Starting nginx..."' >> /run.sh && \
+    echo 'exec nginx -g "daemon off;"' >> /run.sh && \
+    chmod +x /run.sh && \
+    echo "=== Created startup script ===" && \
+    ls -la /run.sh && \
+    echo "=== Script content ===" && \
+    cat /run.sh
 
 # 设置环境变量
 ENV PORT=80
@@ -76,5 +102,5 @@ ENV PORT=80
 # 暴露端口
 EXPOSE $PORT
 
-# 使用简单启动脚本（更可靠）
-CMD ["/simple-start.sh"]
+# 使用内联创建的启动脚本（避免文件复制问题）
+CMD ["/run.sh"]
