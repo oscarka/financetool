@@ -1,5 +1,6 @@
-# 禁用nixpacks，强制使用Dockerfile
-# 请使用railway.json中指定的Dockerfile.railway
+# 禁用Nixpacks自动检测，强制使用Dockerfile (参考backend配置)
+[phases.build]
+cmds = false
 
-[build]
-disabled = true
+[phases.install]
+cmds = false
