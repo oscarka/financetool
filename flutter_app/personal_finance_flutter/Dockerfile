@@ -20,10 +20,12 @@ USER flutter
 ENV FLUTTER_HOME="/home/flutter/flutter"
 ENV PATH="$FLUTTER_HOME/bin:$PATH"
 
-# 下载并安装Flutter
+# 下载并安装Flutter (指定较新版本)
 RUN git clone https://github.com/flutter/flutter.git $FLUTTER_HOME
+RUN cd $FLUTTER_HOME && git checkout stable
+RUN cd $FLUTTER_HOME && git pull origin stable
 RUN $FLUTTER_HOME/bin/flutter channel stable
-RUN $FLUTTER_HOME/bin/flutter upgrade
+RUN $FLUTTER_HOME/bin/flutter upgrade --force
 RUN $FLUTTER_HOME/bin/flutter doctor
 
 # 设置工作目录
