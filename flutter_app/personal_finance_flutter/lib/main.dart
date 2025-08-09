@@ -387,34 +387,34 @@ class _AssetHomePageState extends State<AssetHomePage> {
     }
 
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: const Color(0xFF1E1F24),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('总资产估值', style: TextStyle(color: Colors.white70)),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _toggleCurrencyDropdown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(selectedCurrency, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 4),
-                    Icon(
-                      showCurrencyDropdown ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                      color: Colors.white54,
-                      size: 16,
-                    ),
-                  ],
-                ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFF1E1F24),
               ),
-              const Spacer(),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('总资产估值', style: TextStyle(color: Colors.white70)),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _toggleCurrencyDropdown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(selectedCurrency, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 4),
+                            Icon(
+                              showCurrencyDropdown ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                              color: Colors.white54,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
               GestureDetector(
                 onTap: _toggleDataVisibility,
                 child: Icon(
@@ -422,39 +422,39 @@ class _AssetHomePageState extends State<AssetHomePage> {
                   color: Colors.white54,
                 ),
               ),
-            ],
-          ),
-          if (showCurrencyDropdown)
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Column(
-                children: [
-                  _buildCurrencyOption('CNY'),
-                  _buildCurrencyOption('USD'),
-                  _buildCurrencyOption('USDT'),
-                  _buildCurrencyOption('BTC'),
-                  _buildCurrencyOption('更多 >', isMore: true),
-                ],
-              ),
-            ),
-          const SizedBox(height: 10),
+                    ],
+                  ),
+                  if (showCurrencyDropdown)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildCurrencyOption('CNY'),
+                          _buildCurrencyOption('USD'),
+                          _buildCurrencyOption('USDT'),
+                          _buildCurrencyOption('BTC'),
+                          _buildCurrencyOption('更多 >', isMore: true),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 10),
           Text(
             isDataVisible 
               ? assetStats!.formatCurrency(assetStats!.totalValue, selectedCurrency)
               : '*****',
             style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
             children: [
               Icon(
                 assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
@@ -466,7 +466,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
                   : Colors.grey,
               ),
               const SizedBox(width: 4),
-              Text(
+                      Text(
                 assetStats!.dailyChangePercent != null
                   ? '${assetStats!.dailyChangePercent! >= 0 ? '+' : ''}${assetStats!.dailyChangePercent!.toStringAsFixed(2)}%'
                   : '0.00%',
@@ -478,11 +478,11 @@ class _AssetHomePageState extends State<AssetHomePage> {
               ),
               const SizedBox(width: 6),
               const Text('24h', style: TextStyle(color: Colors.white38)),
-            ],
-          ),
-          const Divider(color: Colors.white24, height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _AssetInfo(
                 title: '可用余额',
@@ -505,10 +505,10 @@ class _AssetHomePageState extends State<AssetHomePage> {
                     : '*****',
                 highlight: true,
               ),
-            ],
-          )
-        ],
-      ),
+                    ],
+                  )
+                ],
+              ),
     );
   }
 
@@ -557,13 +557,13 @@ class _AssetHomePageState extends State<AssetHomePage> {
 
               // 总资产卡片
               _buildAssetCard(),
-              const SizedBox(height: 20),
-              
-              // 功能按钮区
-              _ActionButtons(),
-              const SizedBox(height: 20),
-              
-              // 资产分布
+            const SizedBox(height: 20),
+            
+            // 功能按钮区
+            _ActionButtons(),
+            const SizedBox(height: 20),
+            
+            // 资产分布
               _AssetDistributionCard(
                 assetStats: assetStats,
                 selectedCurrency: selectedCurrency,
@@ -571,16 +571,16 @@ class _AssetHomePageState extends State<AssetHomePage> {
                 riskLevel: riskLevel,
                 assetSnapshots: assetSnapshots,
               ),
-              const SizedBox(height: 20),
-              
-              // 资产排行
-              _AssetRankingCard(),
-              const SizedBox(height: 20),
-              
-              // 市场行情
-              _MarketTrendsCard(),
-              const SizedBox(height: 80), // 为底部导航留空间
-            ],
+            const SizedBox(height: 20),
+            
+            // 资产排行
+            _AssetRankingCard(),
+            const SizedBox(height: 20),
+            
+            // 市场行情
+            _MarketTrendsCard(),
+            const SizedBox(height: 80), // 为底部导航留空间
+          ],
           ),
         ),
       ),
@@ -732,7 +732,7 @@ class _AssetDistributionCard extends StatelessWidget {
                       value: data['percentage'] as double,
                       color: data['color'] as Color,
                       radius: 35,
-                      title: '',
+                        title: '',
                       titleStyle: const TextStyle(fontSize: 0),
                     )).toList(),
                   ),
@@ -753,15 +753,15 @@ class _AssetDistributionCard extends StatelessWidget {
                     ),
                   )).toList(),
                 ),
-              ),
-            ],
-          ),
+                      ),
+                    ],
+                  ),
           const Divider(height: 24),
           Row(
             children: [
               Expanded(
                 child: _buildMetric("最大持仓", largestHolding ?? "BTC", Colors.black87),
-              ),
+                ),
               Expanded(
                 child: _buildMetric("涨幅最大", "股票 +15.23%", Colors.green),
               ),

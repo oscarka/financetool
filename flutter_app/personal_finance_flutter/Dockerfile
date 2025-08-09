@@ -53,12 +53,17 @@ COPY --from=build-env /app/build/web /usr/share/nginx/html
 # 复制nginx配置模板
 COPY nginx.conf /etc/nginx/nginx.conf.template
 
-# 复制启动脚本
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
+# 创建启动脚本
+RUN echo '#!/bin/bash' > /start.sh && \
+    echo 'envsubst '\''$PORT'\'' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf' >> /start.sh && \
+    echo 'nginx -g "daemon off;"' >> /start.sh && \
+    chmod +x /start.sh
+
+# 设置默认端口
+ENV PORT=80
 
 # 暴露端口
-EXPOSE 80
+EXPOSE $PORT
 
-# 启动nginx
+# 启动脚本
 CMD ["/start.sh"]
