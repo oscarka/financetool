@@ -61,5 +61,5 @@ ENV PORT=80
 # 暴露端口
 EXPOSE $PORT
 
-# 启动命令：调试版本，添加日志输出
-CMD ["sh", "-c", "echo 'Container starting...' && export PORT=${PORT:-80} && echo \"Using PORT: $PORT\" && envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && echo 'Generated nginx config:' && cat /etc/nginx/conf.d/default.conf && echo 'Starting nginx...' && nginx -g 'daemon off;'"]
+# 启动命令：添加配置测试
+CMD ["sh", "-c", "echo 'Container starting...' && export PORT=${PORT:-80} && echo \"Using PORT: $PORT\" && envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && echo 'Generated nginx config:' && cat /etc/nginx/conf.d/default.conf && echo 'Testing nginx config...' && nginx -t && echo 'Starting nginx...' && nginx -g 'daemon off;'"]
