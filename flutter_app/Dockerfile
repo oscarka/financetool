@@ -52,44 +52,11 @@ RUN apk add --no-cache gettext net-tools
 # 从构建阶段复制web文件
 COPY --from=flutter-build /app/build/web /usr/share/nginx/html
 
-# 内联创建nginx配置模板（避免文件复制问题）
-RUN cat > /etc/nginx/conf.d/default.conf.template << 'EOF'
-server {
-    listen $PORT;
-    server_name localhost;
-    
-    location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files $uri $uri/ /index.html;
-    }
-    
-    location /health {
-        return 200 "healthy\n";
-        add_header Content-Type text/plain;
-    }
-    
-    location /debug {
-        return 200 "Container running on port $PORT\n";
-        add_header Content-Type text/plain;
-    }
-}
-EOF
+# 内联创建nginx配置模板（使用printf避免Dockerfile语法冲突）
+RUN printf 'server {\n    listen $PORT;\n    server_name localhost;\n\n    location / {\n        root /usr/share/nginx/html;\n        index index.html;\n        try_files $uri $uri/ /index.html;\n    }\n\n    location /health {\n        return 200 "healthy\\n";\n        add_header Content-Type text/plain;\n    }\n\n    location /debug {\n        return 200 "Container running on port $PORT\\n";\n        add_header Content-Type text/plain;\n    }\n}\n' > /etc/nginx/conf.d/default.conf.template
 
-# 创建备用index.html（如果Flutter构建的不存在）
-RUN cat > /backup-index.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head><title>Flutter App - Container Running</title></head>
-<body style="font-family: Arial; text-align: center; padding: 50px;">
-<h1>🎉 Flutter App Container is Running!</h1>
-<p>✅ Docker build successful</p>
-<p>✅ Nginx configured</p>
-<p>✅ Container started</p>
-<p><a href="/health">Health Check</a> | <a href="/debug">Debug Info</a></p>
-</body>
-</html>
-EOF
+# 创建备用index.html（使用printf避免heredoc问题）
+RUN printf '<!DOCTYPE html>\n<html>\n<head><title>Flutter App - Container Running</title></head>\n<body style="font-family: Arial; text-align: center; padding: 50px;">\n<h1>🎉 Flutter App Container is Running!</h1>\n<p>✅ Docker build successful</p>\n<p>✅ Nginx configured</p>\n<p>✅ Container started</p>\n<p><a href="/health">Health Check</a> | <a href="/debug">Debug Info</a></p>\n</body>\n</html>\n' > /backup-index.html
 
 # 验证创建的文件
 RUN echo "=== Created files ===" && \
@@ -106,18 +73,18 @@ EXPOSE $PORT
 
 # 完全自包含的启动命令
 CMD ["/bin/bash", "-c", "\
-export PORT=${PORT:-80} && \
-echo '=== Container Starting on port:' $PORT '===' && \
-if [ ! -f '/usr/share/nginx/html/index.html' ] || [ ! -s '/usr/share/nginx/html/index.html' ]; then \
-  echo 'Flutter index.html missing, using backup' && \
-  cp /backup-index.html /usr/share/nginx/html/index.html; \
-fi && \
-echo 'Processing nginx template...' && \
-envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && \
-echo 'Generated nginx config:' && \
-cat /etc/nginx/conf.d/default.conf && \
-echo 'Testing nginx config...' && \
-nginx -t && \
-echo 'Starting nginx...' && \
-exec nginx -g 'daemon off;'\
-"]
+    export PORT=${PORT:-80} && \
+    echo '=== Container Starting on port:' $PORT '===' && \
+    if [ ! -f '/usr/share/nginx/html/index.html' ] || [ ! -s '/usr/share/nginx/html/index.html' ]; then \
+    echo 'Flutter index.html missing, using backup' && \
+    cp /backup-index.html /usr/share/nginx/html/index.html; \
+    fi && \
+    echo 'Processing nginx template...' && \
+    envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && \
+    echo 'Generated nginx config:' && \
+    cat /etc/nginx/conf.d/default.conf && \
+    echo 'Testing nginx config...' && \
+    nginx -t && \
+    echo 'Starting nginx...' && \
+    exec nginx -g 'daemon off;'\
+    "]
