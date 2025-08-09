@@ -1,23 +1,6 @@
 #!/bin/bash
 set -e
 
-# 添加详细的调试输出
-echo "=== Flutter App Container Startup Debug ==="
-echo "Script: $0"
-echo "Current directory: $(pwd)"
-echo "Date: $(date)"
-echo "User: $(whoami)"
-echo "Environment variables:"
-env | sort
-echo "=== File System Check ==="
-echo "Root directory contents:"
-ls -la /
-echo "Nginx directory contents:"
-ls -la /usr/share/nginx/ || echo "Nginx directory not found"
-echo "Nginx html directory contents:"
-ls -la /usr/share/nginx/html/ || echo "Nginx html directory not found"
-echo "=== Script continues ==="
-
 # 创建调试信息HTML页面
 create_debug_page() {
     local debug_file="/usr/share/nginx/html/debug.html"

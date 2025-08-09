@@ -47,35 +47,28 @@ RUN flutter build web --release --no-tree-shake-icons
 FROM nginx:alpine AS production
 
 # 安装gettext用于环境变量替换，net-tools用于调试
-RUN apk add --no-cache gettext net-tools bash
-
-# 调试信息：显示当前时间和构建信息
-RUN echo "=== Docker Image Build Info ===" && \
-    echo "Build time: $(date)" && \
-    echo "Alpine version: $(cat /etc/alpine-release)" && \
-    echo "Nginx version: $(nginx -v 2>&1)"
+RUN apk add --no-cache gettext net-tools
 
 # 从构建阶段复制web文件
 COPY --from=flutter-build /app/build/web /usr/share/nginx/html
 
 # 复制nginx配置模板、启动脚本和备用页面
-COPY personal_finance_flutter/nginx.conf.server /etc/nginx/conf.d/default.conf.template
+COPY personal_finance_flutter/nginx.conf /etc/nginx/conf.d/default.conf.template
 COPY start.sh /start.sh
+COPY simple-start.sh /simple-start.sh
 COPY simple-index.html /simple-index.html
 
-# 调试：检查文件是否复制成功
+# 调试：验证文件复制和权限
 RUN echo "=== Checking copied files ===" && \
     ls -la /start.sh && \
     ls -la /simple-index.html && \
-    ls -la /etc/nginx/conf.d/default.conf.template && \
-    echo "=== Web files in /usr/share/nginx/html ===" && \
-    ls -la /usr/share/nginx/html/
-
-# 设置脚本权限并创建健康检查
-RUN chmod +x /start.sh && \
-    echo '#!/bin/bash' > /health.sh && \
-    echo 'curl -f http://localhost:$PORT/ || exit 1' >> /health.sh && \
-    chmod +x /health.sh
+    echo "=== start.sh content preview ===" && \
+    head -5 /start.sh && \
+    echo "=== Setting permissions ===" && \
+    chmod +x /start.sh && \
+    chmod +x /simple-start.sh && \
+    ls -la /start.sh && \
+    ls -la /simple-start.sh
 
 # 设置环境变量
 ENV PORT=80
@@ -83,9 +76,5 @@ ENV PORT=80
 # 暴露端口
 EXPOSE $PORT
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD /health.sh
-
-# 使用启动脚本
-CMD ["/start.sh"]
+# 使用简单启动脚本（更可靠）
+CMD ["/simple-start.sh"]
