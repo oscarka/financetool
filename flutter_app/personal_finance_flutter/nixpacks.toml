@@ -1,0 +1,5 @@
+# 禁用nixpacks，强制使用Dockerfile
+# 请使用railway.json中指定的Dockerfile.railway
+
+[build]
+disabled = true

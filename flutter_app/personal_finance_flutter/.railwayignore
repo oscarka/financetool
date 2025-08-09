@@ -1,12 +1,15 @@
-# Railway ignore file - 确保使用自定义Dockerfile
+# Railway ignore file - 强制使用Dockerfile.railway
 
-# 忽略所有可能干扰Railway检测的文件
+# 禁用自动检测和Nixpacks
 nixpacks.toml
 .nixpacks
 package.json
 package-lock.json
 yarn.lock
 pubspec.yaml.original
+
+# 强制使用Dockerfile构建器
+# Railway应该读取railway.json配置
 
 # 忽略构建缓存
 .dart_tool/
