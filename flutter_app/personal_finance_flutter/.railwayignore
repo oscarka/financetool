@@ -1,0 +1,30 @@
+# Railway ignore file
+# 忽略这些文件，确保使用正确的构建配置
+
+# 忽略旧的配置文件
+nixpacks.toml
+.nixpacks
+
+# 忽略开发文件
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.dart_tool/
+.pub-cache/
+.pub/
+build/
+.fvm/
+
+# 忽略IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 忽略OS文件
+.DS_Store
+Thumbs.db
+
+# 忽略日志
+*.log
