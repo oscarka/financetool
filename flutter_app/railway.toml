@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "personal_finance_flutter/Dockerfile"
+dockerfilePath = "Dockerfile.flutter"
 
 [deploy]
 healthcheckPath = "/"
