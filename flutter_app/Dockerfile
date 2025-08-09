@@ -73,18 +73,18 @@ EXPOSE $PORT
 
 # 使用Alpine Linux的默认shell (sh)
 CMD ["/bin/sh", "-c", "\
-export PORT=${PORT:-80} && \
-echo '=== Container Starting on port:' $PORT '===' && \
-if [ ! -f '/usr/share/nginx/html/index.html' ] || [ ! -s '/usr/share/nginx/html/index.html' ]; then \
-  echo 'Flutter index.html missing, using backup' && \
-  cp /backup-index.html /usr/share/nginx/html/index.html; \
-fi && \
-echo 'Processing nginx template...' && \
-envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && \
-echo 'Generated nginx config:' && \
-cat /etc/nginx/conf.d/default.conf && \
-echo 'Testing nginx config...' && \
-nginx -t && \
-echo 'Starting nginx...' && \
-exec nginx -g 'daemon off;'\
-"]
+    export PORT=${PORT:-80} && \
+    echo '=== Container Starting on port:' $PORT '===' && \
+    if [ ! -f '/usr/share/nginx/html/index.html' ] || [ ! -s '/usr/share/nginx/html/index.html' ]; then \
+    echo 'Flutter index.html missing, using backup' && \
+    cp /backup-index.html /usr/share/nginx/html/index.html; \
+    fi && \
+    echo 'Processing nginx template...' && \
+    envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && \
+    echo 'Generated nginx config:' && \
+    cat /etc/nginx/conf.d/default.conf && \
+    echo 'Testing nginx config...' && \
+    nginx -t && \
+    echo 'Starting nginx...' && \
+    exec nginx -g 'daemon off; error_log /var/log/nginx/error.log warn;'\
+    "]
