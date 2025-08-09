@@ -79,6 +79,12 @@ cat /etc/nginx/conf.d/default.conf
 # 创建调试页面
 create_debug_page
 
+# 如果Flutter的index.html有问题，复制备用的简单页面
+if [ ! -f "/usr/share/nginx/html/index.html" ] || [ ! -s "/usr/share/nginx/html/index.html" ]; then
+    echo "Flutter index.html missing or empty, using simple fallback"
+    cp /simple-index.html /usr/share/nginx/html/index.html
+fi
+
 # 测试nginx配置
 echo "Testing nginx configuration..."
 if nginx -t 2>&1; then

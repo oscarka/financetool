@@ -52,9 +52,10 @@ RUN apk add --no-cache gettext net-tools
 # 从构建阶段复制web文件
 COPY --from=flutter-build /app/build/web /usr/share/nginx/html
 
-# 复制nginx配置模板和启动脚本
+# 复制nginx配置模板、启动脚本和备用页面
 COPY personal_finance_flutter/nginx.conf /etc/nginx/conf.d/default.conf.template
 COPY start.sh /start.sh
+COPY simple-index.html /simple-index.html
 RUN chmod +x /start.sh
 
 # 设置环境变量
