@@ -61,5 +61,5 @@ ENV PORT=80
 # 暴露端口
 EXPOSE $PORT
 
-# 启动命令：环境变量替换 + nginx启动
-CMD ["sh", "-c", "envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+# 启动命令：设置默认端口，环境变量替换 + nginx启动
+CMD ["sh", "-c", "export PORT=${PORT:-80} && envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
