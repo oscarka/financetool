@@ -30,8 +30,9 @@ RUN flutter doctor
 # 创建工作目录
 WORKDIR /app
 
-# 复制pubspec文件
-COPY --chown=flutter:flutter pubspec.yaml pubspec.lock ./
+# 复制Flutter配置文件 (重命名以避免Railway自动检测)
+COPY --chown=flutter:flutter flutter_pubspec.yaml pubspec.yaml
+COPY --chown=flutter:flutter pubspec.lock ./
 
 # 安装Flutter依赖 - 明确使用flutter pub get
 RUN flutter pub get

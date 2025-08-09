@@ -6,6 +6,7 @@ nixpacks.toml
 package.json
 package-lock.json
 yarn.lock
+pubspec.yaml.original
 
 # 忽略构建缓存
 .dart_tool/
