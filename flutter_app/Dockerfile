@@ -52,8 +52,8 @@ RUN apk add --no-cache gettext net-tools
 # 从构建阶段复制web文件
 COPY --from=flutter-build /app/build/web /usr/share/nginx/html
 
-# 内联创建nginx配置模板（使用printf避免Dockerfile语法冲突）
-RUN printf 'server {\n    listen $PORT;\n    server_name localhost;\n\n    location / {\n        root /usr/share/nginx/html;\n        index index.html;\n        try_files $uri $uri/ /index.html;\n    }\n\n    location /health {\n        return 200 "healthy\\n";\n        add_header Content-Type text/plain;\n    }\n\n    location /debug {\n        return 200 "Container running on port $PORT\\n";\n        add_header Content-Type text/plain;\n    }\n}\n' > /etc/nginx/conf.d/default.conf.template
+# 内联创建nginx配置模板（包含错误日志级别设置）
+RUN printf 'error_log /var/log/nginx/error.log warn;\n\nserver {\n    listen $PORT;\n    server_name localhost;\n\n    location / {\n        root /usr/share/nginx/html;\n        index index.html;\n        try_files $uri $uri/ /index.html;\n    }\n\n    location /health {\n        return 200 "healthy\\n";\n        add_header Content-Type text/plain;\n    }\n\n    location /debug {\n        return 200 "Container running on port $PORT\\n";\n        add_header Content-Type text/plain;\n    }\n}\n' > /etc/nginx/conf.d/default.conf.template
 
 # 创建备用index.html（使用printf避免heredoc问题）
 RUN printf '<!DOCTYPE html>\n<html>\n<head><title>Flutter App - Container Running</title></head>\n<body style="font-family: Arial; text-align: center; padding: 50px;">\n<h1>🎉 Flutter App Container is Running!</h1>\n<p>✅ Docker build successful</p>\n<p>✅ Nginx configured</p>\n<p>✅ Container started</p>\n<p><a href="/health">Health Check</a> | <a href="/debug">Debug Info</a></p>\n</body>\n</html>\n' > /backup-index.html
@@ -86,5 +86,5 @@ CMD ["/bin/sh", "-c", "\
     echo 'Testing nginx config...' && \
     nginx -t && \
     echo 'Starting nginx...' && \
-    exec nginx -g 'daemon off; error_log /var/log/nginx/error.log warn;'\
+exec nginx -g 'daemon off;'\
     "]
