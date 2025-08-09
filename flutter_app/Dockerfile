@@ -46,14 +46,16 @@ RUN flutter build web --release --no-tree-shake-icons
 # 生产环境 - 使用nginx提供静态文件服务
 FROM nginx:alpine AS production
 
-# 安装gettext用于环境变量替换
-RUN apk add --no-cache gettext
+# 安装gettext用于环境变量替换，net-tools用于调试
+RUN apk add --no-cache gettext net-tools
 
 # 从构建阶段复制web文件
 COPY --from=flutter-build /app/build/web /usr/share/nginx/html
 
-# 复制nginx配置模板
+# 复制nginx配置模板和启动脚本
 COPY personal_finance_flutter/nginx.conf /etc/nginx/conf.d/default.conf.template
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
 # 设置环境变量
 ENV PORT=80
@@ -61,5 +63,5 @@ ENV PORT=80
 # 暴露端口
 EXPOSE $PORT
 
-# 启动命令：添加配置测试
-CMD ["sh", "-c", "echo 'Container starting...' && export PORT=${PORT:-80} && echo \"Using PORT: $PORT\" && envsubst '$PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && echo 'Generated nginx config:' && cat /etc/nginx/conf.d/default.conf && echo 'Testing nginx config...' && nginx -t && echo 'Starting nginx...' && nginx -g 'daemon off;'"]
+# 使用启动脚本
+CMD ["/start.sh"]
