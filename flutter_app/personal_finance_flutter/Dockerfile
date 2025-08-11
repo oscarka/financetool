@@ -42,7 +42,11 @@ COPY --chown=flutter:flutter . .
 
 # 构建Flutter Web应用，注入环境变量
 ARG BACKEND_API_URL
-RUN flutter build web --release --no-tree-shake-icons --dart-define=BACKEND_API_URL=$BACKEND_API_URL
+RUN if [ -n "$BACKEND_API_URL" ]; then \
+    flutter build web --release --no-tree-shake-icons --dart-define=BACKEND_API_URL=$BACKEND_API_URL; \
+    else \
+    flutter build web --release --no-tree-shake-icons --dart-define=BACKEND_API_URL=https://backend-production-2750.up.railway.app/api/v1; \
+    fi
 
 # 生产环境 - 使用nginx提供静态文件服务
 FROM nginx:alpine AS production

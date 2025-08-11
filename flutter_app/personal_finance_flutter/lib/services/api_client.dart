@@ -11,12 +11,13 @@ class ApiClient {
       // 开发环境：连接本地后端
       return 'http://localhost:8000/api/v1';
     } else {
-      // 生产环境：优先使用环境变量，否则使用相对路径通过nginx代理
+      // 生产环境：直接使用环境变量中的完整URL
       const String? backendUrl = String.fromEnvironment('BACKEND_API_URL');
       if (backendUrl != null && backendUrl.isNotEmpty) {
         return backendUrl;
       }
-      return '/api/v1';
+      // 如果没有环境变量，直接使用后端URL
+      return 'https://backend-production-2750.up.railway.app/api/v1';
     }
   }
   
