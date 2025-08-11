@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "VITE_API_BASE_URL": "https://financetool-proxy.oscarzhangunsw.workers.dev/api/v1",
+    "VITE_APP_ENV": "production",
+    "VITE_CLOUDFLARE_WORKER_ENABLED": "true"
+  },
+  "github": {
+    "enabled": true,
+    "silent": true
+  }
+}

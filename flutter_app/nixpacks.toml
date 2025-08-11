@@ -1,0 +1,3 @@
+# 在根目录明确禁用Nixpacks
+[build]
+cmd = "echo 'Nixpacks disabled - using Dockerfile in subdirectory'"

@@ -1,0 +1,37 @@
+# Railway ignore file - 强制使用Dockerfile.railway
+
+# 禁用自动检测和Nixpacks
+nixpacks.toml
+.nixpacks
+package.json
+package-lock.json
+yarn.lock
+pubspec.yaml.original
+
+# 强制使用Dockerfile构建器
+# Railway应该读取railway.json配置
+
+# 忽略构建缓存
+.dart_tool/
+.pub-cache/
+.pub/
+build/
+.fvm/
+
+# 忽略IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 忽略OS文件
+.DS_Store
+Thumbs.db
+
+# 忽略日志和临时文件
+*.log
+*.tmp
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
