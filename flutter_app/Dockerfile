@@ -86,5 +86,5 @@ CMD ["/bin/sh", "-c", "\
     echo 'Testing nginx config...' && \
     nginx -t && \
     echo 'Starting nginx...' && \
-exec nginx -g 'daemon off;'\
+    exec nginx -g 'daemon off;'\
     "]
