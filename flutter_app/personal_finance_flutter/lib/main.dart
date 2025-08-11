@@ -574,7 +574,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
             const SizedBox(height: 20),
             
             // 资产排行
-            _AssetRankingCard(),
+            _AssetRankingCard(assetSnapshots: assetSnapshots),
             const SizedBox(height: 20),
             
             // 市场行情
@@ -968,10 +968,77 @@ class _LabelPair extends StatelessWidget {
 }
 
 class _AssetRankingCard extends StatelessWidget {
-  const _AssetRankingCard();
+  final List<Map<String, dynamic>> assetSnapshots;
+  
+  const _AssetRankingCard({required this.assetSnapshots});
 
   @override
   Widget build(BuildContext context) {
+    // 基于真实数据生成资产排行
+    final sortedSnapshots = List<Map<String, dynamic>>.from(assetSnapshots)
+      ..sort((a, b) => (b['base_value'] ?? 0.0).compareTo(a['base_value'] ?? 0.0));
+    
+    // 计算总资产价值
+    final totalValue = assetSnapshots.fold<double>(0.0, (sum, snapshot) {
+      final baseValue = snapshot['base_value'];
+      return sum + (baseValue is num ? baseValue.toDouble() : 0.0);
+    });
+    
+    // 生成排行行
+    final rankingRows = sortedSnapshots.take(5).map((snapshot) {
+      final assetType = snapshot['asset_type'] as String? ?? '未知';
+      final assetName = snapshot['asset_name'] as String? ?? '未知资产';
+      final baseValue = snapshot['base_value'] as num? ?? 0.0;
+      final ratio = totalValue > 0 ? (baseValue / totalValue * 100).toStringAsFixed(1) : '0.0';
+      
+      // 根据资产类型选择图标和颜色
+      IconData? icon;
+      Color indexColor;
+      String subtitle;
+      
+      switch (assetType) {
+        case '基金':
+          icon = Icons.pie_chart;
+          indexColor = const Color(0xFF944DFF);
+          subtitle = '基金 • ${snapshot['balance']?.toStringAsFixed(2) ?? '0.00'}';
+          break;
+        case '外汇':
+          icon = Icons.currency_exchange;
+          indexColor = const Color(0xFF00C399);
+          subtitle = '外汇 • ${snapshot['balance']?.toStringAsFixed(2) ?? '0.00'}';
+          break;
+        case '证券':
+          icon = null;
+          indexColor = const Color(0xFFFF9734);
+          subtitle = '证券 • ${snapshot['balance']?.toStringAsFixed(2) ?? '0.00'}';
+          break;
+        default:
+          icon = Icons.attach_money;
+          indexColor = Colors.grey;
+          subtitle = '$assetType • ${snapshot['balance']?.toStringAsFixed(2) ?? '0.00'}';
+      }
+      
+      return _RankingRow(
+        icon: icon,
+        title: assetName.length > 10 ? '${assetName.substring(0, 10)}...' : assetName,
+        subtitle: subtitle,
+        value: "\$${baseValue.toStringAsFixed(0)}",
+        ratio: "$ratio%",
+        change: "+0.0%", // 暂时使用固定值，后续可以添加真实变化数据
+        changeColor: const Color(0xFF34B27B),
+        indexColor: indexColor,
+        logoText: assetType == '证券' ? 'STK' : null,
+        logoColor: indexColor,
+      );
+    }).toList();
+    
+    // 计算Top 5占比
+    final top5Value = sortedSnapshots.take(5).fold<double>(0.0, (sum, snapshot) {
+      final baseValue = snapshot['base_value'];
+      return sum + (baseValue is num ? baseValue.toDouble() : 0.0);
+    });
+    final top5Ratio = totalValue > 0 ? (top5Value / totalValue * 100).toStringAsFixed(1) : '0.0';
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -992,73 +1059,19 @@ class _AssetRankingCard extends StatelessWidget {
           const SizedBox(height: 16),
           _RankingHeader(),
           const Divider(height: 24),
-          _RankingRow(
-            icon: Icons.currency_bitcoin,
-            title: "BTC",
-            subtitle: "比特币 • 1.2345",
-            value: "\$45,678",
-            ratio: "35.6%",
-            change: "+5.2%",
-            changeColor: Color(0xFF34B27B),
-            indexColor: Color(0xFF00C399),
-          ),
-          _RankingRow(
-            icon: Icons.currency_exchange,
-            title: "ETH",
-            subtitle: "以太坊 • 15.678",
-            value: "\$23,456",
-            ratio: "18.3%",
-            change: "-2.1%",
-            changeColor: Color(0xFFE55D5D),
-            indexColor: Color(0xFF466AFF),
-          ),
-          _RankingRow(
-            icon: null,
-            title: "Apple Inc",
-            subtitle: "股票 • 125股",
-            value: "\$18,750",
-            ratio: "14.6%",
-            change: "+8.5%",
-            changeColor: Color(0xFF34B27B),
-            indexColor: Color(0xFFFF9734),
-            logoText: "AAPL",
-            logoColor: Color(0xFF2AAF57),
-          ),
-          _RankingRow(
-            icon: Icons.pie_chart,
-            title: "沪深300ETF",
-            subtitle: "基金 • 5000份",
-            value: "\$12,340",
-            ratio: "9.6%",
-            change: "+3.2%",
-            changeColor: Color(0xFF34B27B),
-            indexColor: Colors.black54,
-            logoColor: Color(0xFF944DFF),
-          ),
-          _RankingRow(
-            icon: null,
-            title: "Tesla Inc",
-            subtitle: "股票 • 45股",
-            value: "\$9,875",
-            ratio: "7.7%",
-            change: "-1.8%",
-            changeColor: Color(0xFFE55D5D),
-            indexColor: Color(0xFF7364FF),
-            logoText: "TSLA",
-            logoColor: Color(0xFF7364FF),
-          ),
+          ...rankingRows,
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Color(0xFFE7E7E7), width: 1),
+              border: Border.all(color: const Color(0xFFE7E7E7), width: 1),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text("Top 5 占总资产", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                Text("85.8%", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              children: [
+                const Text("Top 5 占总资产", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                Text("$top5Ratio%", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               ],
             ),
           )
