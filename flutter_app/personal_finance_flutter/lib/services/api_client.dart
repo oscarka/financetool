@@ -11,7 +11,11 @@ class ApiClient {
       // 开发环境：连接本地后端
       return 'http://localhost:8000/api/v1';
     } else {
-      // 生产环境：使用相对路径，通过nginx代理
+      // 生产环境：优先使用环境变量，否则使用相对路径通过nginx代理
+      const String? backendUrl = String.fromEnvironment('BACKEND_API_URL');
+      if (backendUrl != null && backendUrl.isNotEmpty) {
+        return backendUrl;
+      }
       return '/api/v1';
     }
   }

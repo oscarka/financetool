@@ -40,8 +40,9 @@ RUN flutter pub get
 # 复制所有源代码
 COPY --chown=flutter:flutter . .
 
-# 构建Flutter Web应用
-RUN flutter build web --release --no-tree-shake-icons
+# 构建Flutter Web应用，注入环境变量
+ARG BACKEND_API_URL
+RUN flutter build web --release --no-tree-shake-icons --dart-define=BACKEND_API_URL=$BACKEND_API_URL
 
 # 生产环境 - 使用nginx提供静态文件服务
 FROM nginx:alpine AS production
