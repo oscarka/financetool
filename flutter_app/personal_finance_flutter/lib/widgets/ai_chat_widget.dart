@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'chart_design_system.dart';
 import 'mcp_chart_adapter.dart';
+import 'chart_preview_modal.dart';
 import 'dart:convert';
 
 /// AI聊天交互组件 - 支持生成图表并保存
@@ -110,6 +111,23 @@ class _AIChatWidgetState extends State<AIChatWidget>
     return chartKeywords.any((keyword) => text.contains(keyword));
   }
 
+  /// 判断图表类型
+  String _determineChartType(String question) {
+    final q = question.toLowerCase();
+    
+    if (q.contains('占比') || q.contains('分布') || q.contains('比例')) {
+      return 'pie';
+    } else if (q.contains('趋势') || q.contains('变化') || q.contains('走势')) {
+      return 'line';
+    } else if (q.contains('对比') || q.contains('排行') || q.contains('比较')) {
+      return 'bar';
+    } else if (q.contains('明细') || q.contains('列表') || q.contains('详细')) {
+      return 'table';
+    } else {
+      return 'chart'; // 默认类型
+    }
+  }
+
   /// 生成图表响应
   Future<void> _generateChartResponse(String question) async {
     try {
@@ -132,6 +150,7 @@ class _AIChatWidgetState extends State<AIChatWidget>
           messageType: ChatMessageType.chart,
           chartWidget: chart,
           originalQuestion: question,
+          chartType: _determineChartType(question), // 自动判断图表类型
         ));
       });
       
@@ -425,16 +444,60 @@ class _AIChatWidgetState extends State<AIChatWidget>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 图表容器
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: message.chartWidget,
+        // 图表容器 - 添加点击打开预览功能
+        GestureDetector(
+          onTap: () => _openChartPreview(message),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                children: [
+                  message.chartWidget!,
+                  // 添加点击提示覆盖层
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.zoom_in,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '点击查看详情',
+                            style: ChartDesignSystem.labelStyle.copyWith(
+                              fontSize: 10,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
         
@@ -446,7 +509,14 @@ class _AIChatWidgetState extends State<AIChatWidget>
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildActionButton(
-                '保存到分析页',
+                '打开详情',
+                Icons.open_in_full,
+                ChartDesignSystem.primary,
+                () => _openChartPreview(message),
+              ),
+              const SizedBox(width: 8),
+              _buildActionButton(
+                '快速保存',
                 Icons.bookmark_add,
                 ChartDesignSystem.secondary,
                 () => _saveChart(message.chartWidget!, message.originalQuestion ?? ''),
@@ -455,7 +525,7 @@ class _AIChatWidgetState extends State<AIChatWidget>
               _buildActionButton(
                 '重新生成',
                 Icons.refresh,
-                ChartDesignSystem.primary,
+                ChartDesignSystem.accent,
                 () => _regenerateChart(message.originalQuestion ?? ''),
               ),
             ],
@@ -503,6 +573,19 @@ class _AIChatWidgetState extends State<AIChatWidget>
           ],
         ),
       ),
+    );
+  }
+
+  /// 打开图表预览
+  void _openChartPreview(ChatMessage message) {
+    if (message.chartWidget == null) return;
+    
+    ChartPreviewModal.show(
+      context,
+      chartWidget: message.chartWidget!,
+      question: message.originalQuestion ?? message.text,
+      chartType: message.chartType ?? 'chart',
+      onSaveChart: widget.onChartGenerated,
     );
   }
 
@@ -575,6 +658,7 @@ class ChatMessage {
   final ChatMessageType messageType;
   final Widget? chartWidget;
   final String? originalQuestion;
+  final String? chartType; // 添加图表类型字段
 
   ChatMessage({
     required this.text,
@@ -583,6 +667,7 @@ class ChatMessage {
     required this.messageType,
     this.chartWidget,
     this.originalQuestion,
+    this.chartType,
   });
 }
 
