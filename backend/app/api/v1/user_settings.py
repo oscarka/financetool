@@ -1,15 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import Optional, Dict, Any, List
+from typing import Dict
 from datetime import datetime
 from pydantic import BaseModel
 from app.utils.database import get_db
 from app.utils.logger import log_system
 import json
-import logging
 
-router = APIRouter(prefix="/user", tags=["用户设置"])
+router = APIRouter(prefix="/user", tags=["用户偏好设置"])
 
 # Pydantic 模型
 class UserPreferences(BaseModel):

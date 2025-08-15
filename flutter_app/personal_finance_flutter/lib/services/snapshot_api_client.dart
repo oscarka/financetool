@@ -12,40 +12,13 @@ class SnapshotApiClient {
     return 'https://backend-production-2750.up.railway.app/api/v1';
   }
 
-  /// 获取快照状态总览
-  static Future<Map<String, dynamic>> getSnapshotStatus() async {
+  /// 获取资产快照列表 (使用现有API)
+  static Future<List<Map<String, dynamic>>> getAssetSnapshots({String baseCurrency = 'USD'}) async {
     try {
-      print('🔍 [SnapshotApiClient] 获取快照状态总览');
+      print('🔍 [SnapshotApiClient] 获取资产快照列表');
       
       final response = await http.get(
-        Uri.parse('$baseUrl/snapshot/status'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        if (jsonData['success'] == true) {
-          return jsonData['data'];
-        } else {
-          throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
-        }
-      } else {
-        throw Exception('HTTP错误: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ [SnapshotApiClient] 获取快照状态失败: $e');
-      // 返回模拟数据作为fallback
-      return _getMockSnapshotStatus();
-    }
-  }
-
-  /// 获取平台状态列表
-  static Future<List<Map<String, dynamic>>> getPlatformStatus() async {
-    try {
-      print('🔍 [SnapshotApiClient] 获取平台状态列表');
-      
-      final response = await http.get(
-        Uri.parse('$baseUrl/snapshot/platforms'),
+        Uri.parse('$baseUrl/snapshot/assets?base_currency=$baseCurrency'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -60,9 +33,39 @@ class SnapshotApiClient {
         throw Exception('HTTP错误: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ [SnapshotApiClient] 获取平台状态失败: $e');
+      print('❌ [SnapshotApiClient] 获取资产快照失败: $e');
       // 返回模拟数据作为fallback
-      return _getMockPlatformStatus();
+      return _getMockAssetSnapshots();
+    }
+  }
+
+  /// 获取资产趋势数据 (使用现有API)
+  static Future<List<Map<String, dynamic>>> getAssetTrend({
+    String baseCurrency = 'USD', 
+    int days = 7
+  }) async {
+    try {
+      print('🔍 [SnapshotApiClient] 获取资产趋势数据');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/snapshot/assets/trend?base_currency=$baseCurrency&days=$days'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        if (jsonData['success'] == true) {
+          return List<Map<String, dynamic>>.from(jsonData['data']);
+        } else {
+          throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('HTTP错误: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ [SnapshotApiClient] 获取资产趋势失败: $e');
+      // 返回模拟数据作为fallback
+      return _getMockAssetTrend();
     }
   }
 
@@ -96,19 +99,16 @@ class SnapshotApiClient {
     }
   }
 
-  /// 手动触发数据同步
-  static Future<Map<String, dynamic>> triggerManualSync({
-    List<String>? platforms,
+  /// 手动触发资产快照 (使用现有API)
+  static Future<Map<String, dynamic>> triggerAssetSnapshot({
+    String baseCurrency = 'USD',
   }) async {
     try {
-      print('🔍 [SnapshotApiClient] 手动触发数据同步: ${platforms ?? '全平台'}');
+      print('🔍 [SnapshotApiClient] 手动触发资产快照');
       
       final response = await http.post(
-        Uri.parse('$baseUrl/snapshot/sync'),
+        Uri.parse('$baseUrl/snapshot/extract?base_currency=$baseCurrency'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'platforms': platforms,
-        }),
       );
 
       if (response.statusCode == 200) {
@@ -117,20 +117,20 @@ class SnapshotApiClient {
           return {
             'success': true,
             'message': jsonData['message'],
-            'data': jsonData['data'],
+            'data': jsonData,
           };
         } else {
-          throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
+          throw Exception('API返回错误: ${jsonData['error'] ?? 'Unknown error'}');
         }
       } else {
         throw Exception('HTTP错误: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ [SnapshotApiClient] 手动同步失败: $e');
+      print('❌ [SnapshotApiClient] 手动快照失败: $e');
       // 返回模拟响应
       return {
         'success': false,
-        'message': '同步请求失败: $e',
+        'message': '快照生成失败: $e',
         'data': null,
       };
     }
@@ -165,106 +165,104 @@ class SnapshotApiClient {
 
   // ========== Mock Data Methods ==========
 
-  static Map<String, dynamic> _getMockSnapshotStatus() {
-    return {
-      'last_update': DateTime.now().subtract(Duration(minutes: 3)).toIso8601String(),
-      'last_update_text': '3分钟前',
-      'status': 'fresh',
-      'minutes_ago': 3,
-      'total_snapshots_today': 28,
-      'platform_count': 3,
-      'asset_type_count': 3,
-      'health_score': {
-        'overall': 92.5,
-        'completeness': 95.0,
-        'timeliness': 88.0,
-        'connectivity': 95.0,
-      },
-      'next_sync': DateTime.now().add(Duration(minutes: 27)).toIso8601String(),
-    };
-  }
-
-  static List<Map<String, dynamic>> _getMockPlatformStatus() {
+  static List<Map<String, dynamic>> _getMockAssetSnapshots() {
     return [
       {
+        'id': 1,
+        'user_id': 'default',
         'platform': '支付宝',
-        'status': 'connected',
-        'status_text': '正常',
-        'last_update': DateTime.now().subtract(Duration(minutes: 3)).toIso8601String(),
-        'time_text': '3分钟前',
-        'minutes_ago': 3,
-        'total_value': 158460.30,
-        'asset_count': 12,
-        'asset_types': '基金',
-        'currencies': 'CNY',
-        'icon': '💰',
-        'asset_details': [
-          {
-            'asset_type': '基金',
-            'asset_name': '易方达沪深300ETF',
-            'balance': 120580.50,
-            'base_value': 120580.50,
-            'currency': 'CNY'
-          },
-          {
-            'asset_type': '基金',
-            'asset_name': '华夏货币基金',
-            'balance': 37879.80,
-            'base_value': 37879.80,
-            'currency': 'CNY'
-          },
-        ]
+        'asset_type': '基金',
+        'asset_code': '110020',
+        'asset_name': '易方达沪深300ETF',
+        'currency': 'CNY',
+        'balance': 120580.50,
+        'balance_cny': 120580.50,
+        'balance_usd': 16821.18,
+        'balance_eur': 15942.35,
+        'base_value': 16821.18,
+        'snapshot_time': DateTime.now().subtract(Duration(minutes: 3)).toIso8601String(),
+        'extra': null
       },
       {
+        'id': 2,
+        'user_id': 'default',
+        'platform': '支付宝',
+        'asset_type': '基金',
+        'asset_code': '000001',
+        'asset_name': '华夏货币基金',
+        'currency': 'CNY',
+        'balance': 37879.80,
+        'balance_cny': 37879.80,
+        'balance_usd': 5288.86,
+        'balance_eur': 5014.12,
+        'base_value': 5288.86,
+        'snapshot_time': DateTime.now().subtract(Duration(minutes: 3)).toIso8601String(),
+        'extra': null
+      },
+      {
+        'id': 3,
+        'user_id': 'default',
         'platform': 'Wise',
-        'status': 'connected',
-        'status_text': '正常',
-        'last_update': DateTime.now().subtract(Duration(minutes: 5)).toIso8601String(),
-        'time_text': '5分钟前',
-        'minutes_ago': 5,
-        'total_value': 8158.23,
-        'asset_count': 4,
-        'asset_types': '外汇',
-        'currencies': 'USD, EUR, JPY, AUD',
-        'icon': '🌍',
-        'asset_details': [
-          {
-            'asset_type': '外汇',
-            'asset_name': 'USD余额',
-            'balance': 1200.45,
-            'base_value': 1200.45,
-            'currency': 'USD'
-          },
-          {
-            'asset_type': '外汇',
-            'asset_name': 'EUR余额',
-            'balance': 890.20,
-            'base_value': 890.20,
-            'currency': 'EUR'
-          },
-        ]
+        'asset_type': '外汇',
+        'asset_code': 'USD',
+        'asset_name': 'USD余额',
+        'currency': 'USD',
+        'balance': 1200.45,
+        'balance_cny': 8602.84,
+        'balance_usd': 1200.45,
+        'balance_eur': 1137.42,
+        'base_value': 1200.45,
+        'snapshot_time': DateTime.now().subtract(Duration(minutes: 5)).toIso8601String(),
+        'extra': null
       },
       {
+        'id': 4,
+        'user_id': 'default',
         'platform': 'IBKR',
-        'status': 'warning',
-        'status_text': '数据有点旧',
-        'last_update': DateTime.now().subtract(Duration(hours: 2)).toIso8601String(),
-        'time_text': '2小时前',
-        'minutes_ago': 120,
-        'total_value': 42.03,
-        'asset_count': 1,
-        'asset_types': '证券',
-        'currencies': 'USD',
-        'icon': '📈',
-        'asset_details': [
-          {
-            'asset_type': '证券',
-            'asset_name': 'IBKR账户',
-            'balance': 42.03,
-            'base_value': 42.03,
-            'currency': 'USD'
-          },
-        ]
+        'asset_type': '证券',
+        'asset_code': 'IBKR',
+        'asset_name': 'IBKR账户',
+        'currency': 'USD',
+        'balance': 42.03,
+        'balance_cny': 301.26,
+        'balance_usd': 42.03,
+        'balance_eur': 39.84,
+        'base_value': 42.03,
+        'snapshot_time': DateTime.now().subtract(Duration(hours: 2)).toIso8601String(),
+        'extra': null
+      }
+    ];
+  }
+
+  static List<Map<String, dynamic>> _getMockAssetTrend() {
+    return [
+      {
+        'date': DateTime.now().subtract(Duration(days: 6)).toIso8601String().substring(0, 10),
+        'total': 23215.42
+      },
+      {
+        'date': DateTime.now().subtract(Duration(days: 5)).toIso8601String().substring(0, 10),
+        'total': 23156.78
+      },
+      {
+        'date': DateTime.now().subtract(Duration(days: 4)).toIso8601String().substring(0, 10),
+        'total': 23298.91
+      },
+      {
+        'date': DateTime.now().subtract(Duration(days: 3)).toIso8601String().substring(0, 10),
+        'total': 23342.15
+      },
+      {
+        'date': DateTime.now().subtract(Duration(days: 2)).toIso8601String().substring(0, 10),
+        'total': 23289.67
+      },
+      {
+        'date': DateTime.now().subtract(Duration(days: 1)).toIso8601String().substring(0, 10),
+        'total': 23351.52
+      },
+      {
+        'date': DateTime.now().toIso8601String().substring(0, 10),
+        'total': 23352.52
       }
     ];
   }
