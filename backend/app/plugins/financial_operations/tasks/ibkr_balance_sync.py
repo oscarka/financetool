@@ -1,5 +1,11 @@
 """
-IBKR余额同步任务
+⚠️ 重要说明：此任务不是数据同步任务！
+
+IBKR数据同步架构：
+1. 数据推送：IBKR Gateway (VM) → POST /api/v1/ibkr/sync → Railway后端 → 数据库
+2. 此任务：从数据库查询已存储的数据进行分析和汇总
+
+真正的数据同步在推送时自动完成，此任务只是数据分析任务。
 """
 from typing import Dict, Any, List
 from datetime import datetime
@@ -9,7 +15,17 @@ from app.services.ibkr_api_service import IBKRAPIService
 
 
 class IBKRBalanceSyncTask(BaseTask):
-    """IBKR余额同步任务"""
+    """
+    ⚠️ IBKR余额数据分析任务（不是同步任务）
+    
+    功能说明：
+    - 从数据库查询已存储的IBKR余额数据
+    - 进行数据汇总和分析
+    - 发布数据分析事件
+    - 设置运行时变量供其他任务使用
+    
+    注意：真正的IBKR数据同步通过VM推送完成，此任务只是查询已存储的数据
+    """
     
     def __init__(self, task_id: str, name: str, description: str = ""):
         super().__init__(task_id, name, description)
