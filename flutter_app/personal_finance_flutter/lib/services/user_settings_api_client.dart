@@ -231,80 +231,7 @@ class UserSettingsApiClient {
     }
   }
 
-  /// 导出用户数据
-  static Future<Map<String, dynamic>> exportUserData({
-    String format = 'excel',
-    Map<String, dynamic>? dateRange,
-  }) async {
-    try {
-      print('🔍 [UserSettingsApiClient] 导出用户数据 ($format)');
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/user/export-data'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'format': format,
-          'date_range': dateRange,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        if (jsonData['success'] == true) {
-          return {
-            'success': true,
-            'message': jsonData['message'],
-            'data': jsonData['data'],
-          };
-        } else {
-          throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
-        }
-      } else {
-        throw Exception('HTTP错误: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ [UserSettingsApiClient] 数据导出失败: $e');
-      return {
-        'success': false,
-        'message': '数据导出失败: $e',
-        'data': null,
-      };
-    }
-  }
-
-  /// 备份用户数据
-  static Future<Map<String, dynamic>> backupUserData() async {
-    try {
-      print('🔍 [UserSettingsApiClient] 备份用户数据');
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/user/backup-data'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        if (jsonData['success'] == true) {
-          return {
-            'success': true,
-            'message': jsonData['message'],
-            'data': jsonData['data'],
-          };
-        } else {
-          throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
-        }
-      } else {
-        throw Exception('HTTP错误: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ [UserSettingsApiClient] 数据备份失败: $e');
-      return {
-        'success': false,
-        'message': '数据备份失败: $e',
-        'data': null,
-      };
-    }
-  }
+  // 数据导出和备份功能已移除 - 等待真实功能实现后再添加
 
   /// 获取数据摘要
   static Future<Map<String, dynamic>> getDataSummary() async {
@@ -333,39 +260,7 @@ class UserSettingsApiClient {
     }
   }
 
-  /// 清除用户缓存
-  static Future<Map<String, dynamic>> clearUserCache() async {
-    try {
-      print('🔍 [UserSettingsApiClient] 清除用户缓存');
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/user/clear-cache'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        if (jsonData['success'] == true) {
-          return {
-            'success': true,
-            'message': jsonData['message'],
-            'data': jsonData['data'],
-          };
-        } else {
-          throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
-        }
-      } else {
-        throw Exception('HTTP错误: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ [UserSettingsApiClient] 清除缓存失败: $e');
-      return {
-        'success': false,
-        'message': '清除缓存失败: $e',
-        'data': null,
-      };
-    }
-  }
+  // 清除缓存功能已移除 - 等待真实缓存清除逻辑实现后再添加
 
   /// 获取系统信息
   static Future<Map<String, dynamic>> getSystemInfo() async {

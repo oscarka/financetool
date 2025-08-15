@@ -198,52 +198,7 @@ def get_user_profile(db: Session = Depends(get_db)):
         log_system(f"获取用户档案失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取用户档案失败: {str(e)}")
 
-@router.post("/export-data")
-def export_user_data(
-    format: str = Body("excel", embed=True),
-    date_range: Optional[Dict] = Body(None, embed=True),
-    db: Session = Depends(get_db)
-):
-    """导出用户数据"""
-    try:
-        # 获取用户数据
-        data = get_export_data(db, format, date_range)
-        
-        # 生成导出文件URL (实际实现中应该生成真实的文件)
-        export_url = generate_export_url(format, data)
-        
-        return {
-            "success": True,
-            "message": f"数据导出已准备就绪 ({format.upper()}格式)",
-            "data": {
-                "format": format,
-                "record_count": len(data),
-                "export_url": export_url,
-                "file_size": "估算 2.3MB",
-                "expires_at": datetime.now().isoformat()
-            }
-        }
-        
-    except Exception as e:
-        log_system(f"数据导出失败: {e}")
-        raise HTTPException(status_code=500, detail=f"数据导出失败: {str(e)}")
-
-@router.post("/backup-data")
-def backup_user_data(db: Session = Depends(get_db)):
-    """备份用户数据"""
-    try:
-        # 创建数据备份
-        backup_info = create_data_backup(db)
-        
-        return {
-            "success": True,
-            "message": "数据备份已创建",
-            "data": backup_info
-        }
-        
-    except Exception as e:
-        log_system(f"数据备份失败: {e}")
-        raise HTTPException(status_code=500, detail=f"数据备份失败: {str(e)}")
+# 数据导出和备份功能已移除 - 这些功能需要完整实现后再添加
 
 @router.get("/data-summary")
 def get_data_summary(db: Session = Depends(get_db)):
@@ -260,25 +215,7 @@ def get_data_summary(db: Session = Depends(get_db)):
         log_system(f"获取数据摘要失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取数据摘要失败: {str(e)}")
 
-@router.post("/clear-cache")
-def clear_user_cache():
-    """清除用户缓存"""
-    try:
-        # 清除缓存逻辑
-        log_system("用户缓存已清除")
-        
-        return {
-            "success": True,
-            "message": "缓存已清除",
-            "data": {
-                "cache_cleared": True,
-                "cache_size_freed": "约 15.2MB"
-            }
-        }
-        
-    except Exception as e:
-        log_system(f"清除缓存失败: {e}")
-        raise HTTPException(status_code=500, detail=f"清除缓存失败: {str(e)}")
+# 清除缓存功能已移除 - 需要实现真实的缓存清除逻辑后再添加
 
 @router.get("/system-info")
 def get_system_info():
@@ -424,56 +361,8 @@ def get_user_achievements(db: Session, stats: Dict) -> List[Dict]:
     
     return achievements
 
-def get_export_data(db: Session, format: str, date_range: Optional[Dict]) -> List[Dict]:
-    """获取导出数据"""
-    try:
-        # 简化实现：返回模拟数据
-        query = text("""
-            SELECT platform, asset_type, asset_name, balance, base_value, currency, created_at
-            FROM asset_snapshots 
-            ORDER BY created_at DESC
-            LIMIT 1000
-        """)
-        results = db.execute(query).fetchall()
-        
-        data = []
-        for row in results:
-            data.append({
-                "platform": row[0],
-                "asset_type": row[1],
-                "asset_name": row[2],
-                "balance": float(row[3]) if row[3] else 0.0,
-                "base_value": float(row[4]) if row[4] else 0.0,
-                "currency": row[5],
-                "created_at": row[6].isoformat() if row[6] else None
-            })
-        
-        return data
-    except:
-        return []
-
-def generate_export_url(format: str, data: List[Dict]) -> str:
-    """生成导出文件URL"""
-    # 简化实现：返回模拟URL
-    timestamp = int(datetime.now().timestamp())
-    return f"/downloads/export_{timestamp}.{format}"
-
-def create_data_backup(db: Session) -> Dict:
-    """创建数据备份"""
-    try:
-        backup_id = f"backup_{int(datetime.now().timestamp())}"
-        
-        # 简化实现：返回备份信息
-        return {
-            "backup_id": backup_id,
-            "created_at": datetime.now().isoformat(),
-            "size": "2.1MB",
-            "record_count": 307,
-            "status": "completed",
-            "retention_days": 30
-        }
-    except:
-        raise Exception("备份创建失败")
+# 已移除的虚假函数：get_export_data, generate_export_url, create_data_backup
+# 这些函数在真实实现数据导出和备份功能时需要重新添加
 
 def generate_data_summary(db: Session) -> Dict:
     """生成数据摘要"""
