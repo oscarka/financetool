@@ -315,7 +315,7 @@ def get_user_settings_from_db(db: Session, setting_type: str) -> Optional[Dict]:
         # 简化实现：使用配置表存储用户设置
         query = text("""
             SELECT config_value 
-            FROM config 
+            FROM system_config 
             WHERE config_key = :key
         """)
         result = db.execute(query, {"key": f"user_settings_{setting_type}"}).scalar()
@@ -331,7 +331,7 @@ def save_user_settings_to_db(db: Session, setting_type: str, settings: Dict):
     try:
         # 简化实现：使用配置表存储用户设置
         query = text("""
-            INSERT INTO config (config_key, config_value, updated_at) 
+            INSERT INTO system_config (config_key, config_value, updated_at) 
             VALUES (:key, :value, NOW())
             ON CONFLICT (config_key) 
             DO UPDATE SET config_value = :value, updated_at = NOW()
