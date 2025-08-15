@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.settings import settings
 from app.utils.database import init_database, get_data_directory, get_database_path
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx, aggregation, ai_analyst
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx, aggregation, ai_analyst, user_settings
 from app.api import asset_snapshot
 from app.services.extensible_scheduler_service import ExtensibleSchedulerService
 from app.utils.middleware import RequestLoggingMiddleware
@@ -202,6 +202,13 @@ app.include_router(
     ai_analyst.router,
     prefix=f"{settings.api_v1_prefix}",
     tags=["AI分析师"]
+)
+
+# 注册用户设置接口
+app.include_router(
+    user_settings.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["用户设置"]
 )
 
 
