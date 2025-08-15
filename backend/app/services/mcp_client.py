@@ -223,14 +223,47 @@ class MCPDatabaseClient:
     
     def _get_database_context(self) -> Dict:
         """获取数据库上下文信息"""
-        return {
-            "domain": "personal_finance",
-            "primary_table": "asset_snapshot",
-            "key_fields": ["platform", "asset_type", "balance_cny", "snapshot_time"],
-            "common_aggregations": ["SUM", "COUNT", "AVG"],
-            "time_field": "snapshot_time",
-            "value_field": "balance_cny"
-        }
+        import json
+        import os
+        
+        # 加载完整的Schema信息
+        schema_file = os.path.join(os.path.dirname(__file__), "../../../database_schema_for_mcp.json")
+        try:
+            with open(schema_file, 'r', encoding='utf-8') as f:
+                full_schema = json.load(f)
+            return full_schema["database_schema"]
+        except Exception as e:
+            logger.warning(f"无法加载完整Schema，使用简化版本: {e}")
+            # 简化版本作为备用
+            return {
+                "domain": "personal_finance",
+                "primary_table": "asset_snapshot",
+                "key_fields": ["platform", "asset_type", "balance_cny", "snapshot_time"],
+                "common_aggregations": ["SUM", "COUNT", "AVG"],
+                "time_field": "snapshot_time",
+                "value_field": "balance_cny",
+                "tables": {
+                    "asset_snapshot": {
+                        "description": "资产快照表 - 核心分析数据源",
+                        "columns": {
+                            "platform": "平台名称 (支付宝, Wise, IBKR, OKX)",
+                            "asset_type": "资产类型 (基金, 外汇, 股票, 数字货币)",
+                            "asset_code": "资产代码",
+                            "balance_cny": "人民币余额 - 主要分析字段",
+                            "snapshot_time": "快照时间"
+                        }
+                    },
+                    "user_operations": {
+                        "description": "用户操作记录表 - 交易历史分析",
+                        "columns": {
+                            "operation_date": "操作时间",
+                            "platform": "操作平台",
+                            "operation_type": "操作类型 (买入, 卖出, 转账)",
+                            "amount": "操作金额"
+                        }
+                    }
+                }
+            }
     
     async def get_database_schema(self) -> Dict:
         """获取数据库Schema信息"""
