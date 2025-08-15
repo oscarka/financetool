@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'chart_design_system.dart';
+import 'chart_save_dialog.dart';
 
 /// 图表预览模态框 - 在聊天中点击图表时打开
 class ChartPreviewModal extends StatefulWidget {
@@ -438,32 +439,44 @@ class _ChartPreviewModalState extends State<ChartPreviewModal>
 
   /// 保存到深度分析
   void _saveToAnalysis() {
-    widget.onSaveChart?.call(widget.chartWidget, widget.question);
-    
-    // 显示成功提示
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            const Text('图表已保存到深度分析页面'),
-          ],
-        ),
-        backgroundColor: ChartDesignSystem.secondary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        action: SnackBarAction(
-          label: '查看',
-          textColor: Colors.white,
-          onPressed: _goToAnalysis,
-        ),
-      ),
+    ChartSaveDialog.show(
+      context,
+      chartWidget: widget.chartWidget,
+      question: widget.question,
+      chartType: widget.chartType,
+      onConfirm: (confirmed, customName) {
+        if (confirmed) {
+          widget.onSaveChart?.call(widget.chartWidget, widget.question);
+          
+          // 显示成功提示
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text(customName != null 
+                      ? '"$customName" 已保存到深度分析页面'
+                      : '图表已保存到深度分析页面'),
+                ],
+              ),
+              backgroundColor: ChartDesignSystem.secondary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              action: SnackBarAction(
+                label: '查看',
+                textColor: Colors.white,
+                onPressed: _goToAnalysis,
+              ),
+            ),
+          );
+          
+          Navigator.of(context).pop(); // 关闭预览模态框
+        }
+      },
     );
-    
-    Navigator.of(context).pop();
   }
 
   /// 前往深度分析页面

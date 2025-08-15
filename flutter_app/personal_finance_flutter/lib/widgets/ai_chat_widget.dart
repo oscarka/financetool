@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'chart_design_system.dart';
 import 'mcp_chart_adapter.dart';
 import 'chart_preview_modal.dart';
+import 'chart_intent_dialog.dart';
+import 'chart_save_dialog.dart';
 import 'dart:convert';
 
 /// AI聊天交互组件 - 支持生成图表并保存
@@ -88,7 +90,8 @@ class _AIChatWidgetState extends State<AIChatWidget>
     try {
       // 判断是否是图表请求
       if (_isChartRequest(text)) {
-        await _generateChartResponse(text);
+        // 显示意图确认对话框
+        _showChartIntentDialog(text);
       } else {
         await _generateTextResponse(text);
       }
@@ -126,6 +129,27 @@ class _AIChatWidgetState extends State<AIChatWidget>
     } else {
       return 'chart'; // 默认类型
     }
+  }
+
+  /// 显示图表意图确认对话框
+  void _showChartIntentDialog(String originalQuestion) {
+    setState(() {
+      _isLoading = false; // 停止加载状态
+    });
+
+    final chartType = _determineChartType(originalQuestion);
+    
+    ChartIntentDialog.show(
+      context,
+      userQuestion: originalQuestion,
+      detectedChartType: chartType,
+      onConfirm: (confirmed, modifiedQuestion) {
+        if (confirmed) {
+          final finalQuestion = modifiedQuestion ?? originalQuestion;
+          _generateChartResponse(finalQuestion);
+        }
+      },
+    );
   }
 
   /// 生成图表响应
@@ -223,25 +247,46 @@ class _AIChatWidgetState extends State<AIChatWidget>
 
   /// 保存图表到页面
   void _saveChart(Widget chart, String question) {
-    widget.onChartGenerated?.call(chart, question);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('图表已保存到深度分析页面'),
-        backgroundColor: ChartDesignSystem.secondary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        action: SnackBarAction(
-          label: '查看',
-          textColor: Colors.white,
-          onPressed: () {
-            // 这里可以导航到深度分析页面
-            Navigator.pushNamed(context, '/deep-analysis');
-          },
-        ),
-      ),
+    // 从对话消息中获取图表类型
+    String chartType = 'chart';
+    for (final message in _messages.reversed) {
+      if (message.chartWidget == chart && message.chartType != null) {
+        chartType = message.chartType!;
+        break;
+      }
+    }
+
+    ChartSaveDialog.show(
+      context,
+      chartWidget: chart,
+      question: question,
+      chartType: chartType,
+      onConfirm: (confirmed, customName) {
+        if (confirmed) {
+          widget.onChartGenerated?.call(chart, question);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(customName != null 
+                  ? '"$customName" 已保存到深度分析页面'
+                  : '图表已保存到深度分析页面'),
+              backgroundColor: ChartDesignSystem.secondary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              action: SnackBarAction(
+                label: '查看',
+                textColor: Colors.white,
+                onPressed: () {
+                  // 这里可以导航到深度分析页面
+                  Navigator.pushNamed(context, '/deep-analysis');
+                },
+              ),
+            ),
+          );
+        }
+      },
     );
   }
 
