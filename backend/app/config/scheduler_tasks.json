@@ -100,35 +100,39 @@
     },
     {
         "id": "ibkr_balance_sync_morning",
-        "name": "IBKR余额同步（早8点）",
+        "name": "IBKR余额数据分析（早8点）- 注意：不是同步，是查询已存储数据",
         "cron": "0 8 * * *",
         "plugin": "financial_operations.tasks.ibkr_balance_sync",
         "args": {},
-        "enabled": true
+        "enabled": false,
+        "description": "⚠️ 此任务不是数据同步，而是查询已存储的IBKR数据进行分析。真正的数据同步通过VM推送完成。"
     },
     {
         "id": "ibkr_balance_sync_evening",
-        "name": "IBKR余额同步（晚19点）",
+        "name": "IBKR余额数据分析（晚19点）- 注意：不是同步，是查询已存储数据",
         "cron": "0 19 * * *",
         "plugin": "financial_operations.tasks.ibkr_balance_sync",
         "args": {},
-        "enabled": true
+        "enabled": false,
+        "description": "⚠️ 此任务不是数据同步，而是查询已存储的IBKR数据进行分析。真正的数据同步通过VM推送完成。"
     },
     {
         "id": "ibkr_position_sync_morning",
-        "name": "IBKR持仓同步（早8点）",
+        "name": "IBKR持仓数据分析（早8点）- 注意：不是同步，是查询已存储数据",
         "cron": "0 8 * * *",
         "plugin": "financial_operations.tasks.ibkr_position_sync",
         "args": {},
-        "enabled": true
+        "enabled": false,
+        "description": "⚠️ 此任务不是数据同步，而是查询已存储的IBKR数据进行分析。真正的数据同步通过VM推送完成。"
     },
     {
         "id": "ibkr_position_sync_evening",
-        "name": "IBKR持仓同步（晚19点）",
+        "name": "IBKR持仓数据分析（晚19点）- 注意：不是同步，是查询已存储数据",
         "cron": "0 19 * * *",
         "plugin": "financial_operations.tasks.ibkr_position_sync",
         "args": {},
-        "enabled": true
+        "enabled": false,
+        "description": "⚠️ 此任务不是数据同步，而是查询已存储的IBKR数据进行分析。真正的数据同步通过VM推送完成。"
     },
     {
         "id": "web3_balance_sync",
