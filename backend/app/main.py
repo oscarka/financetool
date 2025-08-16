@@ -204,6 +204,14 @@ app.include_router(
     tags=["AI分析师"]
 )
 
+# 注册MCP智能图表接口
+from app.api.v1.mcp_smart_chart import router as mcp_chart_router
+app.include_router(
+    mcp_chart_router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["MCP智能图表"]
+)
+
 
 @app.get("/")
 async def root():
