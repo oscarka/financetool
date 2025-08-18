@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../widgets/chart_design_system.dart';
 
 /// 图表展示页面 - 展示各种类型的专业图表
@@ -75,28 +76,28 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 资产分布饼图
           ProfessionalPieChart(
             data: [
-              PieChartData(
+              CustomPieChartData(
                 label: '基金投资',
                 value: 158460.30,
                 percentage: 68.5,
                 color: ChartDesignSystem.primary,
                 formattedValue: '15.85万',
               ),
-              PieChartData(
+              CustomPieChartData(
                 label: '外汇资产',
                 value: 45230.50,
                 percentage: 19.6,
                 color: ChartDesignSystem.secondary,
                 formattedValue: '4.52万',
               ),
-              PieChartData(
+              CustomPieChartData(
                 label: '数字货币',
                 value: 18960.20,
                 percentage: 8.2,
                 color: ChartDesignSystem.accent,
                 formattedValue: '1.90万',
               ),
-              PieChartData(
+              CustomPieChartData(
                 label: '股票投资',
                 value: 8580.75,
                 percentage: 3.7,
@@ -115,28 +116,28 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 平台分布饼图
           ProfessionalPieChart(
             data: [
-              PieChartData(
+              CustomPieChartData(
                 label: '支付宝',
                 value: 125680.40,
                 percentage: 54.3,
                 color: const Color(0xFF1677FF),
                 formattedValue: '12.57万',
               ),
-              PieChartData(
+              CustomPieChartData(
                 label: 'Wise',
                 value: 67890.20,
                 percentage: 29.3,
                 color: const Color(0xFF00D4AA),
                 formattedValue: '6.79万',
               ),
-              PieChartData(
+              CustomPieChartData(
                 label: 'IBKR',
                 value: 25430.15,
                 percentage: 11.0,
                 color: const Color(0xFF722ED1),
                 formattedValue: '2.54万',
               ),
-              PieChartData(
+              CustomPieChartData(
                 label: 'OKX',
                 value: 12580.90,
                 percentage: 5.4,
@@ -161,9 +162,9 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
                   child: _buildMiniPieChart(
                     '基金类型',
                     [
-                      PieChartData(label: '股票型', value: 60, percentage: 60, color: ChartDesignSystem.primary, formattedValue: '60%'),
-                      PieChartData(label: '债券型', value: 25, percentage: 25, color: ChartDesignSystem.secondary, formattedValue: '25%'),
-                      PieChartData(label: '混合型', value: 15, percentage: 15, color: ChartDesignSystem.accent, formattedValue: '15%'),
+                      CustomPieChartData(label: '股票型', value: 60, percentage: 60, color: ChartDesignSystem.primary, formattedValue: '60%'),
+                      CustomPieChartData(label: '债券型', value: 25, percentage: 25, color: ChartDesignSystem.secondary, formattedValue: '25%'),
+                      CustomPieChartData(label: '混合型', value: 15, percentage: 15, color: ChartDesignSystem.accent, formattedValue: '15%'),
                     ],
                   ),
                 ),
@@ -172,9 +173,9 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
                   child: _buildMiniPieChart(
                     '风险分布',
                     [
-                      PieChartData(label: '低风险', value: 35, percentage: 35, color: ChartDesignSystem.secondary, formattedValue: '35%'),
-                      PieChartData(label: '中风险', value: 45, percentage: 45, color: ChartDesignSystem.warning, formattedValue: '45%'),
-                      PieChartData(label: '高风险', value: 20, percentage: 20, color: ChartDesignSystem.danger, formattedValue: '20%'),
+                      CustomPieChartData(label: '低风险', value: 35, percentage: 35, color: ChartDesignSystem.secondary, formattedValue: '35%'),
+                      CustomPieChartData(label: '中风险', value: 45, percentage: 45, color: ChartDesignSystem.warning, formattedValue: '45%'),
+                      CustomPieChartData(label: '高风险', value: 20, percentage: 20, color: ChartDesignSystem.danger, formattedValue: '20%'),
                     ],
                   ),
                 ),
@@ -195,25 +196,25 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 平台对比柱状图
           ProfessionalBarChart(
             data: [
-              BarChartData(
+              CustomBarChartData(
                 label: '支付宝',
                 value: 125680.40,
                 color: ChartDesignSystem.primary,
                 formattedValue: '12.57万',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: 'Wise',
                 value: 67890.20,
                 color: ChartDesignSystem.secondary,
                 formattedValue: '6.79万',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: 'IBKR',
                 value: 25430.15,
                 color: ChartDesignSystem.accent,
                 formattedValue: '2.54万',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: 'OKX',
                 value: 12580.90,
                 color: ChartDesignSystem.warning,
@@ -230,37 +231,37 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 月度收益柱状图
           ProfessionalBarChart(
             data: [
-              BarChartData(
+              CustomBarChartData(
                 label: '1月',
                 value: 8250.30,
                 color: ChartDesignSystem.secondary,
                 formattedValue: '8250',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '2月',
                 value: -2150.80,
                 color: ChartDesignSystem.danger,
                 formattedValue: '-2151',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '3月',
                 value: 12680.40,
                 color: ChartDesignSystem.secondary,
                 formattedValue: '1.27万',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '4月',
                 value: 5420.90,
                 color: ChartDesignSystem.secondary,
                 formattedValue: '5421',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '5月',
                 value: -890.20,
                 color: ChartDesignSystem.danger,
                 formattedValue: '-890',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '6月',
                 value: 15240.60,
                 color: ChartDesignSystem.secondary,
@@ -277,31 +278,31 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 资产类型对比
           ProfessionalBarChart(
             data: [
-              BarChartData(
+              CustomBarChartData(
                 label: '基金',
                 value: 158460.30,
                 color: const Color(0xFF1890FF),
                 formattedValue: '15.85万',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '外汇',
                 value: 45230.50,
                 color: const Color(0xFF52C41A),
                 formattedValue: '4.52万',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '股票',
                 value: 28960.20,
                 color: const Color(0xFF722ED1),
                 formattedValue: '2.90万',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '数字货币',
                 value: 18580.75,
                 color: const Color(0xFFFA8C16),
                 formattedValue: '1.86万',
               ),
-              BarChartData(
+              CustomBarChartData(
                 label: '债券',
                 value: 12340.10,
                 color: const Color(0xFFEB2F96),
@@ -326,18 +327,16 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 资产趋势图
           ProfessionalLineChart(
             data: [
-              LineChartData(label: '1月', value: 180000, formattedValue: '18万'),
-              LineChartData(label: '2月', value: 185000, formattedValue: '18.5万'),
-              LineChartData(label: '3月', value: 178000, formattedValue: '17.8万'),
-              LineChartData(label: '4月', value: 192000, formattedValue: '19.2万'),
-              LineChartData(label: '5月', value: 205000, formattedValue: '20.5万'),
-              LineChartData(label: '6月', value: 231581, formattedValue: '23.16万'),
+              CustomLineChartData(label: '1月', value: 180000, formattedValue: '18万'),
+              CustomLineChartData(label: '2月', value: 185000, formattedValue: '18.5万'),
+              CustomLineChartData(label: '3月', value: 178000, formattedValue: '17.8万'),
+              CustomLineChartData(label: '4月', value: 192000, formattedValue: '19.2万'),
+              CustomLineChartData(label: '5月', value: 205000, formattedValue: '20.5万'),
+              CustomLineChartData(label: '6月', value: 231581, formattedValue: '23.16万'),
             ],
             title: '资产价值趋势',
             subtitle: '近6个月总资产价值变化',
-            showDots: true,
             showArea: true,
-            lineColor: ChartDesignSystem.secondary,
           ),
 
           const SizedBox(height: 16),
@@ -345,20 +344,18 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 基金净值走势
           ProfessionalLineChart(
             data: [
-              LineChartData(label: '1/1', value: 2.1580, formattedValue: '2.158'),
-              LineChartData(label: '1/2', value: 2.1624, formattedValue: '2.162'),
-              LineChartData(label: '1/3', value: 2.1456, formattedValue: '2.146'),
-              LineChartData(label: '1/4', value: 2.1789, formattedValue: '2.179'),
-              LineChartData(label: '1/5', value: 2.1923, formattedValue: '2.192'),
-              LineChartData(label: '1/6', value: 2.2045, formattedValue: '2.205'),
-              LineChartData(label: '1/7', value: 2.1987, formattedValue: '2.199'),
-              LineChartData(label: '1/8', value: 2.2156, formattedValue: '2.216'),
+              CustomLineChartData(label: '1/1', value: 2.1580, formattedValue: '2.158'),
+              CustomLineChartData(label: '1/2', value: 2.1624, formattedValue: '2.162'),
+              CustomLineChartData(label: '1/3', value: 2.1456, formattedValue: '2.146'),
+              CustomLineChartData(label: '1/4', value: 2.1789, formattedValue: '2.179'),
+              CustomLineChartData(label: '1/5', value: 2.1923, formattedValue: '2.192'),
+              CustomLineChartData(label: '1/6', value: 2.2045, formattedValue: '2.205'),
+              CustomLineChartData(label: '1/7', value: 2.1987, formattedValue: '2.199'),
+              CustomLineChartData(label: '1/8', value: 2.2156, formattedValue: '2.216'),
             ],
             title: '基金净值走势',
             subtitle: '易方达蓝筹精选混合基金净值变化',
-            showDots: true,
             showArea: true,
-            lineColor: ChartDesignSystem.primary,
           ),
 
           const SizedBox(height: 16),
@@ -366,16 +363,14 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 收益率对比
           ProfessionalLineChart(
             data: [
-              LineChartData(label: 'Q1', value: 8.5, formattedValue: '8.5%'),
-              LineChartData(label: 'Q2', value: -2.3, formattedValue: '-2.3%'),
-              LineChartData(label: 'Q3', value: 12.8, formattedValue: '12.8%'),
-              LineChartData(label: 'Q4', value: 6.7, formattedValue: '6.7%'),
+              CustomLineChartData(label: 'Q1', value: 8.5, formattedValue: '8.5%'),
+              CustomLineChartData(label: 'Q2', value: -2.3, formattedValue: '-2.3%'),
+              CustomLineChartData(label: 'Q3', value: 12.8, formattedValue: '12.8%'),
+              CustomLineChartData(label: 'Q4', value: 6.7, formattedValue: '6.7%'),
             ],
             title: '季度收益率',
             subtitle: '各季度投资收益率表现',
-            showDots: true,
             showArea: false,
-            lineColor: ChartDesignSystem.accent,
           ),
         ],
       ),
@@ -396,21 +391,21 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
           // 组合图表
           ProfessionalPieChart(
             data: [
-              PieChartData(
+              CustomPieChartData(
                 label: '稳健型',
                 value: 45.2,
                 percentage: 45.2,
                 color: ChartDesignSystem.secondary,
                 formattedValue: '45.2%',
               ),
-              PieChartData(
+              CustomPieChartData(
                 label: '平衡型',
                 value: 35.8,
                 percentage: 35.8,
                 color: ChartDesignSystem.primary,
                 formattedValue: '35.8%',
               ),
-              PieChartData(
+              CustomPieChartData(
                 label: '进取型',
                 value: 19.0,
                 percentage: 19.0,
@@ -521,7 +516,7 @@ class _ChartShowcasePageState extends State<ChartShowcasePage>
   }
 
   /// 构建迷你饼图
-  Widget _buildMiniPieChart(String title, List<PieChartData> data) {
+  Widget _buildMiniPieChart(String title, List<CustomPieChartData> data) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

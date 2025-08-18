@@ -162,19 +162,19 @@ class StandardChartContainer extends StatelessWidget {
 
 /// 专业饼图组件
 class ProfessionalPieChart extends StatefulWidget {
-  final List<PieChartData> data;
+  final List<CustomPieChartData> data;
   final String title;
   final String? subtitle;
-  final bool showLegend;
   final bool showValues;
+  final bool showLegend;
 
   const ProfessionalPieChart({
     super.key,
     required this.data,
     required this.title,
     this.subtitle,
-    this.showLegend = true,
     this.showValues = true,
+    this.showLegend = true,
   });
 
   @override
@@ -196,8 +196,8 @@ class _ProfessionalPieChartState extends State<ProfessionalPieChart> {
             flex: 3,
             child: PieChart(
               PieChartData(
+                centerSpaceRadius: 35,
                 sectionsSpace: 2,
-                centerSpaceRadius: 45,
                 startDegreeOffset: -90,
                 sections: widget.data.asMap().entries.map((entry) {
                   final index = entry.key;
@@ -267,7 +267,7 @@ class _ProfessionalPieChartState extends State<ProfessionalPieChart> {
     );
   }
 
-  Widget _buildBadge(PieChartData data) {
+  Widget _buildBadge(CustomPieChartData data) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -285,7 +285,7 @@ class _ProfessionalPieChartState extends State<ProfessionalPieChart> {
     );
   }
 
-  Widget _buildLegendItem(PieChartData data, bool isSelected) {
+  Widget _buildLegendItem(CustomPieChartData data, bool isSelected) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -333,32 +333,32 @@ class _ProfessionalPieChartState extends State<ProfessionalPieChart> {
 
 /// 专业柱状图组件
 class ProfessionalBarChart extends StatelessWidget {
-  final List<BarChartData> data;
+  final List<CustomBarChartData> data;
   final String title;
   final String? subtitle;
-  final String? yAxisLabel;
-  final bool showGrid;
   final bool showValues;
+  final bool showGrid;
 
   const ProfessionalBarChart({
     super.key,
     required this.data,
     required this.title,
     this.subtitle,
-    this.yAxisLabel,
+    this.showValues = true,
     this.showGrid = true,
-    this.showValues = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final maxValue = data.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    
     return StandardChartContainer(
       title: title,
       subtitle: subtitle,
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: _getMaxY() * 1.1,
+          maxY: maxValue * 1.2,
           backgroundColor: Colors.transparent,
           barTouchData: BarTouchData(
             enabled: true,
@@ -489,26 +489,26 @@ class ProfessionalBarChart extends StatelessWidget {
 
 /// 专业折线图组件
 class ProfessionalLineChart extends StatelessWidget {
-  final List<LineChartData> data;
+  final List<CustomLineChartData> data;
   final String title;
   final String? subtitle;
-  final bool showDots;
+  final bool showValues;
+  final bool showGrid;
   final bool showArea;
-  final Color? lineColor;
 
   const ProfessionalLineChart({
     super.key,
     required this.data,
     required this.title,
     this.subtitle,
-    this.showDots = true,
+    this.showValues = true,
+    this.showGrid = true,
     this.showArea = true,
-    this.lineColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = lineColor ?? ChartDesignSystem.primary;
+    final color = ChartDesignSystem.primary; // Default line color
     
     return StandardChartContainer(
       title: title,
@@ -517,11 +517,18 @@ class ProfessionalLineChart extends StatelessWidget {
         LineChartData(
           gridData: FlGridData(
             show: true,
-            drawVerticalLine: false,
-            horizontalInterval: _getYInterval(),
+            drawVerticalLine: true,
+            horizontalInterval: 1,
+            verticalInterval: 1,
             getDrawingHorizontalLine: (value) {
               return FlLine(
-                color: Colors.grey[200]!,
+                color: Colors.grey[300]!,
+                strokeWidth: 1,
+              );
+            },
+            getDrawingVerticalLine: (value) {
+              return FlLine(
+                color: Colors.grey[300]!,
                 strokeWidth: 1,
               );
             },
@@ -580,7 +587,7 @@ class ProfessionalLineChart extends StatelessWidget {
               barWidth: 3,
               isStrokeCapRound: true,
               dotData: FlDotData(
-                show: showDots,
+                show: true, // showDots is removed, so always show dots
                 getDotPainter: (spot, percent, barData, index) {
                   return FlDotCirclePainter(
                     radius: 4,
@@ -649,14 +656,14 @@ class ProfessionalLineChart extends StatelessWidget {
 }
 
 /// 数据模型类
-class PieChartData {
+class CustomPieChartData {
   final String label;
   final double value;
   final double percentage;
   final Color color;
   final String formattedValue;
 
-  PieChartData({
+  CustomPieChartData({
     required this.label,
     required this.value,
     required this.percentage,
@@ -665,13 +672,13 @@ class PieChartData {
   });
 }
 
-class BarChartData {
+class CustomBarChartData {
   final String label;
   final double value;
   final Color color;
   final String formattedValue;
 
-  BarChartData({
+  CustomBarChartData({
     required this.label,
     required this.value,
     required this.color,
@@ -679,12 +686,12 @@ class BarChartData {
   });
 }
 
-class LineChartData {
+class CustomLineChartData {
   final String label;
   final double value;
   final String formattedValue;
 
-  LineChartData({
+  CustomLineChartData({
     required this.label,
     required this.value,
     required this.formattedValue,

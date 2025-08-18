@@ -27,6 +27,7 @@ const navigation = [
     { name: '汇率', href: '/exchange-rates', icon: GlobalOutlined },
     { name: '分析', href: '/analysis', icon: PieChartOutlined },
     { name: 'AI分析师测试', href: '/ai-analyst-test', icon: RobotOutlined },
+    { name: 'AI功能测试', href: '/ai-function-test', icon: RobotOutlined },
     { name: 'OKX管理', href: '/okx', icon: SettingOutlined },
     { name: 'Wise管理', href: '/wise', icon: BankOutlined },
     { name: 'PayPal管理', href: '/paypal', icon: PayCircleOutlined },

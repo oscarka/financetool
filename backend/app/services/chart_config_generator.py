@@ -237,7 +237,17 @@ class ChartConfigGenerator:
         
         for row in data:
             label = row.get(label_field, 'Unknown')
-            value = row.get(value_field, 0)
+            
+            # 对于饼图，优先使用asset_count，如果没有则使用total_value
+            if chart_type == 'pie':
+                if 'asset_count' in row and row['asset_count'] is not None:
+                    value = row['asset_count']
+                elif 'total_value' in row and row['total_value'] is not None:
+                    value = row['total_value']
+                else:
+                    value = 0
+            else:
+                value = row.get(value_field, 0)
             
             # 确保value是数值类型
             if not isinstance(value, (int, float)):

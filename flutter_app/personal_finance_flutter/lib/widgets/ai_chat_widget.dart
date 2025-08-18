@@ -139,16 +139,18 @@ class _AIChatWidgetState extends State<AIChatWidget>
 
     final chartType = _determineChartType(originalQuestion);
     
-    ChartIntentDialog.show(
-      context,
-      userQuestion: originalQuestion,
-      detectedChartType: chartType,
-      onConfirm: (confirmed, modifiedQuestion) {
-        if (confirmed) {
-          final finalQuestion = modifiedQuestion ?? originalQuestion;
-          _generateChartResponse(finalQuestion);
-        }
-      },
+    showDialog(
+      context: context,
+      builder: (context) => ChartIntentDialog(
+        userQuestion: originalQuestion,
+        detectedChartType: chartType,
+        onConfirm: (confirmed, modifiedQuestion) {
+          if (confirmed) {
+            final finalQuestion = modifiedQuestion ?? originalQuestion;
+            _generateChartResponse(finalQuestion);
+          }
+        },
+      ),
     );
   }
 
@@ -256,37 +258,39 @@ class _AIChatWidgetState extends State<AIChatWidget>
       }
     }
 
-    ChartSaveDialog.show(
-      context,
-      chartWidget: chart,
-      question: question,
-      chartType: chartType,
-      onConfirm: (confirmed, customName) {
-        if (confirmed) {
-          widget.onChartGenerated?.call(chart, question);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(customName != null 
-                  ? '"$customName" 已保存到深度分析页面'
-                  : '图表已保存到深度分析页面'),
-              backgroundColor: ChartDesignSystem.secondary,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+    showDialog(
+      context: context,
+      builder: (context) => ChartSaveDialog(
+        chartWidget: chart,
+        question: question,
+        chartType: chartType,
+        onConfirm: (confirmed, customName) {
+          if (confirmed) {
+            widget.onChartGenerated?.call(chart, question);
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(customName != null 
+                    ? '"$customName" 已保存到深度分析页面'
+                    : '图表已保存到深度分析页面'),
+                backgroundColor: ChartDesignSystem.secondary,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                action: SnackBarAction(
+                  label: '查看',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    // 这里可以导航到深度分析页面
+                    Navigator.pushNamed(context, '/deep-analysis');
+                  },
+                ),
               ),
-              action: SnackBarAction(
-                label: '查看',
-                textColor: Colors.white,
-                onPressed: () {
-                  // 这里可以导航到深度分析页面
-                  Navigator.pushNamed(context, '/deep-analysis');
-                },
-              ),
-            ),
-          );
-        }
-      },
+            );
+          }
+        },
+      ),
     );
   }
 
@@ -625,12 +629,14 @@ class _AIChatWidgetState extends State<AIChatWidget>
   void _openChartPreview(ChatMessage message) {
     if (message.chartWidget == null) return;
     
-    ChartPreviewModal.show(
-      context,
-      chartWidget: message.chartWidget!,
-      question: message.originalQuestion ?? message.text,
-      chartType: message.chartType ?? 'chart',
-      onSaveChart: widget.onChartGenerated,
+    showDialog(
+      context: context,
+      builder: (context) => ChartPreviewModal(
+        chartWidget: message.chartWidget!,
+        question: message.originalQuestion ?? message.text,
+        chartType: message.chartType ?? 'chart',
+        onSaveChart: widget.onChartGenerated,
+      ),
     );
   }
 

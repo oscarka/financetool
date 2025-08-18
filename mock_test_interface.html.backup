@@ -536,9 +536,7 @@ ORDER BY date`,
         }
 
         function loadQuestionTemplate() {
-            console.log('🔍 loadQuestionTemplate 被调用');
             const questionSelect = document.getElementById('natural-question');
-            console.log('📝 找到问题选择器:', questionSelect);
             if (questionSelect.value) {
                 const question = questionSelect.value;
                 let mockData = [];
@@ -584,21 +582,12 @@ ORDER BY date`,
         }
 
         function loadSampleData() {
-            console.log('🔍 loadSampleData 被调用');
-            try {
-                loadQuestionTemplate();
-                console.log('✅ loadSampleData 完成');
-            } catch (error) {
-                console.error('❌ loadSampleData 失败:', error);
-            }
+            loadQuestionTemplate();
         }
 
         async function testMCPClient() {
-            console.log('🔍 testMCPClient 被调用');
             const statusDiv = document.getElementById('mcp-status');
             const resultsDiv = document.getElementById('mcp-results');
-            console.log('📝 找到状态div:', statusDiv);
-            console.log('📝 找到结果div:', resultsDiv);
 
             statusDiv.innerHTML = '<div class="status info">🔄 正在测试MCP客户端...</div>';
 
@@ -923,7 +912,7 @@ ORDER BY total_value DESC`,
             const config = scenarios[scenario];
             if (config) {
                 scenarioDiv.style.display = 'block';
-                descDiv.innerHTML = `<h4>📋 场景说明:</h4><p>${config.description}</p>`;
+                descDiv.innerHTML = `<h4>📋 场景说明:</h4 > <p>${config.description}</p>`;
                 inputField.value = config.input;
                 chartField.value = config.chart;
             }
@@ -959,8 +948,8 @@ ORDER BY total_value DESC`,
                 
                 let stepResults = [];
                 
-                for (let i = 0; i <steps.length; i++) {
-                    statusDiv.innerHTML = `<div class="status info" >🔄 ${ steps[i] }...</div >`;
+                for (let i = 0; i < steps.length; i++) {
+                    statusDiv.innerHTML = `<div class="status info" >🔄 ${ steps[i] }...</div > `;
                     await new Promise(resolve => setTimeout(resolve, 300));
                     stepResults.push(`✅ ${ steps[i] } - 成功`);
                 }
@@ -989,7 +978,7 @@ ORDER BY total_value DESC`,
                 resultsDiv.textContent = JSON.stringify(finalResult, null, 2);
                 
             } catch (error) {
-                statusDiv.innerHTML = `<div class="status error">❌ 端到端测试失败: ${error.message}</div>`;
+                statusDiv.innerHTML = `<div class="status error" >❌ 端到端测试失败: ${ error.message }</div > `;
             }
         }
         
@@ -1161,20 +1150,8 @@ ORDER BY total_value DESC`,
         
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 页面加载完成，开始初始化...');
-            try {
-                console.log('📝 调用 updateLLMConfig...');
-                updateLLMConfig();
-                console.log('✅ updateLLMConfig 完成');
-                
-                console.log('📝 调用 loadQuestionTemplate...');
-                loadQuestionTemplate();
-                console.log('✅ loadQuestionTemplate 完成');
-                
-                console.log('🎉 所有初始化完成！');
-            } catch (error) {
-                console.error('❌ 初始化失败:', error);
-            }
+            updateLLMConfig();
+            loadQuestionTemplate();
         });
     </script>
 </body>

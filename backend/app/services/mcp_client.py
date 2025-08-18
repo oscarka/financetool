@@ -7,9 +7,12 @@ import aiohttp
 import asyncio
 import json
 import logging
+import psycopg2
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
+from app.services.chart_config_generator import ChartConfigGenerator
+from app.services.deepseek_ai_service import DeepSeekAIService
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +25,83 @@ class MCPQueryResult:
     error: Optional[str] = None
     execution_time: Optional[float] = None
     row_count: Optional[int] = None
+    ai_analysis: Optional[Dict] = None # 新增字段
+    method: Optional[str] = None # 新增字段
 
 class MCPDatabaseClient:
     """MCP数据库客户端"""
     
-    def __init__(self, mcp_server_url: str = "http://localhost:3001"):
+    def __init__(self, mcp_server_url: str = "http://localhost:3001", use_mock: bool = False):
         self.mcp_server_url = mcp_server_url
+        self.use_mock = use_mock
         self.session = None
         self.timeout = aiohttp.ClientTimeout(total=30)
+        
+        # 初始化DeepSeek AI服务
+        self.deepseek_service = DeepSeekAIService()
+        
+        # 数据库连接配置
+        self.db_config = {
+            'host': 'localhost',
+            'port': 5432,
+            'database': 'financetool_test',
+            'user': 'financetool_user',
+            'password': 'financetool_pass'
+        }
+        
+        # 模拟数据
+        self.mock_data = {
+            "asset_snapshot": [
+                {
+                    "platform": "支付宝",
+                    "asset_type": "基金", 
+                    "asset_code": "005827",
+                    "asset_name": "易方达蓝筹精选混合",
+                    "balance_cny": 85230.45,
+                    "snapshot_time": "2024-01-15 09:00:00"
+                },
+                {
+                    "platform": "支付宝",
+                    "asset_type": "基金",
+                    "asset_code": "110022", 
+                    "asset_name": "易方达消费行业股票",
+                    "balance_cny": 73229.85,
+                    "snapshot_time": "2024-01-15 09:00:00"
+                },
+                {
+                    "platform": "Wise",
+                    "asset_type": "外汇",
+                    "asset_code": "USD",
+                    "asset_name": "美元现金",
+                    "balance_cny": 6458.23,
+                    "snapshot_time": "2024-01-15 09:00:00"
+                },
+                {
+                    "platform": "Wise", 
+                    "asset_type": "外汇",
+                    "asset_code": "EUR",
+                    "asset_name": "欧元现金", 
+                    "balance_cny": 1700.00,
+                    "snapshot_time": "2024-01-15 09:00:00"
+                },
+                {
+                    "platform": "IBKR",
+                    "asset_type": "股票",
+                    "asset_code": "AAPL", 
+                    "asset_name": "苹果公司",
+                    "balance_cny": 42.03,
+                    "snapshot_time": "2024-01-15 09:00:00"
+                },
+                {
+                    "platform": "OKX",
+                    "asset_type": "数字货币",
+                    "asset_code": "BTC",
+                    "asset_name": "比特币",
+                    "balance_cny": 1205.67,
+                    "snapshot_time": "2024-01-15 09:00:00"
+                }
+            ]
+        }
         
         # 预定义的业务查询模板
         self.query_templates = {
@@ -47,26 +119,35 @@ class MCPDatabaseClient:
             "asset_type_distribution": {
                 "sql": """
                     SELECT asset_type, SUM(balance_cny) as total_value, COUNT(*) as asset_count
-                    FROM asset_snapshot
+                    FROM asset_snapshot 
                     WHERE snapshot_time = (SELECT MAX(snapshot_time) FROM asset_snapshot)
                     GROUP BY asset_type 
                     ORDER BY total_value DESC
                 """,
                 "chart_hint": "pie",
-                "description": "资产类型分布"
+                "description": "各资产类型分布对比"
             },
             "monthly_trend": {
                 "sql": """
-                    SELECT 
-                        DATE_TRUNC('day', snapshot_time) as date,
-                        SUM(balance_cny) as total_value
-                    FROM asset_snapshot
-                    WHERE snapshot_time >= NOW() - INTERVAL '30 days'
-                    GROUP BY DATE_TRUNC('day', snapshot_time)
-                    ORDER BY date
+                    SELECT TO_CHAR(snapshot_time, 'YYYY-MM-DD') as date, SUM(balance_cny) as total_value
+                    FROM asset_snapshot 
+                    WHERE snapshot_time >= CURRENT_DATE - INTERVAL '30 days'
+                    GROUP BY TO_CHAR(snapshot_time, 'YYYY-MM-DD')
+                    ORDER BY date ASC
                 """,
                 "chart_hint": "line",
-                "description": "资产变化趋势"
+                "description": "最近30天资产变化趋势"
+            },
+            "top_assets": {
+                "sql": """
+                    SELECT asset_name, balance_cny as total_value, platform, asset_type
+                    FROM asset_snapshot 
+                    WHERE snapshot_time = (SELECT MAX(snapshot_time) FROM asset_snapshot)
+                    ORDER BY balance_cny DESC 
+                    LIMIT 10
+                """,
+                "chart_hint": "bar",
+                "description": "前10大资产排名"
             }
         }
     
@@ -82,6 +163,10 @@ class MCPDatabaseClient:
     
     async def health_check(self) -> bool:
         """检查MCP服务器健康状态"""
+        if self.use_mock:
+            # 模拟模式：总是返回True
+            return True
+            
         try:
             if not self.session:
                 self.session = aiohttp.ClientSession(timeout=self.timeout)
@@ -97,6 +182,37 @@ class MCPDatabaseClient:
         """执行SQL查询"""
         start_time = datetime.now()
         
+        if self.use_mock:
+            # 模拟模式：返回模拟数据
+            execution_time = (datetime.now() - start_time).total_seconds()
+            
+            # 根据SQL内容返回相应的模拟数据
+            if "platform" in sql.lower():
+                mock_data = [
+                    {"platform": "支付宝", "total_value": 158460.30, "asset_count": 2},
+                    {"platform": "Wise", "total_value": 8158.23, "asset_count": 2},
+                    {"platform": "IBKR", "total_value": 42.03, "asset_count": 1},
+                    {"platform": "OKX", "total_value": 1205.67, "asset_count": 1}
+                ]
+            elif "asset_type" in sql.lower():
+                mock_data = [
+                    {"asset_type": "基金", "total_value": 158460.30, "asset_count": 2},
+                    {"asset_type": "外汇", "total_value": 8158.23, "asset_count": 2},
+                    {"asset_type": "股票", "total_value": 42.03, "asset_count": 1},
+                    {"asset_type": "数字货币", "total_value": 1205.67, "asset_count": 1}
+                ]
+            else:
+                mock_data = self.mock_data["asset_snapshot"]
+            
+            return MCPQueryResult(
+                success=True,
+                sql=sql,
+                data=mock_data,
+                execution_time=execution_time,
+                row_count=len(mock_data)
+            )
+        
+        # 非模拟模式：通过MCP服务器执行SQL
         try:
             if not self.session:
                 self.session = aiohttp.ClientSession(timeout=self.timeout)
@@ -109,7 +225,7 @@ class MCPDatabaseClient:
                 }
             }
             
-            logger.info(f"执行SQL: {sql}")
+            logger.info(f"通过MCP服务器执行SQL: {sql}")
             
             async with self.session.post(
                 f"{self.mcp_server_url}/query",
@@ -149,7 +265,46 @@ class MCPDatabaseClient:
             )
     
     async def natural_language_query(self, question: str) -> MCPQueryResult:
-        """自然语言查询"""
+        """自然语言查询处理"""
+        start_time = datetime.now()
+        
+        if self.use_mock:
+            # 模拟模式：使用模板匹配
+            template_result = self._match_query_template(question)
+            if template_result:
+                logger.info(f"使用模板匹配: {template_result['description']}")
+                return await self.execute_sql(template_result["sql"])
+            else:
+                # 如果没有匹配的模板，返回通用模拟数据
+                return await self.execute_sql("SELECT * FROM asset_snapshot LIMIT 10")
+        
+        # 非模拟模式：优先使用DeepSeek AI，然后通过MCP服务器进行自然语言处理
+        try:
+            # 1. 尝试使用DeepSeek AI分析问题
+            logger.info(f"使用DeepSeek AI分析问题: {question}")
+            ai_analysis = await self.deepseek_service.analyze_financial_question(question)
+            
+            if ai_analysis and ai_analysis.get('sql'):
+                # DeepSeek AI成功生成SQL，直接执行
+                generated_sql = ai_analysis['sql']
+                logger.info(f"DeepSeek AI生成的SQL: {generated_sql}")
+                
+                # 执行生成的SQL
+                sql_result = await self.execute_sql(generated_sql)
+                
+                # 如果SQL执行成功，添加AI分析信息
+                if sql_result.success:
+                    sql_result.ai_analysis = ai_analysis
+                    sql_result.method = "deepseek_ai"
+                
+                return sql_result
+            else:
+                logger.info("DeepSeek AI未返回有效SQL，尝试MCP服务器")
+        
+        except Exception as e:
+            logger.warning(f"DeepSeek AI分析失败，回退到MCP服务器: {e}")
+        
+        # 2. 如果DeepSeek AI失败，回退到MCP服务器
         try:
             if not self.session:
                 self.session = aiohttp.ClientSession(timeout=self.timeout)
@@ -170,7 +325,7 @@ class MCPDatabaseClient:
                 }
             }
             
-            logger.info(f"自然语言查询: {question}")
+            logger.info(f"通过MCP服务器进行自然语言查询: {question}")
             
             async with self.session.post(
                 f"{self.mcp_server_url}/nl-query",
@@ -200,7 +355,8 @@ class MCPDatabaseClient:
             logger.error(f"自然语言查询异常: {e}")
             return MCPQueryResult(
                 success=False,
-                error=str(e)
+                error=str(e),
+                execution_time=(datetime.now() - start_time).total_seconds()
             )
     
     def _match_query_template(self, question: str) -> Optional[Dict]:

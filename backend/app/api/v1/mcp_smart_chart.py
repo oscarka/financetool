@@ -49,7 +49,7 @@ MCP_SERVER_URL = "http://localhost:3001"
 async def health_check():
     """健康检查端点"""
     try:
-        async with MCPDatabaseClient(MCP_SERVER_URL) as client:
+        async with MCPDatabaseClient(MCP_SERVER_URL, use_mock=False) as client:
             mcp_available = await client.health_check()
         
         return HealthCheckResponse(
@@ -76,7 +76,7 @@ async def generate_chart(request: ChartGenerationRequest):
         logger.info(f"接收到图表生成请求: {request.question}")
         
         # 1. 使用MCP客户端查询数据
-        async with MCPDatabaseClient(MCP_SERVER_URL) as client:
+        async with MCPDatabaseClient(MCP_SERVER_URL, use_mock=False) as client:
             query_result = await client.natural_language_query(request.question)
         
         if not query_result.success:
@@ -98,7 +98,10 @@ async def generate_chart(request: ChartGenerationRequest):
         
         execution_time = (datetime.now() - start_time).total_seconds()
         
-        logger.info(f"图表生成成功: {chart_config.chart_type}, 数据点: {len(chart_config.data)}")
+        # 获取实际使用的方法（DeepSeek AI 或 MCP）
+        method = getattr(query_result, 'method', 'mcp') or 'mcp'
+        
+        logger.info(f"图表生成成功: {chart_config.chart_type}, 数据点: {len(chart_config.data)}, 方法: {method}")
         
         return ChartGenerationResponse(
             success=True,
@@ -106,7 +109,7 @@ async def generate_chart(request: ChartGenerationRequest):
             sql=query_result.sql,
             execution_time=execution_time,
             data_points=len(chart_config.data),
-            method="mcp"
+            method=method
         )
         
     except Exception as e:

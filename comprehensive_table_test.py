@@ -1060,7 +1060,7 @@ async def main():
     elif choice == "2":
         # 创建Web界面
         html_content = create_test_interface()
-        with open("/workspace/mcp_table_test_interface.html", "w", encoding="utf-8") as f:
+        with open("mcp_table_test_interface.html", "w", encoding="utf-8") as f:
             f.write(html_content)
         
         print("✅ Web测试界面已创建: mcp_table_test_interface.html")

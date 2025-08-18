@@ -3,8 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'services/api_client.dart';
 import 'models/asset_stats.dart';
 import 'models/trend_data.dart';
-// 导入新的图表系统
 import 'pages/main_app_demo.dart';
+import 'widgets/ai_chat_widget.dart'; // Added import for AIChatWidget
 
 void main() {
   runApp(const PersonalFinanceApp());
@@ -26,8 +26,8 @@ class PersonalFinanceApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFFF6F7FB),
       ),
-      // 使用新的主应用演示作为首页
-      home: const AppSelectionPage(),
+      // 暂时使用原版应用作为首页
+      home: const AssetHomePage(),
     );
   }
 }
@@ -527,7 +527,77 @@ class _AssetHomePageState extends State<AssetHomePage> {
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          // AI功能触发逻辑
+          // 弹出AI聊天界面
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => DraggableScrollableSheet(
+              initialChildSize: 0.9,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              builder: (context, scrollController) => Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Column(
+                  children: [
+                    // 拖拽指示器
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // 顶部关闭按钮
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'AI财务助手',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF10B981),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, color: Colors.grey),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.grey[100],
+                              shape: const CircleBorder(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // AI聊天界面
+                    Expanded(
+                      child: AIChatWidget(
+                        placeholder: '输入您想了解的财务问题...',
+                        onChartGenerated: (chart, question) {
+                          // 图表生成后的回调
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('图表已生成：$question'),
+                              backgroundColor: const Color(0xFF10B981),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
         },
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -564,8 +634,8 @@ class _AssetHomePageState extends State<AssetHomePage> {
               'AI',
               style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF10B981),
                 fontWeight: FontWeight.w600,
+                color: Color(0xFF10B981),
               ),
             ),
           ],
