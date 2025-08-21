@@ -32,9 +32,21 @@ class DeepSeekAIService:
     
     def _validate_config(self) -> bool:
         """验证API配置是否完整"""
+        logger.info(f"验证DeepSeek配置: api_key={'*' * 10 if self.api_key else '未设置'}, base_url={self.base_url}, model={self.model}")
+        
         if not self.api_key:
-            logger.error("DeepSeek API Key未配置，请检查环境变量")
+            logger.error("DeepSeek API Key未配置，请检查环境变量 DEEPSEEK_API_KEY")
             return False
+            
+        if not self.base_url:
+            logger.error("DeepSeek API Base URL未配置，请检查环境变量 DEEPSEEK_API_BASE_URL")
+            return False
+            
+        if not self.model:
+            logger.error("DeepSeek Model未配置，请检查环境变量 DEEPSEEK_MODEL")
+            return False
+            
+        logger.info("✅ DeepSeek配置验证通过")
         return True
     
     async def chat_completion(
@@ -112,13 +124,38 @@ class DeepSeekAIService:
         """
         system_prompt = """你是一个专业的金融数据分析师。根据用户的问题，分析数据需求并生成相应的SQL查询。
 
-数据库表结构：
-- asset_snapshot: 资产快照表
-  - platform: 平台名称
-  - asset_type: 资产类型
+数据库表结构（详细Schema）：
+- asset_snapshot: 资产快照表 - 核心分析数据源
+  - platform: 平台名称 (支付宝, Wise, IBKR, OKX, Web3)
+  - asset_type: 资产类型 (基金, 外汇, 股票, 数字货币, 现金, 储蓄)
+  - asset_code: 资产代码 (如: 005827, USD, AAPL, BTC)
   - asset_name: 资产名称
-  - balance_cny: 人民币余额
-  - snapshot_time: 快照时间
+  - balance_cny: 人民币余额 - 主要分析字段（可能为NULL）
+  - snapshot_time: 快照时间 - 用于时间序列分析
+
+- user_operations: 用户操作记录表 - 交易历史分析
+  - operation_date: 操作时间
+  - platform: 操作平台
+  - operation_type: 操作类型 (买入, 卖出, 转账, 分红)
+  - amount: 操作金额
+  - quantity: 操作数量
+  - price: 价格
+
+- asset_positions: 当前资产持仓表 - 实时持仓状态
+  - quantity: 持仓数量
+  - current_value: 当前价值
+  - total_invested: 总投入
+  - total_profit: 总收益
+  - profit_rate: 收益率
+
+重要提示：
+1. balance_cny字段可能为NULL，需要使用COALESCE(balance_cny, 0)处理
+2. 按平台分析时，使用：SELECT platform, SUM(COALESCE(balance_cny, 0)) as total_balance FROM asset_snapshot GROUP BY platform
+3. 按资产类型分析时，使用：SELECT asset_type, SUM(COALESCE(balance_cny, 0)) as total_balance FROM asset_snapshot GROUP BY asset_type
+4. 时间分析时，使用：DATE_TRUNC('day', snapshot_time) 或 DATE_TRUNC('month', snapshot_time)
+5. 总是使用COALESCE处理NULL值，确保计算结果准确
+6. 支持的时间函数：NOW(), INTERVAL, DATE_TRUNC
+7. 支持的聚合函数：SUM, COUNT, AVG, MAX, MIN
 
 请根据问题生成合适的SQL查询，并建议图表类型。返回JSON格式：
 {
@@ -133,25 +170,34 @@ class DeepSeekAIService:
         ]
         
         try:
+            logger.info(f"开始调用DeepSeek API: question='{question}', context='{context or '无'}'")
             result = await self.chat_completion(messages, system_prompt, temperature=0.3)
             
             if result and 'choices' in result:
                 content = result['choices'][0]['message']['content']
+                logger.info(f"DeepSeek原始响应: {content}")
                 
                 # 尝试解析JSON响应
                 try:
                     analysis_result = json.loads(content)
-                    logger.info(f"DeepSeek分析结果: {analysis_result}")
+                    logger.info(f"✅ DeepSeek分析结果解析成功: {analysis_result}")
                     return analysis_result
-                except json.JSONDecodeError:
-                    logger.warning(f"DeepSeek返回内容不是有效JSON: {content}")
+                except json.JSONDecodeError as json_error:
+                    logger.warning(f"❌ DeepSeek返回内容不是有效JSON: {content}")
+                    logger.warning(f"JSON解析错误: {json_error}")
                     # 尝试提取SQL和图表类型
-                    return self._extract_from_text(content, question)
-            
-            return None
+                    fallback_result = self._extract_from_text(content, question)
+                    logger.info(f"使用备选方案: {fallback_result}")
+                    return fallback_result
+            else:
+                logger.warning(f"DeepSeek API响应格式异常: {result}")
+                return None
             
         except Exception as e:
-            logger.error(f"DeepSeek分析异常: {e}")
+            logger.error(f"💥 DeepSeek分析异常: {e}")
+            logger.error(f"异常类型: {type(e).__name__}")
+            import traceback
+            logger.error(f"异常堆栈: {traceback.format_exc()}")
             return None
     
     def _extract_from_text(self, text: str, question: str) -> Dict[str, Any]:
@@ -167,8 +213,9 @@ class DeepSeekAIService:
             chart_type = "bar"
         
         return {
-            "sql": "SELECT platform, SUM(balance_cny) as total_value, COUNT(*) as asset_count FROM asset_snapshot WHERE snapshot_time = (SELECT MAX(snapshot_time) FROM asset_snapshot) GROUP BY platform ORDER BY total_value DESC",
+            "sql": "SELECT platform, SUM(COALESCE(balance_cny, 0)) as total_value, COUNT(*) as asset_count FROM asset_snapshot WHERE snapshot_time = (SELECT MAX(snapshot_time) FROM asset_snapshot) GROUP BY platform ORDER BY total_value DESC",
             "chart_type": chart_type,
+            "description": f"基于'{question}'的数据分析",
             "description": f"基于'{question}'的数据分析",
             "analysis": "使用DeepSeek AI分析生成"
         }

@@ -33,7 +33,7 @@ class MCPDatabaseClient:
     
     def __init__(self, mcp_server_url: str = "http://localhost:3001", use_mock: bool = False):
         self.mcp_server_url = mcp_server_url
-        self.use_mock = use_mock
+        self.use_mock = False  # 强制使用真实AI，不使用mock
         self.session = None
         self.timeout = aiohttp.ClientTimeout(total=30)
         
@@ -107,7 +107,7 @@ class MCPDatabaseClient:
         self.query_templates = {
             "platform_distribution": {
                 "sql": """
-                    SELECT platform, SUM(balance_cny) as total_value, COUNT(*) as asset_count
+                    SELECT platform, SUM(COALESCE(balance_cny, 0)) as total_value, COUNT(*) as asset_count
                     FROM asset_snapshot 
                     WHERE snapshot_time = (SELECT MAX(snapshot_time) FROM asset_snapshot)
                     GROUP BY platform 
@@ -118,7 +118,7 @@ class MCPDatabaseClient:
             },
             "asset_type_distribution": {
                 "sql": """
-                    SELECT asset_type, SUM(balance_cny) as total_value, COUNT(*) as asset_count
+                    SELECT asset_type, SUM(COALESCE(balance_cny, 0)) as total_value, COUNT(*) as asset_count
                     FROM asset_snapshot 
                     WHERE snapshot_time = (SELECT MAX(snapshot_time) FROM asset_snapshot)
                     GROUP BY asset_type 
@@ -282,12 +282,15 @@ class MCPDatabaseClient:
         try:
             # 1. 尝试使用DeepSeek AI分析问题
             logger.info(f"使用DeepSeek AI分析问题: {question}")
+            logger.info(f"DeepSeek配置: api_key={'*' * 10 if self.deepseek_service.api_key else '未设置'}, base_url={self.deepseek_service.base_url}, model={self.deepseek_service.model}")
+            
             ai_analysis = await self.deepseek_service.analyze_financial_question(question)
             
             if ai_analysis and ai_analysis.get('sql'):
                 # DeepSeek AI成功生成SQL，直接执行
                 generated_sql = ai_analysis['sql']
                 logger.info(f"DeepSeek AI生成的SQL: {generated_sql}")
+                logger.info(f"DeepSeek AI分析结果: {ai_analysis}")
                 
                 # 执行生成的SQL
                 sql_result = await self.execute_sql(generated_sql)
@@ -296,13 +299,18 @@ class MCPDatabaseClient:
                 if sql_result.success:
                     sql_result.ai_analysis = ai_analysis
                     sql_result.method = "deepseek_ai"
+                    logger.info("✅ DeepSeek AI调用成功，使用AI生成的SQL")
                 
                 return sql_result
             else:
-                logger.info("DeepSeek AI未返回有效SQL，尝试MCP服务器")
+                logger.warning(f"DeepSeek AI未返回有效SQL: {ai_analysis}")
+                logger.info("尝试MCP服务器")
         
         except Exception as e:
-            logger.warning(f"DeepSeek AI分析失败，回退到MCP服务器: {e}")
+            logger.error(f"DeepSeek AI分析失败，回退到MCP服务器: {e}")
+            logger.error(f"异常详情: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"异常堆栈: {traceback.format_exc()}")
         
         # 2. 如果DeepSeek AI失败，回退到MCP服务器
         try:
@@ -383,7 +391,7 @@ class MCPDatabaseClient:
         import os
         
         # 加载完整的Schema信息
-        schema_file = os.path.join(os.path.dirname(__file__), "../../../database_schema_for_mcp.json")
+        schema_file = os.path.join(os.path.dirname(__file__), "../../config/database_schema_for_mcp.json")
         try:
             with open(schema_file, 'r', encoding='utf-8') as f:
                 full_schema = json.load(f)

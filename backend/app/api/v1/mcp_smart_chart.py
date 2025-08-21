@@ -73,14 +73,22 @@ async def generate_chart(request: ChartGenerationRequest):
     start_time = datetime.now()
     
     try:
-        logger.info(f"接收到图表生成请求: {request.question}")
+        logger.info(f"🚀 接收到图表生成请求: {request.question}")
+        logger.info(f"📍 请求参数: base_currency={request.base_currency}, max_rows={request.max_rows}")
         
         # 1. 使用MCP客户端查询数据
+        logger.info(f"🔍 开始调用MCP客户端...")
         async with MCPDatabaseClient(MCP_SERVER_URL, use_mock=False) as client:
             query_result = await client.natural_language_query(request.question)
         
+        logger.info(f"📊 MCP查询结果: success={query_result.success}, method={query_result.method}")
+        if query_result.sql:
+            logger.info(f"🔍 生成的SQL: {query_result.sql}")
+        if query_result.data:
+            logger.info(f"📈 数据条数: {len(query_result.data)}")
+        
         if not query_result.success:
-            logger.error(f"MCP查询失败: {query_result.error}")
+            logger.error(f"❌ MCP查询失败: {query_result.error}")
             return ChartGenerationResponse(
                 success=False,
                 error=f"数据查询失败: {query_result.error}",
@@ -89,6 +97,7 @@ async def generate_chart(request: ChartGenerationRequest):
             )
         
         # 2. 使用图表配置生成器创建图表配置
+        logger.info(f"🎨 开始生成图表配置...")
         config_generator = ChartConfigGenerator()
         chart_config = config_generator.generate_config(
             query_result.data,
@@ -97,11 +106,11 @@ async def generate_chart(request: ChartGenerationRequest):
         )
         
         execution_time = (datetime.now() - start_time).total_seconds()
+        logger.info(f"✅ 图表生成完成，耗时: {execution_time:.2f}秒")
         
-        # 获取实际使用的方法（DeepSeek AI 或 MCP）
-        method = getattr(query_result, 'method', 'mcp') or 'mcp'
-        
-        logger.info(f"图表生成成功: {chart_config.chart_type}, 数据点: {len(chart_config.data)}, 方法: {method}")
+        # 3. 返回响应
+        method = query_result.method or "mcp"
+        logger.info(f"📤 返回响应: method={method}, data_points={len(chart_config.data)}")
         
         return ChartGenerationResponse(
             success=True,
@@ -114,8 +123,7 @@ async def generate_chart(request: ChartGenerationRequest):
         
     except Exception as e:
         execution_time = (datetime.now() - start_time).total_seconds()
-        logger.error(f"图表生成异常: {e}")
-        
+        logger.error(f"💥 图表生成异常: {e}", exc_info=True)
         return ChartGenerationResponse(
             success=False,
             error=f"图表生成异常: {str(e)}",

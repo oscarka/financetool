@@ -212,6 +212,14 @@ app.include_router(
     tags=["MCP智能图表"]
 )
 
+# 注册AI聊天接口
+from app.api.v1.ai_chat import router as ai_chat_router
+app.include_router(
+    ai_chat_router,
+    prefix=f"{settings.api_v1_prefix}/ai-chat",
+    tags=["AI聊天"]
+)
+
 
 @app.get("/")
 async def root():
