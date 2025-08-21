@@ -66,7 +66,7 @@ class _DeepAnalysisPageState extends State<DeepAnalysisPage>
     });
 
     try {
-      final chart = await MCPChartAdapter.generateProfessionalChart(question);
+      final chart = await MCPChartAdapter.generateChartResponse(question);
       
       setState(() {
         _charts.insert(0, chart); // 最新图表显示在顶部

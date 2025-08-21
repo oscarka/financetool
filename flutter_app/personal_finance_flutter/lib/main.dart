@@ -4,6 +4,7 @@ import 'services/api_client.dart';
 import 'models/asset_stats.dart';
 import 'models/trend_data.dart';
 import 'pages/main_app_demo.dart';
+import 'pages/analysis_page.dart'; // Added import for AnalysisPage
 import 'widgets/ai_chat_widget.dart'; // Added import for AIChatWidget
 
 void main() {
@@ -498,7 +499,13 @@ class _AssetHomePageState extends State<AssetHomePage> {
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          // 这里可以添加页面切换逻辑
+          if (index == 1) { // 行情按钮
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const AnalysisPage(),
+              ),
+            );
+          }
         },
         child: Column(
           mainAxisSize: MainAxisSize.min,

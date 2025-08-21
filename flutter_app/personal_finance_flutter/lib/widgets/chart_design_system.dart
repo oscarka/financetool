@@ -150,7 +150,7 @@ class StandardChartContainer extends StatelessWidget {
           
           // 图表内容
           Container(
-            height: height ?? 280,
+            height: height ?? 320, // 增加默认高度，给图表更多空间
             padding: padding ?? const EdgeInsets.fromLTRB(16, 0, 16, 20),
             child: child,
           ),
@@ -186,6 +186,11 @@ class _ProfessionalPieChartState extends State<ProfessionalPieChart> {
 
   @override
   Widget build(BuildContext context) {
+    print('🥧 ProfessionalPieChart build 开始');
+    print('📊 数据条数: ${widget.data.length}');
+    print('📝 数据内容: ${widget.data.map((e) => '${e.label}:${e.value}(${e.percentage.toStringAsFixed(1)}%)').join(', ')}');
+    print('🎨 显示设置: showValues=${widget.showValues}, showLegend=${widget.showLegend}');
+    
     return StandardChartContainer(
       title: widget.title,
       subtitle: widget.subtitle,
@@ -193,17 +198,19 @@ class _ProfessionalPieChartState extends State<ProfessionalPieChart> {
         children: [
           // 饼图
           Expanded(
-            flex: 3,
+            flex: 5, // 增加饼图的比例，给图例留更多空间
             child: PieChart(
               PieChartData(
-                centerSpaceRadius: 35,
-                sectionsSpace: 2,
+                centerSpaceRadius: 25, // 进一步减小中心空间
+                sectionsSpace: 0.5, // 进一步减小切片间距
                 startDegreeOffset: -90,
                 sections: widget.data.asMap().entries.map((entry) {
                   final index = entry.key;
                   final data = entry.value;
                   final isTouched = index == touchedIndex;
-                  final radius = isTouched ? 65.0 : 55.0;
+                  final radius = isTouched ? 55.0 : 45.0; // 进一步减小半径，避免溢出
+                  
+                  print('  🎯 构建饼图切片 $index: ${data.label} = ${data.value} (${data.percentage.toStringAsFixed(1)}%)');
                   
                   return PieChartSectionData(
                     color: data.color,
@@ -244,21 +251,28 @@ class _ProfessionalPieChartState extends State<ProfessionalPieChart> {
           
           // 图例
           if (widget.showLegend) ...[
-            const SizedBox(width: 20),
+            const SizedBox(width: 8), // 进一步减小图例与饼图的间距
             Expanded(
-              flex: 2,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: widget.data.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final data = entry.value;
-                  final isSelected = index == touchedIndex;
-                  
-                  return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: _buildLegendItem(data, isSelected),
-                  );
-                }).toList(),
+              flex: 2, // 增加图例的比例，确保有足够空间
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 120), // 限制图例最大宽度
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start, // 改为顶部对齐，避免居中导致的溢出
+                    mainAxisSize: MainAxisSize.min, // 确保Column不会超出可用空间
+                    crossAxisAlignment: CrossAxisAlignment.start, // 确保图例项左对齐
+                    children: widget.data.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final data = entry.value;
+                      final isSelected = index == touchedIndex;
+                      
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 1), // 进一步减小图例项间距
+                        child: _buildLegendItem(data, isSelected),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
             ),
           ],
@@ -696,4 +710,224 @@ class CustomLineChartData {
     required this.value,
     required this.formattedValue,
   });
+}
+
+/// 新的组合式图表组件 - 方案B
+/// 组件职责单一，结构清晰，易于维护
+
+/// 图表头部组件
+class ChartHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget? action;
+
+  const ChartHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 20, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: ChartDesignSystem.cardShadow,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: ChartDesignSystem.titleStyle),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(subtitle!, style: ChartDesignSystem.subtitleStyle),
+                ],
+              ],
+            ),
+          ),
+          if (action != null) action!,
+        ],
+      ),
+    );
+  }
+}
+
+/// 图表内容区域组件
+class ChartBody extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets? padding;
+  final double? height;
+
+  const ChartBody({
+    super.key,
+    required this.child,
+    this.padding,
+    this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height ?? 280,
+      padding: padding ?? const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// 图表图例组件
+class ChartLegend extends StatelessWidget {
+  final List<CustomPieChartData> data;
+  final int? selectedIndex;
+  final Function(int)? onItemTap;
+
+  const ChartLegend({
+    super.key,
+    required this.data,
+    this.selectedIndex,
+    this.onItemTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: data.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          final isSelected = index == selectedIndex;
+          
+          return GestureDetector(
+            onTap: () => onItemTap?.call(index),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? item.color.withOpacity(0.1) : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: isSelected ? Border.all(color: item.color.withOpacity(0.3)) : null,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: item.color,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.label,
+                          style: ChartDesignSystem.labelStyle.copyWith(
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          item.formattedValue,
+                          style: ChartDesignSystem.labelStyle.copyWith(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+/// 主要的组合式图表组件
+class ChartWidget extends StatefulWidget {
+  final String title;
+  final String? subtitle;
+  final Widget chartContent;
+  final List<CustomPieChartData>? legendData;
+  final bool showLegend;
+  final Widget? headerAction;
+
+  const ChartWidget({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.chartContent,
+    this.legendData,
+    this.showLegend = true,
+    this.headerAction,
+  });
+
+  @override
+  State<ChartWidget> createState() => _ChartWidgetState();
+}
+
+class _ChartWidgetState extends State<ChartWidget> {
+  int selectedIndex = -1;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: ChartDesignSystem.cardShadow,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 头部
+          ChartHeader(
+            title: widget.title,
+            subtitle: widget.subtitle,
+            action: widget.headerAction,
+          ),
+          
+          // 图表内容
+          ChartBody(
+            height: 280,
+            child: widget.chartContent,
+          ),
+          
+          // 图例（如果启用）
+          if (widget.showLegend && widget.legendData != null)
+            ChartLegend(
+              data: widget.legendData!,
+              selectedIndex: selectedIndex,
+              onItemTap: (index) {
+                setState(() {
+                  selectedIndex = selectedIndex == index ? -1 : index;
+                });
+              },
+            ),
+        ],
+      ),
+    );
+  }
 }

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from typing import Dict, List, Any, Optional
 import logging
 import asyncio
+import os
 from datetime import datetime
 
 from app.services.mcp_client import MCPDatabaseClient, MCPQueryResult
@@ -43,7 +44,7 @@ class HealthCheckResponse(BaseModel):
 router = APIRouter(prefix="/mcp-smart-chart", tags=["MCP智能图表"])
 
 # 全局MCP客户端配置
-MCP_SERVER_URL = "http://localhost:3001"
+MCP_SERVER_URL = os.getenv('MCP_SERVER_URL', 'http://localhost:3001')
 
 @router.get("/health", response_model=HealthCheckResponse)
 async def health_check():

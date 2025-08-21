@@ -31,16 +31,21 @@ class MCPQueryResult:
 class MCPDatabaseClient:
     """MCP数据库客户端"""
     
-    def __init__(self, mcp_server_url: str = "http://localhost:3001", use_mock: bool = False):
+    def __init__(self, mcp_server_url: str = None, use_mock: bool = False):
+        # 从环境变量获取MCP服务地址，如果没有则使用默认值
+        if mcp_server_url is None:
+            import os
+            mcp_server_url = os.getenv('MCP_SERVER_URL', 'http://localhost:3001')
+        
         self.mcp_server_url = mcp_server_url
-        self.use_mock = False  # 强制使用真实AI，不使用mock
+        self.use_mock = use_mock
         self.session = None
         self.timeout = aiohttp.ClientTimeout(total=30)
         
         # 初始化DeepSeek AI服务
         self.deepseek_service = DeepSeekAIService()
         
-        # 数据库连接配置
+        # 数据库连接配置（保留用于备用）
         self.db_config = {
             'host': 'localhost',
             'port': 5432,

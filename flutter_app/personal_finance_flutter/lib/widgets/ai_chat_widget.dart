@@ -4,7 +4,9 @@ import 'mcp_chart_adapter.dart';
 import 'chart_preview_modal.dart';
 import 'chart_intent_dialog.dart';
 import 'chart_save_dialog.dart';
+import '../pages/fullscreen_chart_page.dart';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 /// AI聊天交互组件 - 支持生成图表并保存
 class AIChatWidget extends StatefulWidget {
@@ -65,6 +67,14 @@ class _AIChatWidgetState extends State<AIChatWidget>
         isUser: false,
         timestamp: DateTime.now(),
         messageType: ChatMessageType.welcome,
+      ));
+      
+      // 添加测试按钮
+      _messages.add(ChatMessage(
+        text: '',
+        isUser: false,
+        timestamp: DateTime.now(),
+        messageType: ChatMessageType.test,
       ));
     });
   }
@@ -142,68 +152,144 @@ class _AIChatWidgetState extends State<AIChatWidget>
     showDialog(
       context: context,
       builder: (context) => ChartIntentDialog(
-        userQuestion: originalQuestion,
-        detectedChartType: chartType,
-        onConfirm: (confirmed, modifiedQuestion) {
-          if (confirmed) {
-            final finalQuestion = modifiedQuestion ?? originalQuestion;
-            _generateChartResponse(finalQuestion);
-          }
-        },
+      userQuestion: originalQuestion,
+      detectedChartType: chartType,
+      onConfirm: (confirmed, modifiedQuestion) {
+        if (confirmed) {
+          final finalQuestion = modifiedQuestion ?? originalQuestion;
+          _generateChartResponse(finalQuestion);
+        }
+      },
       ),
     );
   }
 
   /// 生成图表响应
-  Future<void> _generateChartResponse(String question) async {
+  void _generateChartResponse(String question) async {
+    setState(() {
+      _isLoading = true; // Changed from _isGenerating to _isLoading
+    });
+
     try {
-      // 生成图表
-      final chart = await MCPChartAdapter.generateProfessionalChart(question);
+      // 使用真实的图表生成方法
+      final chartWidget = await MCPChartAdapter.generateChartResponse(question);
       
-      // 添加AI回复
       setState(() {
         _messages.add(ChatMessage(
-          text: '我为您生成了专业的数据分析图表：',
-          isUser: false,
+          text: question,
+          isUser: true,
           timestamp: DateTime.now(),
           messageType: ChatMessageType.text,
         ));
         
+        // 从MCPChartAdapter中获取最新的图表数据
+        List<dynamic>? chartData;
+        Map<String, dynamic>? aiAnalysis;
+        
+        try {
+          print('🔍 尝试从MCPChartAdapter获取最新图表数据...');
+          chartData = MCPChartAdapter.lastChartData;
+          if (chartData != null) {
+            print('✅ 获取到图表数据: ${chartData.length} 项');
+            print('📊 数据预览: ${chartData.take(3).map((e) => '${e['label']}:${e['value']}').join(', ')}');
+          } else {
+            print('⚠️  未获取到图表数据');
+          }
+        } catch (e) {
+          print('❌ 获取图表数据失败: $e');
+        }
+        
         _messages.add(ChatMessage(
-          text: question,
+          text: '',
           isUser: false,
           timestamp: DateTime.now(),
+          chartWidget: chartWidget,
           messageType: ChatMessageType.chart,
-          chartWidget: chart,
           originalQuestion: question,
-          chartType: _determineChartType(question), // 自动判断图表类型
+          chartData: chartData,
+          aiAnalysis: aiAnalysis,
         ));
+        
+        _isLoading = false; // Changed from _isGenerating to _isLoading
+      });
+      
+      // 滚动到底部
+      _scrollToBottom();
+      
+    } catch (e) {
+      setState(() {
+        _messages.add(ChatMessage(
+          text: '生成图表时发生错误: $e',
+          isUser: false,
+          timestamp: DateTime.now(),
+          messageType: ChatMessageType.text,
+        ));
+        _isLoading = false; // Changed from _isGenerating to _isLoading
       });
       
       _scrollToBottom();
-      _fadeController.forward();
-      
-    } catch (e) {
-      _addErrorMessage('生成图表时出现问题，请稍后再试。');
     }
   }
 
   /// 生成文本响应
   Future<void> _generateTextResponse(String question) async {
-    await Future.delayed(const Duration(milliseconds: 800)); // 模拟处理时间
-    
-    String response = _generateSmartResponse(question);
-    
     setState(() {
-      _messages.add(ChatMessage(
-        text: response,
-        isUser: false,
-        timestamp: DateTime.now(),
-        messageType: ChatMessageType.text,
-      ));
+      _isLoading = true;
     });
     
-    _scrollToBottom();
+    try {
+      // 调用AI生成回复
+      final aiResponse = await _callAITextAPI(question);
+      
+      setState(() {
+        _messages.add(ChatMessage(
+          text: aiResponse,
+          isUser: false,
+          timestamp: DateTime.now(),
+          messageType: ChatMessageType.text,
+        ));
+        _isLoading = false;
+      });
+      
+      _scrollToBottom();
+      
+    } catch (e) {
+      print('❌ AI文本回复失败: $e');
+      // 回退到智能模板回复
+      String fallbackResponse = _generateSmartResponse(question);
+      
+      setState(() {
+        _messages.add(ChatMessage(
+          text: fallbackResponse,
+          isUser: false,
+          timestamp: DateTime.now(),
+          messageType: ChatMessageType.text,
+        ));
+        _isLoading = false;
+      });
+      
+      _scrollToBottom();
+    }
+  }
+  
+  /// 调用AI文本API
+  Future<String> _callAITextAPI(String question) async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:8000/api/v1/ai-chat/text'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'question': question}),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['response'] ?? '抱歉，AI回复生成失败';
+      } else {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('AI API调用失败: $e');
+    }
   }
 
   /// 生成智能回复
@@ -261,35 +347,35 @@ class _AIChatWidgetState extends State<AIChatWidget>
     showDialog(
       context: context,
       builder: (context) => ChartSaveDialog(
-        chartWidget: chart,
-        question: question,
-        chartType: chartType,
-        onConfirm: (confirmed, customName) {
-          if (confirmed) {
-            widget.onChartGenerated?.call(chart, question);
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(customName != null 
-                    ? '"$customName" 已保存到深度分析页面'
-                    : '图表已保存到深度分析页面'),
-                backgroundColor: ChartDesignSystem.secondary,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                action: SnackBarAction(
-                  label: '查看',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    // 这里可以导航到深度分析页面
-                    Navigator.pushNamed(context, '/deep-analysis');
-                  },
-                ),
+      chartWidget: chart,
+      question: question,
+      chartType: chartType,
+      onConfirm: (confirmed, customName) {
+        if (confirmed) {
+          widget.onChartGenerated?.call(chart, question);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(customName != null 
+                  ? '"$customName" 已保存到深度分析页面'
+                  : '图表已保存到深度分析页面'),
+              backgroundColor: ChartDesignSystem.secondary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            );
-          }
-        },
+              action: SnackBarAction(
+                label: '查看',
+                textColor: Colors.white,
+                onPressed: () {
+                  // 这里可以导航到深度分析页面
+                  Navigator.pushNamed(context, '/deep-analysis');
+                },
+              ),
+            ),
+          );
+        }
+      },
       ),
     );
   }
@@ -408,6 +494,8 @@ class _AIChatWidgetState extends State<AIChatWidget>
               ),
               child: message.messageType == ChatMessageType.chart
                   ? _buildChartMessage(message)
+                  : message.messageType == ChatMessageType.test
+                      ? _buildTestMessage()
                   : _buildTextMessage(message),
             ),
           ),
@@ -629,15 +717,202 @@ class _AIChatWidgetState extends State<AIChatWidget>
   void _openChartPreview(ChatMessage message) {
     if (message.chartWidget == null) return;
     
-    showDialog(
-      context: context,
-      builder: (context) => ChartPreviewModal(
-        chartWidget: message.chartWidget!,
-        question: message.originalQuestion ?? message.text,
-        chartType: message.chartType ?? 'chart',
-        onSaveChart: widget.onChartGenerated,
+    // 根据图表类型生成全屏图表内容
+    Widget fullscreenChartContent;
+    List<CustomPieChartData>? legendData;
+    
+    if (message.chartWidget is Container) {
+      // 如果是缩略图容器，尝试从消息中提取真实数据
+      legendData = _extractRealLegendData(message);
+      
+      if (legendData != null && legendData.isNotEmpty) {
+        // 使用真实数据生成全屏饼图
+        fullscreenChartContent = MCPChartAdapter.buildFullscreenPieChart(
+          legendData,
+          message.originalQuestion ?? message.text,
+        );
+      } else {
+        // 如果没有真实数据，使用模拟数据
+        print('⚠️  未找到真实图例数据，使用模拟数据');
+        legendData = _createMockLegendData();
+        fullscreenChartContent = MCPChartAdapter.buildFullscreenPieChart(
+          legendData,
+          message.originalQuestion ?? message.text,
+        );
+      }
+    } else {
+      // 其他情况直接使用原组件
+      fullscreenChartContent = message.chartWidget!;
+      legendData = _createMockLegendData(); // 临时使用模拟数据
+    }
+    
+    // 跳转到全屏页面而不是弹窗
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => FullscreenChartPage(
+          title: message.originalQuestion ?? message.text,
+          subtitle: '基于真实数据生成',
+          chartContent: fullscreenChartContent,
+          legendData: legendData,
+          showLegend: true,
+        ),
       ),
     );
+  }
+  
+  /// 从消息中提取真实的图例数据
+  List<CustomPieChartData>? _extractRealLegendData(ChatMessage message) {
+    try {
+      print('🔍 尝试从消息中提取真实图例数据...');
+      
+      // 检查消息是否包含图表数据
+      if (message.chartData != null) {
+        print('✅ 找到图表数据: ${message.chartData}');
+        return _convertToLegendData(message.chartData!);
+      }
+      
+      // 检查消息是否包含AI分析结果
+      if (message.aiAnalysis != null) {
+        print('✅ 找到AI分析结果: ${message.aiAnalysis}');
+        final data = message.aiAnalysis!['data'] as List<dynamic>?;
+        if (data != null) {
+          return _convertToLegendData(data);
+        }
+      }
+      
+      print('⚠️  未找到真实图例数据');
+      return null;
+    } catch (e) {
+      print('❌ 提取真实图例数据失败: $e');
+      return null;
+    }
+  }
+  
+  /// 转换数据为图例格式
+  List<CustomPieChartData> _convertToLegendData(List<dynamic> data) {
+    try {
+      print('🔄 转换数据为图例格式...');
+      print('📊 原始数据: $data');
+      
+      final legendData = <CustomPieChartData>[];
+      
+      // 计算总值用于百分比计算
+      final total = data.fold(0.0, (sum, item) {
+        final value = (item['value'] ?? item['total_value'] ?? 0.0).toDouble();
+        return sum + value;
+      });
+      
+      print('💰 数据总值: $total');
+      
+      for (int i = 0; i < data.length; i++) {
+        final item = data[i];
+        final label = item['label'] ?? item['name'] ?? '未知${i + 1}';
+        final value = (item['value'] ?? item['total_value'] ?? 0.0).toDouble();
+        
+        // 计算百分比
+        final percentage = total > 0 ? (value / total * 100) : 0.0;
+        
+        // 格式化数值显示
+        String formattedValue;
+        if (item['total_value'] != null) {
+          final totalValue = item['total_value'];
+          if (totalValue is num) {
+            formattedValue = '¥${totalValue.toStringAsFixed(2)}';
+          } else {
+            formattedValue = '¥${value.toStringAsFixed(2)}';
+          }
+        } else {
+          formattedValue = '¥${value.toStringAsFixed(2)}';
+        }
+        
+        // 使用预定义的颜色或生成随机颜色
+        final color = _getColorForIndex(i, label);
+        
+        legendData.add(CustomPieChartData(
+          label: label,
+          value: value,
+          percentage: percentage,
+          color: color,
+          formattedValue: formattedValue,
+        ));
+        
+        print('  📊 转换项目: $label = $value (${percentage.toStringAsFixed(1)}%) - $formattedValue');
+      }
+      
+      print('✅ 图例数据转换完成: ${legendData.length} 项');
+      return legendData;
+    } catch (e) {
+      print('❌ 数据转换失败: $e');
+      print('💥 异常堆栈: ${StackTrace.current}');
+      return [];
+    }
+  }
+  
+  /// 根据索引和标签获取颜色
+  Color _getColorForIndex(int index, String label) {
+    // 预定义的颜色映射
+    const colorMap = {
+      'OKX': Color(0xFF8B5CF6),
+      'Wise': Color(0xFF10B981),
+      '支付宝': Color(0xFFF59E0B),
+      'IBKR': Color(0xFF3B82F6),
+      'PayPal': Color(0xFFEF4444),
+      'test': Color(0xFF8B5CF6),
+    };
+    
+    // 如果标签有预定义颜色，使用预定义颜色
+    if (colorMap.containsKey(label)) {
+      return colorMap[label]!;
+    }
+    
+    // 否则使用索引生成颜色
+    final colors = [
+      const Color(0xFF8B5CF6), // 紫色
+      const Color(0xFF10B981), // 绿色
+      const Color(0xFFF59E0B), // 橙色
+      const Color(0xFF3B82F6), // 蓝色
+      const Color(0xFFEF4444), // 红色
+      const Color(0xFF06B6D4), // 青色
+      const Color(0xFF8B5CF6), // 紫色
+      const Color(0xFF10B981), // 绿色
+    ];
+    
+    return colors[index % colors.length];
+  }
+
+  /// 创建模拟的图例数据用于测试（保留作为备用）
+  List<CustomPieChartData> _createMockLegendData() {
+    print('🎭 使用模拟图例数据');
+    return [
+      CustomPieChartData(
+        label: 'OKX',
+        value: 10.0,
+        percentage: 52.6,
+        color: const Color(0xFF8B5CF6),
+        formattedValue: '¥10.00',
+      ),
+      CustomPieChartData(
+        label: 'Wise',
+        value: 7.0,
+        percentage: 36.8,
+        color: const Color(0xFF10B981),
+        formattedValue: '¥7.00',
+      ),
+      CustomPieChartData(
+        label: '支付宝',
+        value: 1.0,
+        percentage: 5.3,
+        color: const Color(0xFFF59E0B),
+        formattedValue: '¥1.00',
+      ),
+      CustomPieChartData(
+        label: 'test',
+        value: 1.0,
+        percentage: 5.3,
+        color: const Color(0xFFEF4444),
+        formattedValue: '¥1.00',
+      ),
+    ];
   }
 
   /// 重新生成图表
@@ -699,6 +974,126 @@ class _AIChatWidgetState extends State<AIChatWidget>
   String _formatTime(DateTime time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
+
+  /// 构建测试消息
+  Widget _buildTestMessage() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '🧪 AI API 连接测试',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue[700],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '点击下方按钮测试AI API是否正常工作：',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.blue[600],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _testAIAPI('显示各平台的资产分布'),
+                  icon: const Icon(Icons.pie_chart, size: 18),
+                  label: const Text('测试饼图生成'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[600],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _testAIAPI('各平台资产对比分析'),
+                  icon: const Icon(Icons.bar_chart, size: 18),
+                  label: const Text('测试柱状图'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 测试AI API
+  void _testAIAPI(String question) async {
+    print('🧪 开始测试AI API: $question');
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 直接调用AI API
+      final chartWidget = await MCPChartAdapter.generateChartResponse(question);
+      
+      setState(() {
+        _messages.add(ChatMessage(
+          text: '🧪 测试问题: $question',
+          isUser: true,
+          timestamp: DateTime.now(),
+          messageType: ChatMessageType.text,
+        ));
+        
+        _messages.add(ChatMessage(
+          text: '',
+          isUser: false,
+          timestamp: DateTime.now(),
+          chartWidget: chartWidget,
+          messageType: ChatMessageType.chart,
+        ));
+        
+        _isLoading = false;
+      });
+      
+      _scrollToBottom();
+      
+    } catch (e) {
+      print('💥 AI API测试失败: $e');
+      setState(() {
+        _messages.add(ChatMessage(
+          text: '🧪 测试问题: $question',
+          isUser: true,
+          timestamp: DateTime.now(),
+          messageType: ChatMessageType.text,
+        ));
+        
+        _messages.add(ChatMessage(
+          text: '❌ AI API测试失败: $e',
+          isUser: false,
+          timestamp: DateTime.now(),
+          messageType: ChatMessageType.error,
+        ));
+        
+        _isLoading = false;
+      });
+      
+      _scrollToBottom();
+    }
+  }
 }
 
 /// 聊天消息数据类
@@ -710,6 +1105,8 @@ class ChatMessage {
   final Widget? chartWidget;
   final String? originalQuestion;
   final String? chartType; // 添加图表类型字段
+  final List<dynamic>? chartData; // 添加图表数据字段
+  final Map<String, dynamic>? aiAnalysis; // 添加AI分析结果字段
 
   ChatMessage({
     required this.text,
@@ -719,6 +1116,8 @@ class ChatMessage {
     this.chartWidget,
     this.originalQuestion,
     this.chartType,
+    this.chartData,
+    this.aiAnalysis,
   });
 }
 
@@ -728,6 +1127,7 @@ enum ChatMessageType {
   chart,
   welcome,
   error,
+  test, // 新增测试消息类型
 }
 
 /// AI聊天模态框

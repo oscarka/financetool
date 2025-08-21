@@ -3,240 +3,653 @@ import 'chart_design_system.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
+import 'package:fl_chart/fl_chart.dart';
 
 /// MCP图表适配器 - 将MCP返回的数据转换为设计系统格式
 class MCPChartAdapter {
-  static const String baseUrl = 'https://your-railway-backend.railway.app';
+  static const String baseUrl = 'http://localhost:8000'; // Try localhost instead of IP addresses
+  
+  // 全局变量存储最新的图表数据
+  static List<dynamic>? _lastChartData;
+  static List<CustomPieChartData>? _lastChartDataWithPercentage;
+  
+  /// 获取最新的图表数据
+  static List<dynamic>? get lastChartData => _lastChartData;
+  
+  /// 获取最新的图表数据（带百分比）
+  static List<CustomPieChartData>? get lastChartDataWithPercentage => _lastChartDataWithPercentage;
 
-  /// 从MCP服务生成专业图表
-  static Future<Widget> generateProfessionalChart(String userQuestion) async {
+  /// 生成图表响应
+  static Future<Widget> generateChartResponse(String question) async {
     try {
-      // 调用MCP智能图表API
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/v1/mcp-smart-chart/generate'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'question': userQuestion}),
-      );
-
-      if (response.statusCode == 200) {
-        final jsonData = jsonDecode(response.body);
-        return _buildProfessionalChart(jsonData, userQuestion);
+      print('🎯 ===== 开始生成图表响应 =====');
+      print('❓ 用户问题: $question');
+      print('⏰ 时间: ${DateTime.now()}');
+      
+      // 禁用mock模式，使用真实API
+      final useMock = false; // 强制使用真实API
+      print('🔧 Mock模式: $useMock');
+      
+      if (useMock) {
+        // Mock模式（已禁用）
+        print('🎭 使用Mock模式生成图表');
+        return _buildMockChart(question);
+      }
+      
+      // 真实API调用
+      print('🌐 ===== 开始调用真实AI API =====');
+      final response = await _callMCPAPI(question);
+      
+      print('📊 ===== AI API响应结果 =====');
+      print('📊 响应状态: ${response != null ? '成功' : '失败'}');
+      print('📊 响应内容: $response');
+      
+      if (response != null && response['success'] == true) {
+        final chartConfig = response['chart_config'] ?? {};
+        final chartType = chartConfig['chart_type'] ?? 'table';
+        final data = chartConfig['data'] ?? [];
+        final sql = response['sql'] ?? '';
+        final method = response['method'] ?? 'unknown';
+        
+        print('✅ ===== AI调用成功 =====');
+        print('📈 图表类型: $chartType');
+        print('📊 数据条数: ${data.length}');
+        print('🔍 SQL查询: $sql');
+        print('🤖 AI方法: $method');
+        print('📊 数据预览: ${data.take(3).map((e) => '${e['label']}:${e['value']}').join(', ')}');
+        
+        return _buildRealChart(chartType, data, question, sql);
       } else {
-        throw Exception('API调用失败: ${response.statusCode}');
+        // API调用失败，返回错误信息
+        final error = response?['error'] ?? '未知错误';
+        final statusCode = response?['status_code'];
+        print('❌ ===== AI调用失败 =====');
+        print('❌ 错误信息: $error');
+        print('❌ 状态码: $statusCode');
+        print('❌ 完整响应: $response');
+        return _buildErrorWidget(question, error);
       }
     } catch (e) {
-      // 使用模拟数据生成演示图表
-      return _buildMockChart(userQuestion);
+      print('💥 ===== 图表生成异常 =====');
+      print('💥 异常类型: ${e.runtimeType}');
+      print('💥 异常信息: $e');
+      print('💥 异常堆栈: ${StackTrace.current}');
+      return _buildErrorWidget(question, '请求异常: $e');
     }
   }
 
-  /// 构建专业图表组件
-  static Widget _buildProfessionalChart(Map<String, dynamic> mcpData, String question) {
-    final chartType = mcpData['chart_type']?.toString().toLowerCase() ?? 'bar';
-    final title = mcpData['title']?.toString() ?? _inferTitle(question);
-    final subtitle = mcpData['description']?.toString();
-    final rawData = mcpData['data'] as List<dynamic>? ?? [];
+  /// 调用MCP API
+  static Future<Map<String, dynamic>?> _callMCPAPI(String question) async {
+    try {
+      print('🚀 ===== 开始调用MCP API =====');
+      print('📍 API地址: $baseUrl/api/v1/mcp-smart-chart/generate');
+      print('❓ 用户问题: $question');
+      print('⏰ 请求时间: ${DateTime.now()}');
+      print('🔍 网络诊断开始...');
+      
+      // 测试网络连接
+      final uri = Uri.parse('$baseUrl/api/v1/mcp-smart-chart/generate');
+      print('🔗 URI解析结果: $uri');
+      print('🌐 主机: ${uri.host}');
+      print('🔌 端口: ${uri.port}');
+      print('📡 协议: ${uri.scheme}');
+      
+      // 尝试建立连接
+      print('🔌 开始建立HTTP连接...');
+      
+      // 先尝试简单的GET请求测试连接
+      try {
+        print('🧪 测试连接性...');
+        final testResponse = await http.get(Uri.parse('$baseUrl/health'));
+        print('✅ 连接测试成功: ${testResponse.statusCode}');
+        print('✅ 健康检查响应: ${testResponse.body}');
+      } catch (e) {
+        print('❌ 连接测试失败: $e');
+        print('⚠️  但继续尝试主要API调用...');
+      }
+      
+      print('📤 发送POST请求...');
+      print('📤 请求体: ${jsonEncode({'question': question})}');
+      
+      final stopwatch = Stopwatch()..start();
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'question': question}),
+      );
+      stopwatch.stop();
 
-    switch (chartType) {
+      print('📡 ===== HTTP响应结果 =====');
+      print('📡 响应状态码: ${response.statusCode}');
+      print('📡 响应时间: ${stopwatch.elapsedMilliseconds}ms');
+      print('📡 响应头: ${response.headers}');
+      print('📄 响应内容: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        print('✅ ===== MCP API调用成功 =====');
+        print('✅ 响应数据: $result');
+        print('✅ 数据大小: ${response.body.length} 字符');
+        return result;
+      } else {
+        print('❌ ===== MCP API调用失败 =====');
+        print('❌ 状态码: ${response.statusCode}');
+        print('❌ 错误响应: ${response.body}');
+        print('❌ 响应头: ${response.headers}');
+        return null;
+      }
+    } catch (e) {
+      print('💥 ===== MCP API调用异常 =====');
+      print('💥 异常类型: ${e.runtimeType}');
+      print('💥 异常详情: ${e.toString()}');
+      print('💥 异常堆栈: ${StackTrace.current}');
+      
+      // 如果是网络异常，提供更多诊断信息
+      if (e.toString().contains('SocketException')) {
+        print('🌐 ===== 网络诊断信息 =====');
+        print('   - 尝试连接: $baseUrl');
+        print('   - 可能原因: 网络权限、防火墙、端口被占用');
+        print('   - 建议: 检查Flutter网络权限设置');
+        print('   - 检查: 后端服务是否在8000端口运行');
+      } else if (e.toString().contains('TimeoutException')) {
+        print('⏰ ===== 超时诊断信息 =====');
+        print('   - 请求超时，可能原因:');
+        print('   - 1. 后端处理时间过长');
+        print('   - 2. 网络延迟过高');
+        print('   - 3. AI服务响应慢');
+      }
+      
+      return null;
+    }
+  }
+
+  /// 构建真实图表
+  static Widget _buildRealChart(String chartType, List<dynamic> data, String question, String sql) {
+    print('🔧 _buildRealChart 开始构建图表');
+    print('📊 图表类型: $chartType');
+    print('📈 数据条数: ${data.length}');
+    print('❓ 问题: $question');
+    
+    Widget result;
+    switch (chartType.toLowerCase()) {
       case 'pie':
-        return _buildProfessionalPieChart(rawData, title, subtitle);
-      case 'line':
-        return _buildProfessionalLineChart(rawData, title, subtitle);
+        print('🥧 选择构建饼图组件');
+        result = _buildRealPieChart(data, question);
+        print('✅ 饼图组件构建完成');
+        break;
       case 'bar':
-        return _buildProfessionalBarChart(rawData, title, subtitle);
+        print('📊 选择构建柱状图组件');
+        result = _buildRealBarChart(data, question);
+        print('✅ 柱状图组件构建完成');
+        break;
+      case 'line':
+        print('📈 选择构建折线图组件');
+        result = _buildRealLineChart(data, question);
+        print('✅ 折线图组件构建完成');
+        break;
       case 'table':
-        return _buildProfessionalTable(rawData, title, subtitle);
       default:
-        return _buildProfessionalBarChart(rawData, title, subtitle);
+        print('📋 选择构建表格组件');
+        result = _buildRealTable(data, question, sql);
+        print('✅ 表格组件构建完成');
+        break;
     }
+    
+    print('🎯 最终返回的组件类型: ${result.runtimeType}');
+    return result;
   }
 
-  /// 构建专业饼图
-  static Widget _buildProfessionalPieChart(List<dynamic> rawData, String title, String? subtitle) {
+  /// 构建真实饼图
+  static Widget _buildRealPieChart(List<dynamic> data, String question) {
+    print('🥧 _buildRealPieChart 开始构建饼图');
+    print('📊 输入数据: $data');
+
     // 转换数据格式
-    final chartData = rawData.map((item) {
-      final name = item['name']?.toString() ?? '未知';
-      final value = (item['value'] ?? 0.0).toDouble();
-      final totalValue = (item['total_value'] ?? 0.0).toDouble();
+    final chartData = data.map((item) {
+      final label = item['label'] ?? item['platform'] ?? '未知';
+      final value = (item['value'] ?? item['total_value'] ?? 0.0).toDouble();
+      final color = _getRandomColor();
+      final formattedValue = _formatValue(item['value'] ?? item['total_value'] ?? 0.0);
+      
+      print('  📝 转换数据项: label=$label, value=$value, color=$color');
       
       return CustomPieChartData(
-        label: name,
+        label: label,
         value: value,
-        percentage: value,
-        color: _getRandomColor(name),
-        formattedValue: totalValue > 0 ? '¥${totalValue.toStringAsFixed(2)}' : '¥0.00',
+        percentage: 0.0, // 稍后计算
+        color: color,
+        formattedValue: formattedValue,
       );
     }).toList();
 
-    return ProfessionalPieChart(
-      data: chartData,
-      title: title,
-      subtitle: subtitle,
-      showValues: true,
-      showLegend: true,
-    );
-  }
+    print('📊 转换后的图表数据: ${chartData.map((e) => '${e.label}:${e.value}').join(', ')}');
 
-  /// 构建专业柱状图
-  static Widget _buildProfessionalBarChart(List<dynamic> rawData, String title, String? subtitle) {
-    // 转换数据格式
-    final chartData = rawData.map((item) {
-      final name = item['name']?.toString() ?? '未知';
-      final value = (item['value'] ?? 0.0).toDouble();
-      final totalValue = (item['total_value'] ?? 0.0).toDouble();
+    // 计算百分比
+    final total = chartData.fold(0.0, (sum, item) => sum + item.value);
+    print('💰 数据总值: $total');
+    
+    final chartDataWithPercentage = chartData.map((item) {
+      final percentage = total > 0 ? (item.value / total * 100) : 0.0;
+      print('  📊 ${item.label}: ${item.value} / $total = ${percentage.toStringAsFixed(1)}%');
       
-      return CustomBarChartData(
-        label: name,
-        value: value,
-        color: _getRandomColor(name),
-        formattedValue: totalValue > 0 ? '¥${totalValue.toStringAsFixed(2)}' : '¥0.00',
+      return CustomPieChartData(
+        label: item.label,
+        value: item.value,
+        percentage: percentage,
+        color: item.color,
+        formattedValue: item.formattedValue,
       );
     }).toList();
 
-    return ProfessionalBarChart(
-      data: chartData,
-      title: title,
-      subtitle: subtitle,
-      showValues: true,
-      showGrid: true,
+    print('🎨 开始构建缩略图组件');
+    
+    // 构建缩略图（聊天中显示）
+    final result = Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题区域
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        question,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '基于真实数据生成',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // 缩略图区域
+          Container(
+            height: 200,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // 饼图缩略图
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: PieChart(
+                      PieChartData(
+                        centerSpaceRadius: 20,
+                        sectionsSpace: 1,
+                        startDegreeOffset: -90,
+                        sections: chartDataWithPercentage.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final data = entry.value;
+                          final radius = 60.0;
+                          
+                          return PieChartSectionData(
+                            color: data.color,
+                            value: data.value,
+                            title: '${data.percentage.toStringAsFixed(1)}%',
+                            radius: radius,
+                            titleStyle: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black54,
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // 图例缩略图
+                if (chartDataWithPercentage.isNotEmpty) ...[
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: chartDataWithPercentage.take(3).map((item) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: item.color,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                item.label,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
+    
+    print('✅ 缩略图组件构建完成');
+    print('🎯 _buildRealPieChart 返回组件类型: ${result.runtimeType}');
+    
+    // 将数据存储到全局变量中，供后续使用
+    _lastChartData = data;
+    _lastChartDataWithPercentage = chartDataWithPercentage;
+    
+    return result;
   }
 
-  /// 构建专业折线图
-  static Widget _buildProfessionalLineChart(List<dynamic> rawData, String title, String? subtitle) {
-    // 转换数据格式
-    final chartData = rawData.asMap().entries.map((entry) {
+  /// 构建全屏饼图组件
+  static Widget buildFullscreenPieChart(List<CustomPieChartData> data, String question) {
+    return PieChart(
+      PieChartData(
+        centerSpaceRadius: 20, // 减少中心空间，适合更扁的布局
+        sectionsSpace: 0.8, // 减少切片间距
+        startDegreeOffset: -90,
+        sections: data.asMap().entries.map((entry) {
       final index = entry.key;
       final item = entry.value;
-      final name = item['name']?.toString() ?? '未知';
-      final value = (item['value'] ?? 0.0).toDouble();
-      final totalValue = (item['total_value'] ?? 0.0).toDouble();
+          final radius = 50.0; // 减少半径，确保在200px高度内显示
+          
+          return PieChartSectionData(
+            color: item.color,
+            value: item.value,
+            title: '${item.percentage.toStringAsFixed(1)}%',
+            radius: radius,
+            titleStyle: const TextStyle(
+              fontSize: 10, // 减小字体大小
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black54,
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+  
+  /// 构建操作按钮
+  static Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建真实柱状图
+  static Widget _buildRealBarChart(List<dynamic> data, String question) {
+    print('📊 _buildRealBarChart 开始构建柱状图');
+    print('📊 输入数据: $data');
+    
+    final chartData = data.map((item) {
+      final label = item['label'] ?? item['platform'] ?? '未知';
+      final value = (item['value'] ?? item['total_value'] ?? 0.0).toDouble();
+      final color = _getRandomColor();
+      final formattedValue = _formatValue(item['value'] ?? item['total_value'] ?? 0.0);
       
-      return CustomLineChartData(
-        label: name,
+      print('  📝 转换数据项: label=$label, value=$value, color=$color');
+      
+      return CustomBarChartData(
+        label: label,
         value: value,
-        formattedValue: totalValue > 0 ? '¥${totalValue.toStringAsFixed(2)}' : '¥0.00',
+        color: color,
+        formattedValue: formattedValue,
       );
     }).toList();
 
-    return ProfessionalLineChart(
+    print('📊 转换后的图表数据: ${chartData.map((e) => '${e.label}:${e.value}').join(', ')}');
+
+    print('🎨 开始构建ProfessionalBarChart组件');
+    final barChart = ProfessionalBarChart(
       data: chartData,
-      title: title,
-      subtitle: subtitle,
+      title: '数据对比',
+      subtitle: '各平台资产价值分析',
       showValues: true,
-      showGrid: true,
-      showArea: true,
     );
-  }
+    print('✅ ProfessionalBarChart组件构建完成');
 
-  /// 构建专业数据表格
-  static Widget _buildProfessionalTable(List<dynamic> rawData, String title, String? subtitle) {
-    return StandardChartContainer(
-      title: title,
-      subtitle: subtitle,
-      child: _buildDataTable(rawData),
+    print('📦 开始构建StandardChartContainer');
+    final result = StandardChartContainer(
+      title: question,
+      subtitle: '基于真实数据生成',
+      child: barChart,
     );
-  }
-
-  /// 构建数据表格
-  static Widget _buildDataTable(List<dynamic> rawData) {
-    if (rawData.isEmpty) {
-      return const Center(
-        child: Text('暂无数据'),
-      );
-    }
-
-    // 推断列结构
-    final columns = _inferTableColumns(rawData);
+    print('✅ StandardChartContainer构建完成');
     
-    return DataTable(
-      headingRowColor: MaterialStateProperty.all(Colors.grey[50]),
-      headingRowHeight: 48,
-      dataRowHeight: 56,
-      headingTextStyle: ChartDesignSystem.labelStyle.copyWith(
-        fontWeight: FontWeight.w600,
-        color: Colors.grey[700],
+    print('🎯 _buildRealBarChart 返回组件类型: ${result.runtimeType}');
+    return result;
+  }
+
+  /// 构建真实折线图
+  static Widget _buildRealLineChart(List<dynamic> data, String question) {
+    final chartData = data.map((item) {
+      return CustomLineChartData(
+        label: item['label'] ?? item['date'] ?? '未知',
+        value: (item['value'] ?? item['total_value'] ?? 0.0).toDouble(),
+        formattedValue: _formatValue(item['value'] ?? item['total_value'] ?? 0.0),
+      );
+    }).toList();
+
+    return StandardChartContainer(
+      title: question,
+      subtitle: '基于真实数据生成',
+      child: ProfessionalLineChart(
+      data: chartData,
+        title: '趋势分析',
+        subtitle: '资产价值变化趋势',
+        showValues: true,
       ),
-      dataTextStyle: ChartDesignSystem.labelStyle,
-      columns: columns.map((column) {
-        return DataColumn(
-          label: Text(column['label']),
-        );
-      }).toList(),
-      rows: rawData.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        
-        return DataRow(
-          color: MaterialStateProperty.all(
-            index % 2 == 0 ? Colors.transparent : Colors.grey[25],
-          ),
-          cells: columns.map((column) {
-            final value = item[column['key']] ?? '';
-            final isNumeric = column['type'] == 'number';
-            
-            return DataCell(
-              Text(
-                isNumeric ? _formatCurrency(value.toDouble()) : value.toString(),
-                style: ChartDesignSystem.labelStyle.copyWith(
-                  fontWeight: isNumeric ? FontWeight.w600 : FontWeight.w500,
-                  color: isNumeric ? ChartDesignSystem.primary : null,
+    );
+  }
+
+  /// 构建真实表格
+  static Widget _buildRealTable(List<dynamic> data, String question, String sql) {
+    return StandardChartContainer(
+      title: question,
+      subtitle: '基于真实数据生成',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 数据概览
+          Row(
+            children: [
+              Expanded(
+                child: _buildDataCard(
+                  '数据条数',
+                  '${data.length}',
+                  const Color(0xFF10B981),
+                  Icons.analytics,
                 ),
               ),
-            );
-          }).toList(),
-        );
-      }).toList(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDataCard(
+                  '查询方式',
+                  'DeepSeek AI',
+                  const Color(0xFF3B82F6),
+                  Icons.psychology,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 数据表格
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[200]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                // 表头
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 2, child: Text('平台/类型', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(flex: 1, child: Text('数值', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(flex: 1, child: Text('详情', style: TextStyle(fontWeight: FontWeight.bold))),
+                    ],
+                  ),
+                ),
+                // 数据行
+                ...data.take(5).map((item) => Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          item['platform'] ?? item['label'] ?? '未知',
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          _formatValue(item['total_value'] ?? item['value'] ?? 0.0),
+                          style: TextStyle(
+                            color: Colors.green[700],
+        fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          item['asset_count']?.toString() ?? '1项',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ),
+                    ],
+                  ),
+                )).toList(),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  /// 推断表格列结构
-  static List<Map<String, dynamic>> _inferTableColumns(List<dynamic> rawData) {
-    if (rawData.isEmpty) return [];
-    
-    final sample = rawData.first as Map;
-    return sample.keys.map((key) {
-      final value = sample[key];
-      final isNumeric = value is num;
-      
-      return {
-        'key': key,
-        'label': _formatColumnLabel(key),
-        'type': isNumeric ? 'number' : 'text',
-      };
-    }).toList();
-  }
-
-  /// 格式化列标签
-  static String _formatColumnLabel(String key) {
-    final labelMap = {
-      'platform': '平台',
-      'asset_type': '资产类型',
-      'value': '价值',
-      'amount': '金额',
-      'balance': '余额',
-      'total': '总计',
-      'label': '名称',
-      'name': '名称',
-      'date': '日期',
-      'percentage': '占比',
-      'count': '数量',
-    };
-    
-    return labelMap[key] ?? key;
-  }
-
-  /// 格式化货币
-  static String _formatCurrency(double value) {
-    if (value.abs() >= 100000000) {
-      return '${(value / 100000000).toStringAsFixed(1)}亿';
-    } else if (value.abs() >= 10000) {
-      return '${(value / 10000).toStringAsFixed(1)}万';
-    } else if (value.abs() >= 1000) {
-      return '${(value / 1000).toStringAsFixed(1)}k';
-    } else {
-      return value.toStringAsFixed(0);
-    }
+  /// 构建错误组件
+  static Widget _buildErrorWidget(String question, String error) {
+    return StandardChartContainer(
+      title: '查询失败',
+      subtitle: '请检查问题描述或稍后重试',
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: ChartDesignSystem.danger, size: 20),
+              const SizedBox(width: 8),
+            Text(
+                question,
+              style: ChartDesignSystem.subtitleStyle,
+              ),
+            ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+            '错误信息: $error',
+              style: ChartDesignSystem.labelStyle.copyWith(
+              color: ChartDesignSystem.danger,
+              ),
+            ),
+          ],
+      ),
+    );
   }
 
   /// 构建模拟图表（当API不可用时）
@@ -1048,19 +1461,16 @@ class MCPChartAdapter {
   }
 
   /// 获取随机颜色
-  static Color _getRandomColor(String seed) {
+  static Color _getRandomColor() {
     final colors = [
-      const Color(0xFF10B981),
-      const Color(0xFF3B82F6),
-      const Color(0xFFF59E0B),
-      const Color(0xFFEF4444),
-      const Color(0xFF8B5CF6),
-      const Color(0xFF14B8A6),
-      const Color(0xFFEC4899),
+      const Color(0xFF10B981), // 绿色
+      const Color(0xFF3B82F6), // 蓝色
+      const Color(0xFF8B5CF6), // 紫色
+      const Color(0xFFF59E0B), // 黄色
+      const Color(0xFFEF4444), // 红色
+      const Color(0xFF06B6D4), // 青色
     ];
-    
-    final index = seed.hashCode.abs() % colors.length;
-    return colors[index];
+    return colors[DateTime.now().millisecond % colors.length];
   }
 
   /// 判断趋势是否为正
@@ -1095,6 +1505,18 @@ class MCPChartAdapter {
         painter: _MiniLineChartPainter(data),
       ),
     );
+  }
+
+  /// 格式化数值
+  static String _formatValue(dynamic value) {
+    final numValue = value is num ? value : 0.0;
+    if (numValue >= 10000) {
+      return '¥${(numValue / 10000).toStringAsFixed(2)}万';
+    } else if (numValue >= 1000) {
+      return '¥${numValue.toStringAsFixed(0)}';
+    } else {
+      return '¥${numValue.toStringAsFixed(2)}';
+    }
   }
 }
 
