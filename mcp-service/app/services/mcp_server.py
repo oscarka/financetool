@@ -198,18 +198,28 @@ class MCPServer:
         """自然语言查询处理"""
         start_time = datetime.now()
         
+        # 添加调试日志
+        logger.info(f"🔍 开始自然语言查询: question='{question}', ai_service='{ai_service}'")
+        logger.info(f"🔍 AI服务实例状态: ai_service={self.ai_service}, type={type(self.ai_service)}")
+        if self.ai_service:
+            logger.info(f"🔍 AI服务API密钥状态: api_key={'已设置' if self.ai_service.api_key else '未设置'}")
+        else:
+            logger.error("❌ AI服务实例为None！")
+        
         # 自动选择AI服务
         if ai_service == "auto":
             # 优先使用Claude（如果配置了API key）
-            if self.claude_ai.api_key:
+            if self.claude_ai and hasattr(self.claude_ai, 'api_key') and self.claude_ai.api_key:
                 ai_service = "claude"
             else:
                 ai_service = "deepseek"
         
+        logger.info(f"🔍 选择的AI服务: {ai_service}")
+        
         try:
             if ai_service == "claude":
                 # 使用Claude AI分析问题
-                if not self.claude_ai.api_key:
+                if not self.claude_ai or not hasattr(self.claude_ai, 'api_key') or not self.claude_ai.api_key:
                     logger.warning("Claude API Key未配置，回退到DeepSeek")
                     ai_service = "deepseek"
                 else:
@@ -239,6 +249,12 @@ class MCPServer:
                 # 使用DeepSeek AI分析问题
                 logger.info(f"使用DeepSeek AI分析问题: {question}")
                 
+                # 再次检查AI服务实例
+                if not self.ai_service:
+                    logger.error("❌ DeepSeek AI服务实例为None，无法继续")
+                    raise Exception("DeepSeek AI服务未初始化")
+                
+                logger.info(f"🔍 调用DeepSeek AI服务: {type(self.ai_service)}")
                 ai_analysis = await self.ai_service.analyze_financial_question(question)
                 
                 if ai_analysis and ai_analysis.get('sql'):
@@ -261,6 +277,9 @@ class MCPServer:
         
         except Exception as e:
             logger.error(f"AI分析失败: {e}")
+            logger.error(f"AI分析失败详情: {str(e)}")
+            import traceback
+            logger.error(f"AI分析失败堆栈: {traceback.format_exc()}")
         
         # 2. 如果AI失败，使用模板匹配
         try:
