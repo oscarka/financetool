@@ -49,20 +49,63 @@ async def startup_event():
     
     logger.info("🚀 MCP智能服务正在启动...")
     
+    # 检查环境变量
+    logger.info("📋 检查环境变量...")
+    env_vars = {
+        "DB_HOST": os.getenv("DB_HOST"),
+        "DB_PORT": os.getenv("DB_PORT"),
+        "DB_NAME": os.getenv("DB_NAME"),
+        "DB_USER": os.getenv("DB_USER"),
+        "DB_PASSWORD": "已设置" if os.getenv("DB_PASSWORD") else "未设置",
+        "DEEPSEEK_API_KEY": "已设置" if os.getenv("DEEPSEEK_API_KEY") else "未设置",
+        "BACKEND_URL": os.getenv("BACKEND_URL")
+    }
+    
+    for key, value in env_vars.items():
+        if key == "DB_PASSWORD" or key == "DEEPSEEK_API_KEY":
+            logger.info(f"  {key}: {value}")
+        else:
+            logger.info(f"  {key}: {value or '未设置'}")
+    
     try:
         # 初始化AI服务
+        logger.info("🤖 初始化DeepSeek AI服务...")
         ai_service = DeepSeekAIService()
         logger.info("✅ DeepSeek AI服务初始化成功")
         
         # 初始化图表生成器
+        logger.info("🎨 初始化图表配置生成器...")
         chart_generator = ChartConfigGenerator()
         logger.info("✅ 图表配置生成器初始化成功")
         
         # 初始化MCP服务器
+        logger.info("🔧 初始化MCP服务器...")
         mcp_server = MCPServer(ai_service, chart_generator)
         logger.info("✅ MCP服务器初始化成功")
         
+        # 测试数据库连接
+        logger.info("🔍 测试数据库连接...")
+        try:
+            import psycopg2
+            db_config = mcp_server.db_config
+            logger.info(f"  连接信息: {db_config['host']}:{db_config['port']}/{db_config['database']}")
+            
+            conn = psycopg2.connect(
+                host=db_config['host'],
+                port=db_config['port'],
+                database=db_config['database'],
+                user=db_config['user'],
+                password=db_config['password'],
+                connect_timeout=10
+            )
+            conn.close()
+            logger.info("✅ 数据库连接测试成功")
+        except Exception as e:
+            logger.error(f"❌ 数据库连接测试失败: {e}")
+            raise
+        
         # 显示可用AI服务
+        logger.info("📊 检查可用AI服务...")
         ai_services = mcp_server.get_available_ai_services()
         logger.info("📊 可用AI服务:")
         for service, info in ai_services.items():
@@ -73,6 +116,9 @@ async def startup_event():
         
     except Exception as e:
         logger.error(f"❌ 服务初始化失败: {e}")
+        logger.error(f"❌ 错误详情: {str(e)}")
+        import traceback
+        logger.error(f"❌ 堆栈跟踪: {traceback.format_exc()}")
         raise
 
 @app.on_event("shutdown")
@@ -84,13 +130,82 @@ async def shutdown_event():
 @app.get("/health")
 async def health_check():
     """健康检查"""
-    return {
-        "status": "healthy",
+    logger.info("🔍 收到健康检查请求")
+    
+    # 检查环境变量
+    env_check = {
+        "DB_HOST": os.getenv("DB_HOST", "未设置"),
+        "DB_PORT": os.getenv("DB_PORT", "未设置"),
+        "DB_NAME": os.getenv("DB_NAME", "未设置"),
+        "DB_USER": os.getenv("DB_USER", "未设置"),
+        "DB_PASSWORD": "已设置" if os.getenv("DB_PASSWORD") else "未设置",
+        "DEEPSEEK_API_KEY": "已设置" if os.getenv("DEEPSEEK_API_KEY") else "未设置",
+        "BACKEND_URL": os.getenv("BACKEND_URL", "未设置")
+    }
+    
+    logger.info(f"📋 环境变量检查: {env_check}")
+    
+    # 检查服务状态
+    service_status = {
+        "mcp_server_initialized": mcp_server is not None,
+        "ai_service_initialized": ai_service is not None,
+        "chart_generator_initialized": chart_generator is not None
+    }
+    
+    logger.info(f"🔧 服务状态检查: {service_status}")
+    
+    # 测试数据库连接
+    db_connection_status = "unknown"
+    try:
+        if mcp_server and hasattr(mcp_server, 'db_config'):
+            import psycopg2
+            db_config = mcp_server.db_config
+            logger.info(f"🔍 测试数据库连接: {db_config['host']}:{db_config['port']}")
+            
+            conn = psycopg2.connect(
+                host=db_config['host'],
+                port=db_config['port'],
+                database=db_config['database'],
+                user=db_config['user'],
+                password=db_config['password'],
+                connect_timeout=5
+            )
+            conn.close()
+            db_connection_status = "connected"
+            logger.info("✅ 数据库连接测试成功")
+        else:
+            db_connection_status = "no_config"
+            logger.warning("⚠️ 无法获取数据库配置")
+    except Exception as e:
+        db_connection_status = f"error: {str(e)}"
+        logger.error(f"❌ 数据库连接测试失败: {e}")
+    
+    # 检查AI服务状态
+    ai_services_status = {}
+    if mcp_server:
+        try:
+            ai_services_status = mcp_server.get_available_ai_services()
+            logger.info(f"🤖 AI服务状态: {ai_services_status}")
+        except Exception as e:
+            logger.error(f"❌ 获取AI服务状态失败: {e}")
+            ai_services_status = {"error": str(e)}
+    
+    # 构建响应
+    response = {
+        "status": "healthy" if db_connection_status == "connected" else "degraded",
         "service": "mcp-service",
         "timestamp": datetime.now().isoformat(),
         "version": "1.0.0",
-        "ai_services": mcp_server.get_available_ai_services() if mcp_server else {}
+        "diagnostics": {
+            "environment_variables": env_check,
+            "service_status": service_status,
+            "database_connection": db_connection_status,
+            "ai_services": ai_services_status
+        }
     }
+    
+    logger.info(f"📤 健康检查响应: {response}")
+    return response
 
 @app.get("/ai-services")
 async def get_ai_services():
