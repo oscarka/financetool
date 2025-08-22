@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile"
+dockerfilePath = "mcp-service/Dockerfile"
 
 [deploy]
 startCommand = "python -m uvicorn app.main:app --host 0.0.0.0 --port 3001"
