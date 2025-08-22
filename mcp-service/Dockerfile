@@ -18,5 +18,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制应用代码
 COPY . .
 
-# 暴露端口（Railway会动态分配）
-EXPOSE 3001
+# 暴露端口（使用环境变量）
+EXPOSE $PORT
