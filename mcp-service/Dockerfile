@@ -20,6 +20,3 @@ COPY . .
 
 # 暴露端口（Railway会动态分配）
 EXPOSE 3001
-
-# 启动命令（使用环境变量PORT）
-CMD python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
