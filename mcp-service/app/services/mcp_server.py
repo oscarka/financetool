@@ -37,8 +37,10 @@ class MCPServer:
         # 初始化MCP工具
         self.mcp_tools = MCPTools(self.db_config)
         
-        # 初始化Claude AI服务
-        self.claude_ai = ClaudeAIService(self.mcp_tools)
+        # 初始化Claude AI服务（仅在API密钥配置时）
+        self.claude_ai = None
+        if os.getenv("CLAUDE_API_KEY"):
+            self.claude_ai = ClaudeAIService(self.mcp_tools)
         
         # 打印数据库配置信息（调试用）
         logger.info(f"数据库配置: host={self.db_config['host']}, port={self.db_config['port']}, database={self.db_config['database']}, user={self.db_config['user']}")
@@ -516,15 +518,20 @@ class MCPServer:
     
     def get_available_ai_services(self) -> Dict[str, Any]:
         """获取可用的AI服务信息"""
-        return {
+        services = {
             "deepseek": {
                 "available": bool(self.ai_service.api_key),
                 "model": getattr(self.ai_service, 'model', 'unknown'),
                 "description": "DeepSeek AI服务"
-            },
-            "claude": {
+            }
+        }
+        
+        # 只有在Claude服务初始化时才添加
+        if self.claude_ai:
+            services["claude"] = {
                 "available": bool(self.claude_ai.api_key),
                 "model": getattr(self.claude_ai, 'model', 'unknown'),
                 "description": "Claude AI服务（支持MCP工具调用）"
             }
-        }
+        
+        return services

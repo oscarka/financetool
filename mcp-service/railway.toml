@@ -22,6 +22,7 @@ DB_USER = "financetool_user"
 DB_PASSWORD = "financetool_pass"
 
 # AI服务配置
+# 注意：需要在Railway环境变量中设置实际的API密钥
 DEEPSEEK_API_KEY = ""
 DEEPSEEK_API_BASE_URL = "https://api.deepseek.com"
 DEEPSEEK_MODEL = "deepseek-chat"
