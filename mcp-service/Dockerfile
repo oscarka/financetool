@@ -22,4 +22,4 @@ COPY . .
 EXPOSE 3001
 
 # 启动命令（使用环境变量PORT）
-CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"]
+CMD python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
