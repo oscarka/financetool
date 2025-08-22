@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:prod": "npm ci --omit=dev && tsc -b && vite build",
+    "build:prod": "npm ci --omit=dev && vite build",
     "lint": "eslint .",
     "preview": "vite preview --port 8080 --host"
   },

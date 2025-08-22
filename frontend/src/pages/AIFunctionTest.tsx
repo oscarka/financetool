@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Button, Input, Space, Typography, Alert, Divider, Spin } from 'antd';
-import { RobotOutlined, ApiOutlined, DatabaseOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { RobotOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { Pie, Column, Line } from '@ant-design/charts';
 
 const { Title, Text } = Typography;
@@ -301,7 +301,7 @@ const AIFunctionTest: React.FC = () => {
                     content: '{name}: {percentage}%',
                   }}
                   tooltip={{
-                    formatter: (datum) => {
+                    formatter: (datum: any) => {
                       return {
                         name: datum.name,
                         value: `¥${datum.total_value?.toLocaleString() || datum.value}`,
