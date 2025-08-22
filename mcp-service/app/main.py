@@ -140,9 +140,7 @@ async def health_check():
         "DB_USER": os.getenv("DB_USER", "未设置"),
         "DB_PASSWORD": "已设置" if os.getenv("DB_PASSWORD") else "未设置",
         "DEEPSEEK_API_KEY": "已设置" if os.getenv("DEEPSEEK_API_KEY") else "未设置",
-        "BACKEND_URL": os.getenv("BACKEND_URL", "未设置"),
-        "PORT": os.getenv("PORT", "未设置"),
-        "RAILWAY_ENVIRONMENT": os.getenv("RAILWAY_ENVIRONMENT", "未设置")
+        "BACKEND_URL": os.getenv("BACKEND_URL", "未设置")
     }
     
     logger.info(f"📋 环境变量检查: {env_check}")
@@ -156,99 +154,41 @@ async def health_check():
     
     logger.info(f"🔧 服务状态检查: {service_status}")
     
-    # 检查端口绑定状态
-    port_status = "unknown"
-    try:
-        import socket
-        current_port = int(os.getenv("PORT", "3001"))
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        result = sock.connect_ex(('localhost', current_port))
-        sock.close()
-        
-        if result == 0:
-            port_status = f"port_{current_port}_available"
-            logger.info(f"✅ 端口 {current_port} 可用")
-        else:
-            port_status = f"port_{current_port}_unavailable"
-            logger.warning(f"⚠️ 端口 {current_port} 不可用")
-    except Exception as e:
-        port_status = f"port_check_error: {str(e)}"
-        logger.error(f"❌ 端口检查失败: {e}")
-    
     # 测试数据库连接
     db_connection_status = "unknown"
-    db_error_details = ""
     try:
         if mcp_server and hasattr(mcp_server, 'db_config'):
             import psycopg2
             db_config = mcp_server.db_config
             logger.info(f"🔍 测试数据库连接: {db_config['host']}:{db_config['port']}/{db_config['database']}")
-            logger.info(f"  用户: {db_config['user']}")
-            logger.info(f"  密码: {'已设置' if db_config['password'] else '未设置'}")
             
-            # 测试网络连通性
-            try:
-                import socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(5)
-                result = sock.connect_ex((db_config['host'], db_config['port']))
-                sock.close()
-                
-                if result == 0:
-                    logger.info(f"✅ 网络连通性测试成功: {db_config['host']}:{db_config['port']}")
-                else:
-                    logger.warning(f"⚠️ 网络连通性测试失败: {db_config['host']}:{db_config['port']}")
-                    db_error_details += f"网络不通: {db_config['host']}:{db_config['port']}; "
-            except Exception as net_e:
-                logger.warning(f"⚠️ 网络连通性测试异常: {net_e}")
-                db_error_details += f"网络测试异常: {net_e}; "
-            
-            # 测试数据库连接
             conn = psycopg2.connect(
                 host=db_config['host'],
                 port=db_config['port'],
                 database=db_config['database'],
                 user=db_config['user'],
                 password=db_config['password'],
-                connect_timeout=10
+                connect_timeout=5
             )
-            
-            # 测试简单查询
-            cursor = conn.cursor()
-            cursor.execute("SELECT 1")
-            result = cursor.fetchone()
-            cursor.close()
             conn.close()
-            
-            if result and result[0] == 1:
-                db_connection_status = "connected"
-                logger.info("✅ 数据库连接测试成功")
-            else:
-                db_connection_status = "query_failed"
-                logger.warning("⚠️ 数据库连接成功但查询失败")
-                
+            db_connection_status = "connected"
+            logger.info("✅ 数据库连接测试成功")
         else:
             db_connection_status = "no_config"
-            db_error_details = "MCP服务器未初始化或缺少数据库配置"
             logger.warning("⚠️ 无法获取数据库配置")
-            
-    except psycopg2.OperationalError as e:
-        db_connection_status = f"operational_error: {e.pgcode}"
-        db_error_details = f"操作错误: {e}"
-        logger.error(f"❌ 数据库连接操作错误: {e}")
-    except psycopg2.InterfaceError as e:
-        db_connection_status = f"interface_error: {str(e)}"
-        db_error_details = f"接口错误: {e}"
-        logger.error(f"❌ 数据库连接接口错误: {e}")
+            if not mcp_server:
+                logger.error("❌ mcp_server 未初始化")
+            elif not hasattr(mcp_server, 'db_config'):
+                logger.error("❌ mcp_server 缺少 db_config 属性")
     except Exception as e:
-        db_connection_status = f"error: {type(e).__name__}"
-        db_error_details = f"异常: {str(e)}"
+        db_connection_status = f"error: {str(e)}"
         logger.error(f"❌ 数据库连接测试失败: {e}")
+        logger.error(f"❌ 错误类型: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ 堆栈跟踪: {traceback.format_exc()}")
     
     # 检查AI服务状态
     ai_services_status = {}
-    ai_error_details = ""
     if mcp_server:
         try:
             ai_services_status = mcp_server.get_available_ai_services()
@@ -256,41 +196,15 @@ async def health_check():
         except Exception as e:
             logger.error(f"❌ 获取AI服务状态失败: {e}")
             ai_services_status = {"error": str(e)}
-            ai_error_details = str(e)
     else:
-        ai_error_details = "MCP服务器未初始化"
-    
-    # 检查后端服务连通性
-    backend_connectivity = "unknown"
-    backend_error_details = ""
-    try:
-        backend_url = os.getenv("BACKEND_URL")
-        if backend_url:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{backend_url}/health")
-                if response.status_code == 200:
-                    backend_connectivity = "connected"
-                    logger.info(f"✅ 后端服务连通性测试成功: {backend_url}")
-                else:
-                    backend_connectivity = f"http_error: {response.status_code}"
-                    backend_error_details = f"HTTP状态码: {response.status_code}"
-                    logger.warning(f"⚠️ 后端服务响应异常: {response.status_code}")
-        else:
-            backend_connectivity = "no_url"
-            backend_error_details = "BACKEND_URL未设置"
-            logger.warning("⚠️ BACKEND_URL未设置")
-    except Exception as e:
-        backend_connectivity = f"connection_error: {type(e).__name__}"
-        backend_error_details = f"连接异常: {str(e)}"
-        logger.error(f"❌ 后端服务连通性测试失败: {e}")
+        logger.warning("⚠️ mcp_server 未初始化，无法检查AI服务状态")
+        ai_services_status = {"error": "mcp_server not initialized"}
     
     # 构建响应
     overall_status = "healthy"
     if db_connection_status != "connected":
         overall_status = "degraded"
-    if "error" in db_connection_status or "error" in ai_services_status:
-        overall_status = "unhealthy"
+        logger.warning(f"⚠️ 服务状态降级: 数据库连接状态 = {db_connection_status}")
     
     response = {
         "status": overall_status,
@@ -300,21 +214,12 @@ async def health_check():
         "diagnostics": {
             "environment_variables": env_check,
             "service_status": service_status,
-            "port_status": port_status,
-            "database_connection": {
-                "status": db_connection_status,
-                "error_details": db_error_details
-            },
-            "ai_services": ai_services_status,
-            "ai_error_details": ai_error_details,
-            "backend_connectivity": {
-                "status": backend_connectivity,
-                "error_details": backend_error_details
-            }
+            "database_connection": db_connection_status,
+            "ai_services": ai_services_status
         }
     }
     
-    logger.info(f"📤 健康检查响应: {response}")
+    logger.info(f"📤 健康检查响应: status={overall_status}, db_status={db_connection_status}")
     return response
 
 @app.get("/ai-services")
