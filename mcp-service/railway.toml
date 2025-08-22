@@ -1,0 +1,33 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "mcp-service/Dockerfile"
+
+[deploy]
+startCommand = "python -m uvicorn app.main:app --host 0.0.0.0 --port 3001"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+
+[deploy.environment]
+PORT = "3001"
+DEBUG = "false"
+WORKERS = "1"
+APP_ENV = "prod"
+
+# 数据库连接配置
+DB_HOST = "localhost"
+DB_PORT = "5432"
+DB_NAME = "financetool_test"
+DB_USER = "financetool_user"
+DB_PASSWORD = "financetool_pass"
+
+# AI服务配置
+# 注意：需要在Railway环境变量中设置实际的API密钥
+DEEPSEEK_API_KEY = ""
+DEEPSEEK_API_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "deepseek-chat"
+DEEPSEEK_MAX_TOKENS = "4000"
+DEEPSEEK_TEMPERATURE = "0.7"
+
+# 是否使用模拟数据（开发测试时使用）
+USE_MOCK_DATA = "false"

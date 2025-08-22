@@ -24,3 +24,42 @@ cloudflare-workers/.wrangler/
 cloudflare-workers/node_modules/
 cloudflare-workers/package-lock.json
 backend/data/personalfinance.db
+
+# Environment variables and sensitive files
+.env
+.env.*
+!.env.example
+backend/.env*
+!backend/.env.example
+backend/env.*
+!backend/env.*.example
+
+# API keys and secrets
+*api_key*
+*secret*
+*token*
+*password*
+*key*
+
+# Test files with sensitive data
+*test*.py
+*test*.js
+*test*.html
+!*test*.example*
+
+# MCP related test files
+mcp_database_setup.py
+simple_mcp_server.py
+test_*.py
+test_*.js
+test_*.html
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

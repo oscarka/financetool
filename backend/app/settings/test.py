@@ -61,4 +61,11 @@ class TestConfig(BaseConfig):
     backup_enabled: bool = False
     
     # 数据清理配置 - 测试环境保留更短时间
-    data_cleanup_retention_days: int = 7 
+    data_cleanup_retention_days: int = 7
+    
+    # DeepSeek AI API配置 - 测试环境
+    deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "")
+    deepseek_api_base_url: str = os.getenv("DEEPSEEK_API_BASE_URL", "https://api.deepseek.com")
+    deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    deepseek_max_tokens: int = int(os.getenv("DEEPSEEK_MAX_TOKENS", "4000"))
+    deepseek_temperature: float = float(os.getenv("DEEPSEEK_TEMPERATURE", "0.7")) 

@@ -1,0 +1,327 @@
+{
+  "database_schema": {
+    "description": "个人财务投资数据库Schema - 用于MCP智能图表查询",
+    "version": "1.0",
+    "last_updated": "2024-01-01",
+    "tables": {
+      "asset_snapshot": {
+        "description": "资产快照表 - 核心分析数据源，包含所有平台的资产快照",
+        "primary_key": "id",
+        "indexes": [
+          "platform",
+          "asset_type",
+          "asset_code",
+          "currency",
+          "snapshot_time"
+        ],
+        "columns": {
+          "id": {
+            "type": "Integer",
+            "description": "主键"
+          },
+          "user_id": {
+            "type": "Integer",
+            "description": "用户ID"
+          },
+          "platform": {
+            "type": "String(50)",
+            "description": "平台名称",
+            "examples": [
+              "支付宝",
+              "Wise",
+              "IBKR",
+              "OKX"
+            ]
+          },
+          "asset_type": {
+            "type": "String(50)",
+            "description": "资产类型",
+            "examples": [
+              "基金",
+              "外汇",
+              "股票",
+              "数字货币",
+              "现金"
+            ]
+          },
+          "asset_code": {
+            "type": "String(50)",
+            "description": "资产代码",
+            "examples": [
+              "005827",
+              "USD",
+              "AAPL",
+              "BTC"
+            ]
+          },
+          "asset_name": {
+            "type": "String(100)",
+            "description": "资产名称"
+          },
+          "currency": {
+            "type": "String(10)",
+            "description": "货币单位",
+            "examples": [
+              "CNY",
+              "USD",
+              "EUR"
+            ]
+          },
+          "balance": {
+            "type": "DECIMAL(20,8)",
+            "description": "原始余额 - 主要分析字段（有值）"
+          },
+          "balance_cny": {
+            "type": "DECIMAL(20,8)",
+            "description": "人民币余额 - 可能为null，不建议使用"
+          },
+          "balance_usd": {
+            "type": "DECIMAL(20,8)",
+            "description": "美元余额 - 美元计价分析（有值）"
+          },
+          "balance_eur": {
+            "type": "DECIMAL(20,8)",
+            "description": "欧元余额 - 欧元计价分析（有值）"
+          },
+          "base_value": {
+            "type": "DECIMAL(20,8)",
+            "description": "基础价值 - 可能为null"
+          },
+          "snapshot_time": {
+            "type": "DateTime",
+            "description": "快照时间 - 用于时间序列分析（有值）"
+          }
+        },
+        "common_queries": [
+          "按平台分组的资产分布 - 使用balance字段",
+          "按资产类型分组的占比 - 使用balance字段",
+          "最近30天的资产趋势 - 使用snapshot_time和balance_usd字段",
+          "最新快照的总资产 - 使用balance_usd字段"
+        ]
+      },
+      "user_operations": {
+        "description": "用户操作记录表 - 交易历史分析",
+        "primary_key": "id",
+        "indexes": [
+          "operation_date",
+          "platform",
+          "asset_code"
+        ],
+        "columns": {
+          "id": {
+            "type": "Integer",
+            "description": "主键"
+          },
+          "operation_date": {
+            "type": "DateTime",
+            "description": "操作时间"
+          },
+          "platform": {
+            "type": "String(50)",
+            "description": "操作平台"
+          },
+          "asset_type": {
+            "type": "String(50)",
+            "description": "资产类型"
+          },
+          "operation_type": {
+            "type": "String(20)",
+            "description": "操作类型",
+            "examples": [
+              "买入",
+              "卖出",
+              "转账",
+              "分红"
+            ]
+          },
+          "asset_code": {
+            "type": "String(50)",
+            "description": "资产代码"
+          },
+          "asset_name": {
+            "type": "String(100)",
+            "description": "资产名称"
+          },
+          "amount": {
+            "type": "DECIMAL(15,4)",
+            "description": "操作金额"
+          },
+          "currency": {
+            "type": "String(10)",
+            "description": "货币单位"
+          },
+          "quantity": {
+            "type": "DECIMAL(15,8)",
+            "description": "操作数量"
+          },
+          "price": {
+            "type": "DECIMAL(15,4)",
+            "description": "价格"
+          },
+          "fee": {
+            "type": "DECIMAL(10,4)",
+            "description": "手续费"
+          }
+        },
+        "common_queries": [
+          "月度交易统计",
+          "各平台交易频次",
+          "交易类型分布",
+          "手续费统计"
+        ]
+      },
+      "asset_positions": {
+        "description": "当前资产持仓表 - 实时持仓状态",
+        "primary_key": "id",
+        "indexes": [
+          "platform",
+          "asset_code"
+        ],
+        "columns": {
+          "id": {
+            "type": "Integer",
+            "description": "主键"
+          },
+          "platform": {
+            "type": "String(50)",
+            "description": "平台名称"
+          },
+          "asset_type": {
+            "type": "String(50)",
+            "description": "资产类型"
+          },
+          "asset_code": {
+            "type": "String(50)",
+            "description": "资产代码"
+          },
+          "asset_name": {
+            "type": "String(100)",
+            "description": "资产名称"
+          },
+          "currency": {
+            "type": "String(10)",
+            "description": "货币单位"
+          },
+          "quantity": {
+            "type": "DECIMAL(15,8)",
+            "description": "持仓数量"
+          },
+          "current_value": {
+            "type": "DECIMAL(15,4)",
+            "description": "当前价值"
+          },
+          "total_invested": {
+            "type": "DECIMAL(15,4)",
+            "description": "总投入"
+          },
+          "total_profit": {
+            "type": "DECIMAL(15,4)",
+            "description": "总收益"
+          },
+          "profit_rate": {
+            "type": "DECIMAL(8,4)",
+            "description": "收益率"
+          }
+        },
+        "common_queries": [
+          "收益率排行",
+          "亏损资产统计",
+          "持仓分布分析"
+        ]
+      }
+    },
+    "business_dimensions": {
+      "time_dimensions": [
+        "snapshot_time",
+        "operation_date",
+        "nav_date",
+        "timestamp",
+        "snapshot_date"
+      ],
+      "platform_dimension": [
+        "支付宝",
+        "Wise",
+        "IBKR",
+        "OKX",
+        "Web3"
+      ],
+      "asset_type_dimension": [
+        "基金",
+        "外汇",
+        "股票",
+        "数字货币",
+        "现金",
+        "储蓄"
+      ],
+      "currency_dimension": [
+        "CNY",
+        "USD",
+        "EUR",
+        "BTC",
+        "ETH",
+        "USDT"
+      ],
+      "operation_type_dimension": [
+        "买入",
+        "卖出",
+        "转账",
+        "分红",
+        "手续费"
+      ]
+    },
+    "sample_queries": {
+      "platform_distribution": {
+        "description": "各平台资产分布",
+        "sql": "SELECT platform, SUM(balance_cny) as total_value, COUNT(*) as asset_count FROM asset_snapshot WHERE snapshot_time = (SELECT MAX(snapshot_time) FROM asset_snapshot) GROUP BY platform ORDER BY total_value DESC",
+        "chart_type": "bar"
+      },
+      "asset_type_distribution": {
+        "description": "资产类型占比",
+        "sql": "SELECT asset_type, SUM(balance_cny) as total_value FROM asset_snapshot WHERE snapshot_time = (SELECT MAX(snapshot_time) FROM asset_snapshot) GROUP BY asset_type ORDER BY total_value DESC",
+        "chart_type": "pie"
+      },
+      "monthly_trend": {
+        "description": "月度资产趋势",
+        "sql": "SELECT DATE_TRUNC('day', snapshot_time) as date, SUM(balance_cny) as total_value FROM asset_snapshot WHERE snapshot_time >= NOW() - INTERVAL '30 days' GROUP BY DATE_TRUNC('day', snapshot_time) ORDER BY date",
+        "chart_type": "line"
+      },
+      "profit_ranking": {
+        "description": "收益率排行",
+        "sql": "SELECT asset_name, profit_rate, total_profit FROM asset_positions ORDER BY profit_rate DESC LIMIT 10",
+        "chart_type": "bar"
+      },
+      "transaction_summary": {
+        "description": "交易汇总",
+        "sql": "SELECT operation_type, COUNT(*) as count, SUM(amount) as total_amount FROM user_operations WHERE operation_date >= NOW() - INTERVAL '30 days' GROUP BY operation_type",
+        "chart_type": "table"
+      }
+    },
+    "mcp_integration_notes": {
+      "primary_analysis_table": "asset_snapshot",
+      "key_value_field": "balance_cny",
+      "key_time_field": "snapshot_time",
+      "key_category_fields": [
+        "platform",
+        "asset_type",
+        "asset_code"
+      ],
+      "supported_aggregations": [
+        "SUM",
+        "COUNT",
+        "AVG",
+        "MAX",
+        "MIN"
+      ],
+      "supported_time_functions": [
+        "DATE_TRUNC",
+        "NOW",
+        "INTERVAL"
+      ],
+      "performance_considerations": [
+        "asset_snapshot表数据量大，建议使用索引字段过滤",
+        "时间范围查询性能较好",
+        "避免全表扫描，使用WHERE条件"
+      ]
+    }
+  }
+}

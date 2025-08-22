@@ -16,7 +16,7 @@ class BaseConfig(BaseSettings):
     database_url: str = "sqlite:///./data/personalfinance.db"
     
     # 跨域配置
-    cors_origins: str = '["http://localhost:3000", "http://localhost:5173"]'
+    cors_origins: str = '["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"]'
     
     # 日志配置
     log_level: str = "WARNING"  # 从INFO调整为WARNING
@@ -71,6 +71,13 @@ class BaseConfig(BaseSettings):
     
     # 系统配置
     upload_db_token: Optional[str] = None
+    
+    # DeepSeek AI API配置
+    deepseek_api_key: str = Field(default="", alias="DEEPSEEK_API_KEY")
+    deepseek_api_base_url: str = Field(default="https://api.deepseek.com", alias="DEEPSEEK_API_BASE_URL")
+    deepseek_model: str = Field(default="deepseek-chat", alias="DEEPSEEK_MODEL")
+    deepseek_max_tokens: int = Field(default=4000, alias="DEEPSEEK_MAX_TOKENS")
+    deepseek_temperature: float = Field(default=0.7, alias="DEEPSEEK_TEMPERATURE")
     
     # 可扩展调度器配置
     scheduler_job_defaults: dict = {

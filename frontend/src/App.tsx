@@ -20,6 +20,7 @@ import ConfigManagementPage from './pages/ConfigManagement'
 import SchedulerManagementPage from './pages/SchedulerManagementPage'
 import AIAnalystTest from './pages/AIAnalystTest'
 import MobileAIAnalystTest from './pages/MobileAIAnalystTest'
+import AIFunctionTest from './pages/AIFunctionTest'
 import React from 'react'
 
 function App() {
@@ -92,6 +93,7 @@ function App() {
                     <Route path="/config" element={<ConfigManagementPage />} />
                     <Route path="/scheduler" element={<SchedulerManagementPage />} />
                     <Route path="/ai-analyst-test" element={<AIAnalystComponent />} />
+                    <Route path="/ai-function-test" element={<AIFunctionTest />} />
                 </Routes>
             </LayoutComponent>
         </Router>
