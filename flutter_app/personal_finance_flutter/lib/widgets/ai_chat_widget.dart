@@ -240,14 +240,14 @@ class _AIChatWidgetState extends State<AIChatWidget>
     try {
       // 调用AI生成回复
       final aiResponse = await _callAITextAPI(question);
-      
-      setState(() {
-        _messages.add(ChatMessage(
+    
+    setState(() {
+      _messages.add(ChatMessage(
           text: aiResponse,
-          isUser: false,
-          timestamp: DateTime.now(),
-          messageType: ChatMessageType.text,
-        ));
+        isUser: false,
+        timestamp: DateTime.now(),
+        messageType: ChatMessageType.text,
+      ));
         _isLoading = false;
       });
       
@@ -266,9 +266,9 @@ class _AIChatWidgetState extends State<AIChatWidget>
           messageType: ChatMessageType.text,
         ));
         _isLoading = false;
-      });
-      
-      _scrollToBottom();
+    });
+    
+    _scrollToBottom();
     }
   }
   

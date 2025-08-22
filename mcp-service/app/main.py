@@ -160,7 +160,7 @@ async def health_check():
         if mcp_server and hasattr(mcp_server, 'db_config'):
             import psycopg2
             db_config = mcp_server.db_config
-            logger.info(f"🔍 测试数据库连接: {db_config['host']}:{db_config['port']}/{db_config['database']}")
+            logger.info(f"🔍 测试数据库连接: {db_config['host']}:{db_config['port']}")
             
             conn = psycopg2.connect(
                 host=db_config['host'],
@@ -176,16 +176,9 @@ async def health_check():
         else:
             db_connection_status = "no_config"
             logger.warning("⚠️ 无法获取数据库配置")
-            if not mcp_server:
-                logger.error("❌ mcp_server 未初始化")
-            elif not hasattr(mcp_server, 'db_config'):
-                logger.error("❌ mcp_server 缺少 db_config 属性")
     except Exception as e:
         db_connection_status = f"error: {str(e)}"
         logger.error(f"❌ 数据库连接测试失败: {e}")
-        logger.error(f"❌ 错误类型: {type(e).__name__}")
-        import traceback
-        logger.error(f"❌ 堆栈跟踪: {traceback.format_exc()}")
     
     # 检查AI服务状态
     ai_services_status = {}
@@ -196,18 +189,10 @@ async def health_check():
         except Exception as e:
             logger.error(f"❌ 获取AI服务状态失败: {e}")
             ai_services_status = {"error": str(e)}
-    else:
-        logger.warning("⚠️ mcp_server 未初始化，无法检查AI服务状态")
-        ai_services_status = {"error": "mcp_server not initialized"}
     
     # 构建响应
-    overall_status = "healthy"
-    if db_connection_status != "connected":
-        overall_status = "degraded"
-        logger.warning(f"⚠️ 服务状态降级: 数据库连接状态 = {db_connection_status}")
-    
     response = {
-        "status": overall_status,
+        "status": "healthy" if db_connection_status == "connected" else "degraded",
         "service": "mcp-service",
         "timestamp": datetime.now().isoformat(),
         "version": "1.0.0",
@@ -219,7 +204,7 @@ async def health_check():
         }
     }
     
-    logger.info(f"📤 健康检查响应: status={overall_status}, db_status={db_connection_status}")
+    logger.info(f"📤 健康检查响应: {response}")
     return response
 
 @app.get("/ai-services")
