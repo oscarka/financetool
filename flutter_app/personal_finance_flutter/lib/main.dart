@@ -5,7 +5,10 @@ import 'models/asset_stats.dart';
 import 'models/trend_data.dart';
 import 'pages/main_app_demo.dart';
 import 'pages/analysis_page.dart'; // Added import for AnalysisPage
+import 'pages/snapshot_page.dart'; // Added import for SnapshotPage
+import 'pages/my_page.dart'; // Added import for MyPage
 import 'widgets/ai_chat_widget.dart'; // Added import for AIChatWidget
+import 'design/design_tokens.dart';
 
 void main() {
   runApp(const PersonalFinanceApp());
@@ -22,10 +25,10 @@ class PersonalFinanceApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF10B981),
+          seedColor: T.primary,
           brightness: Brightness.light,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
+        scaffoldBackgroundColor: T.background,
       ),
       // 暂时使用原版应用作为首页
       home: const AssetHomePage(),
@@ -40,7 +43,7 @@ class AppSelectionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: T.background,
       appBar: AppBar(
         title: const Text(
           '个人金融应用',
@@ -50,7 +53,7 @@ class AppSelectionPage extends StatelessWidget {
           ),
         ),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF10B981),
+        foregroundColor: T.primary,
         elevation: 0,
         centerTitle: true,
       ),
@@ -67,14 +70,14 @@ class AppSelectionPage extends StatelessWidget {
                 height: 120,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF10B981), Color(0xFF059669)],
+                    colors: [T.primary, T.primaryDark],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF10B981).withOpacity(0.3),
+                      color: T.primary.withOpacity(0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -288,6 +291,9 @@ class _AssetHomePageState extends State<AssetHomePage> {
   bool showCurrencyDropdown = false;
   bool isDataVisible = true;
   
+  // 页面状态 - 0: 首页, 1: 行情, 3: 资产
+  int currentPageIndex = 0;
+  
   // 数据状态
   AssetStats? assetStats;
   List<TrendData> trendData = [];
@@ -483,11 +489,11 @@ class _AssetHomePageState extends State<AssetHomePage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              _buildNavItem(Icons.home, '首页', 0, true),
-              _buildNavItem(Icons.show_chart, '行情', 1, false),
+              _buildNavItem(Icons.home, '首页', 0, currentPageIndex == 0),
+              _buildNavItem(Icons.show_chart, '行情', 1, currentPageIndex == 1),
               _buildAICenterButton(),
-              _buildNavItem(Icons.account_balance_wallet, '资产', 3, false),
-              _buildNavItem(Icons.person, '我的', 4, false),
+              _buildNavItem(Icons.account_balance_wallet, '资产', 3, currentPageIndex == 3),
+              _buildNavItem(Icons.person, '我的', 4, currentPageIndex == 4),
             ],
           ),
         ),
@@ -500,30 +506,40 @@ class _AssetHomePageState extends State<AssetHomePage> {
       child: GestureDetector(
         onTap: () {
           if (index == 1) { // 行情按钮
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const AnalysisPage(),
-              ),
-            );
+            setState(() {
+              currentPageIndex = 1;
+            });
+          } else if (index == 3) { // 资产按钮
+            setState(() {
+              currentPageIndex = 3;
+            });
+          } else if (index == 0) { // 首页按钮
+            setState(() {
+              currentPageIndex = 0;
+            });
+          } else if (index == 4) { // 我的按钮
+            setState(() {
+              currentPageIndex = 4;
+            });
           }
         },
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? const Color(0xFF10B981) : const Color(0xFF64748B),
-              size: 24,
-            ),
+                               Icon(
+                     icon,
+                     color: isSelected ? T.primary : T.textSecondary,
+                     size: 24,
+                   ),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected ? const Color(0xFF10B981) : const Color(0xFF64748B),
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
+                               Text(
+                     label,
+                     style: TextStyle(
+                       fontSize: 12,
+                       color: isSelected ? T.primary : T.textSecondary,
+                       fontWeight: isSelected ? T.fontWeightSemiBold : T.fontWeightNormal,
+                     ),
+                   ),
           ],
         ),
       ),
@@ -837,49 +853,59 @@ class _AssetHomePageState extends State<AssetHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+            return Scaffold(
+          backgroundColor: T.background,
       body: RefreshIndicator(
         onRefresh: _loadData,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 顶部导航栏
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        backgroundColor: Color(0xFF10B981),
-                        child: Icon(Icons.person, color: Colors.white, size: 20),
-                        radius: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('欢迎回来', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-                          Text('资产管理', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        ],
-                      )
-                    ],
-                  ),
-                  Row(
-                    children: const [
-                      Icon(Icons.notifications_none),
-                      SizedBox(width: 12),
-                      Icon(Icons.more_vert),
-                    ],
-                  )
-                ],
-              ),
-              const SizedBox(height: 24),
+          child: _buildPageContent(),
+        ),
+      ),
+      bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
 
-              // 总资产卡片
-              _buildAssetCard(),
+  Widget _buildPageContent() {
+    switch (currentPageIndex) {
+      case 0: // 首页
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 顶部导航栏
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const CircleAvatar(
+                      backgroundColor: Color(0xFF10B981),
+                      child: Icon(Icons.person, color: Colors.white, size: 20),
+                      radius: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('欢迎回来', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                        Text('资产管理', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    )
+                  ],
+                ),
+                Row(
+                  children: const [
+                    Icon(Icons.notifications_none),
+                    SizedBox(width: 12),
+                    Icon(Icons.more_vert),
+                  ],
+                )
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // 总资产卡片
+            _buildAssetCard(),
             const SizedBox(height: 20),
             
             // 功能按钮区
@@ -887,13 +913,13 @@ class _AssetHomePageState extends State<AssetHomePage> {
             const SizedBox(height: 20),
             
             // 资产分布
-              _AssetDistributionCard(
-                assetStats: assetStats,
-                selectedCurrency: selectedCurrency,
-                largestHolding: largestHolding,
-                riskLevel: riskLevel,
-                assetSnapshots: assetSnapshots,
-              ),
+            _AssetDistributionCard(
+              assetStats: assetStats,
+              selectedCurrency: selectedCurrency,
+              largestHolding: largestHolding,
+              riskLevel: riskLevel,
+              assetSnapshots: assetSnapshots,
+            ),
             const SizedBox(height: 20),
             
             // 资产排行
@@ -904,11 +930,82 @@ class _AssetHomePageState extends State<AssetHomePage> {
             _MarketTrendsCard(),
             const SizedBox(height: 80), // 为底部导航留空间
           ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavigation(),
-    );
+        );
+      
+      case 1: // 行情页面
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 顶部标题
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('市场行情', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                IconButton(
+                  onPressed: () => setState(() => currentPageIndex = 0),
+                  icon: Icon(Icons.arrow_back),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            
+            // 行情内容 - 暂时显示简单内容，避免布局冲突
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.show_chart, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text('市场行情功能', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text('点击行情按钮查看详细分析', style: TextStyle(color: Colors.grey[600])),
+                ],
+              ),
+            ),
+            const SizedBox(height: 80),
+          ],
+        );
+      
+      case 3: // 资产页面
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 顶部标题
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('资产快照', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                IconButton(
+                  onPressed: () => setState(() => currentPageIndex = 0),
+                  icon: Icon(Icons.arrow_back),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            
+            // 资产快照内容 - 使用SnapshotPage的内容
+            const SnapshotPage(),
+            const SizedBox(height: 80),
+          ],
+        );
+      
+      case 4: // 我的页面
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 我的页面内容
+            const MyPage(),
+            const SizedBox(height: 80),
+          ],
+        );
+      
+      default:
+        return Container(); // 默认返回空容器
+    }
   }
 }
 
