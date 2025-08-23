@@ -7,7 +7,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 /// MCP图表适配器 - 将MCP返回的数据转换为设计系统格式
 class MCPChartAdapter {
-  static const String baseUrl = 'http://localhost:8000'; // Try localhost instead of IP addresses
+  static const String baseUrl = 'https://backend-production-2750.up.railway.app'; // 使用正确的后端API地址
   
   // 全局变量存储最新的图表数据
   static List<dynamic>? _lastChartData;

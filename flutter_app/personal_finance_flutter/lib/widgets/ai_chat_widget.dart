@@ -275,8 +275,9 @@ class _AIChatWidgetState extends State<AIChatWidget>
   /// 调用AI文本API
   Future<String> _callAITextAPI(String question) async {
     try {
+      // 使用正确的后端API地址，而不是localhost
       final response = await http.post(
-        Uri.parse('http://localhost:8000/api/v1/ai-chat/text'),
+        Uri.parse('https://backend-production-2750.up.railway.app/api/v1/ai-chat/text'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'question': question}),
       );
