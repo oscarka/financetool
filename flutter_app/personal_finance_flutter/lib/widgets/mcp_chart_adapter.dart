@@ -207,9 +207,9 @@ class MCPChartAdapter {
     // 转换数据格式
     final chartData = data.map((item) {
       final label = item['label'] ?? item['platform'] ?? '未知';
-      final value = (item['value'] ?? item['total_value'] ?? 0.0).toDouble();
+      final value = (item['value'] ?? item['total_value'] ?? item['total_balance'] ?? 0.0).toDouble();
       final color = _getRandomColor();
-      final formattedValue = _formatValue(item['value'] ?? item['total_value'] ?? 0.0);
+      final formattedValue = _formatValue(item['value'] ?? item['total_value'] ?? item['total_balance'] ?? 0.0);
       
       print('  📝 转换数据项: label=$label, value=$value, color=$color');
       
@@ -466,9 +466,9 @@ class MCPChartAdapter {
     
     final chartData = data.map((item) {
       final label = item['label'] ?? item['platform'] ?? '未知';
-      final value = (item['value'] ?? item['total_value'] ?? 0.0).toDouble();
+      final value = (item['value'] ?? item['total_value'] ?? item['total_balance'] ?? 0.0).toDouble();
       final color = _getRandomColor();
-      final formattedValue = _formatValue(item['value'] ?? item['total_value'] ?? 0.0);
+      final formattedValue = _formatValue(item['value'] ?? item['total_value'] ?? item['total_balance'] ?? 0.0);
       
       print('  📝 转换数据项: label=$label, value=$value, color=$color');
       
@@ -508,8 +508,8 @@ class MCPChartAdapter {
     final chartData = data.map((item) {
       return CustomLineChartData(
         label: item['label'] ?? item['date'] ?? '未知',
-        value: (item['value'] ?? item['total_value'] ?? 0.0).toDouble(),
-        formattedValue: _formatValue(item['value'] ?? item['total_value'] ?? 0.0),
+        value: (item['value'] ?? item['total_value'] ?? item['total_balance'] ?? 0.0).toDouble(),
+        formattedValue: _formatValue(item['value'] ?? item['total_value'] ?? item['total_balance'] ?? 0.0),
       );
     }).toList();
 
@@ -597,7 +597,7 @@ class MCPChartAdapter {
                       Expanded(
                         flex: 1,
                         child: Text(
-                          _formatValue(item['total_value'] ?? item['value'] ?? 0.0),
+                          _formatValue(item['total_value'] ?? item['value'] ?? item['total_balance'] ?? 0.0),
                           style: TextStyle(
                             color: Colors.green[700],
         fontWeight: FontWeight.w600,
