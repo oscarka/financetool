@@ -124,7 +124,7 @@ class ApiClient {
   }
 
   // 获取资产快照数据
-  static Future<List<Map<String, dynamic>> getAssetSnapshots(String baseCurrency) async {
+  static Future<List<Map<String, dynamic>>> getAssetSnapshots(String baseCurrency) async {
     print('🔍 [ApiClient] 正在从后端获取实时快照数据...');
     
     try {
