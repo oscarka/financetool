@@ -426,9 +426,25 @@ def get_asset_data(
         balance_eur = float(snapshot.balance_eur) if snapshot.balance_eur else 0
         balance_original = float(snapshot.balance)
         
-        # 基准货币价值
+        # 基准货币价值 - 改进汇率转换逻辑
         base_value = getattr(snapshot, balance_field, None)
-        base_value = float(base_value) if base_value else balance_original
+        if base_value is not None:
+            base_value = float(base_value)
+        else:
+            # 如果目标货币字段不存在，尝试通过汇率转换
+            try:
+                from app.services.exchange_rate_service import ExchangeRateService
+                # 获取汇率并转换
+                converted_value = ExchangeRateService.convert_currency(
+                    balance_original, 
+                    snapshot.currency, 
+                    base_currency
+                )
+                base_value = converted_value if converted_value is not None else 0.0
+                logger.warning(f"汇率转换: {balance_original} {snapshot.currency} -> {base_value} {base_currency}")
+            except Exception as e:
+                logger.error(f"汇率转换失败: {balance_original} {snapshot.currency} -> {base_currency}, 错误: {e}")
+                base_value = 0.0  # 转换失败时设为0，避免错误累加
         
         # 过滤小额资产
         if base_value < min_amount:
