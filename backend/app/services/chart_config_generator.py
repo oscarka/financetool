@@ -227,8 +227,11 @@ class ChartConfigGenerator:
             return data
         
         # 确定标签和数值字段
-        label_field = data_analysis.get('primary_label_column') or data_analysis.get('categorical_columns', [None])[0]
-        value_field = data_analysis.get('primary_value_column') or data_analysis.get('numeric_columns', [None])[0]
+        categorical_columns = data_analysis.get('categorical_columns', [])
+        numeric_columns = data_analysis.get('numeric_columns', [])
+        
+        label_field = data_analysis.get('primary_label_column') or (categorical_columns[0] if categorical_columns else None)
+        value_field = data_analysis.get('primary_value_column') or (numeric_columns[0] if numeric_columns else None)
         
         if not label_field or not value_field:
             return data  # 无法确定字段，返回原始数据
