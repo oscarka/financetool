@@ -379,6 +379,59 @@ def api_playground():
     """
     return HTMLResponse(content=html_content)
 
+def _get_fallback_exchange_rate(self, amount: float, from_currency: str, to_currency: str) -> Optional[float]:
+    """获取备用汇率（硬编码的常用汇率）"""
+    # 常用货币对的备用汇率（基于市场大致水平，定期更新）
+    fallback_rates = {
+        # 主要货币对
+        ('USD', 'CNY'): 7.2,
+        ('CNY', 'USD'): 0.139,
+        ('EUR', 'CNY'): 7.8,
+        ('CNY', 'EUR'): 0.128,
+        ('JPY', 'CNY'): 0.048,
+        ('CNY', 'JPY'): 20.83,
+        ('HKD', 'CNY'): 0.92,
+        ('CNY', 'HKD'): 1.087,
+        ('GBP', 'CNY'): 9.1,
+        ('CNY', 'GBP'): 0.110,
+        ('AUD', 'CNY'): 4.8,
+        ('CNY', 'AUD'): 0.208,
+        ('CAD', 'CNY'): 5.3,
+        ('CNY', 'CAD'): 0.189,
+        
+        # 数字货币（基于大致市场价）
+        ('BTC', 'CNY'): 450000,
+        ('CNY', 'BTC'): 0.00000222,
+        ('ETH', 'CNY'): 15000,
+        ('CNY', 'ETH'): 0.0000667,
+        ('USDT', 'CNY'): 7.2,
+        ('CNY', 'USDT'): 0.139,
+        ('USDC', 'CNY'): 7.2,
+        ('CNY', 'USDC'): 0.139,
+        
+        # 交叉汇率
+        ('USD', 'EUR'): 0.92,
+        ('EUR', 'USD'): 1.087,
+        ('USD', 'JPY'): 150,
+        ('JPY', 'USD'): 0.00667,
+        ('USD', 'GBP'): 0.79,
+        ('GBP', 'USD'): 1.266,
+    }
+    
+    # 直接查找
+    direct_rate = fallback_rates.get((from_currency, to_currency))
+    if direct_rate is not None:
+        return amount * direct_rate
+    
+    # 通过CNY进行交叉转换
+    if from_currency != 'CNY' and to_currency != 'CNY':
+        cny_from = fallback_rates.get((from_currency, 'CNY'))
+        cny_to = fallback_rates.get(('CNY', to_currency))
+        if cny_from is not None and cny_to is not None:
+            return amount * cny_from * cny_to
+    
+    return None
+
 @router.get("/asset-data", response_model=AssetDataResponse)
 def get_asset_data(
     base_currency: str = Query("CNY", description="基准货币"),
@@ -432,19 +485,41 @@ def get_asset_data(
             base_value = float(base_value)
         else:
             # 如果目标货币字段不存在，尝试通过汇率转换
+            converted_value = None
+            
+            # 方法1：尝试实时汇率转换
             try:
                 from app.services.exchange_rate_service import ExchangeRateService
-                # 获取汇率并转换
                 converted_value = ExchangeRateService.convert_currency(
                     balance_original, 
                     snapshot.currency, 
                     base_currency
                 )
-                base_value = converted_value if converted_value is not None else 0.0
-                logger.warning(f"汇率转换: {balance_original} {snapshot.currency} -> {base_value} {base_currency}")
+                if converted_value is not None:
+                    logger.info(f"实时汇率转换成功: {balance_original} {snapshot.currency} -> {converted_value} {base_currency}")
             except Exception as e:
-                logger.error(f"汇率转换失败: {balance_original} {snapshot.currency} -> {base_currency}, 错误: {e}")
-                base_value = 0.0  # 转换失败时设为0，避免错误累加
+                logger.warning(f"实时汇率转换失败: {balance_original} {snapshot.currency} -> {base_currency}, 错误: {e}")
+            
+            # 方法2：使用备用汇率（如果实时转换失败）
+            if converted_value is None:
+                converted_value = _get_fallback_exchange_rate(
+                    balance_original, snapshot.currency, base_currency
+                )
+                if converted_value is not None:
+                    logger.warning(f"使用备用汇率: {balance_original} {snapshot.currency} -> {converted_value} {base_currency}")
+            
+            # 最终处理
+            if converted_value is not None:
+                base_value = converted_value
+            else:
+                # 如果所有方法都失败，记录警告但不设为0
+                logger.error(f"所有汇率转换方法都失败: {balance_original} {snapshot.currency} -> {base_currency}")
+                # 使用原始值，但标记为未转换
+                base_value = balance_original
+                # 在extra_data中标记
+                if 'extra_data' not in snapshot.extra:
+                    snapshot.extra['extra_data'] = {}
+                snapshot.extra['extra_data']['conversion_warning'] = f"汇率转换失败，显示原始{snapshot.currency}金额"
         
         # 过滤小额资产
         if base_value < min_amount:
