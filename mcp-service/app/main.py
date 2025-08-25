@@ -68,20 +68,23 @@ async def startup_event():
             logger.info(f"  {key}: {value or '未设置'}")
     
     try:
-        # 初始化AI服务
-        logger.info("🤖 初始化DeepSeek AI服务...")
-        ai_service = DeepSeekAIService()
-        logger.info("✅ DeepSeek AI服务初始化成功")
-        
         # 初始化图表生成器
         logger.info("🎨 初始化图表配置生成器...")
         chart_generator = ChartConfigGenerator()
         logger.info("✅ 图表配置生成器初始化成功")
         
-        # 初始化MCP服务器
+        # 初始化MCP服务器（先创建，但不完全初始化AI服务）
         logger.info("🔧 初始化MCP服务器...")
-        mcp_server = MCPServer(ai_service, chart_generator)
-        logger.info("✅ MCP服务器初始化成功")
+        mcp_server = MCPServer(None, chart_generator)  # 先传入None，稍后重新初始化
+        
+        # 重新初始化AI服务，确保能访问MCP工具
+        logger.info("🤖 重新初始化DeepSeek AI服务，集成MCP工具...")
+        ai_service = DeepSeekAIService(mcp_server.mcp_tools)
+        logger.info("✅ DeepSeek AI服务初始化成功")
+        
+        # 更新MCP服务器中的AI服务引用
+        mcp_server.ai_service = ai_service
+        logger.info("✅ MCP服务器AI服务更新完成")
         
         # 测试数据库连接
         logger.info("🔍 测试数据库连接...")
@@ -214,6 +217,30 @@ async def get_ai_services():
         raise HTTPException(status_code=503, detail="服务未初始化")
     
     return mcp_server.get_available_ai_services()
+
+# MCP工具调用端点
+@app.post("/mcp-tools")
+async def mcp_tools_call(request: Dict[str, Any]):
+    """MCP工具调用处理"""
+    try:
+        tool_name = request.get("tool_name", "")
+        parameters = request.get("parameters", {})
+        
+        logger.info(f"🔧 收到MCP工具调用: tool_name={tool_name}")
+        
+        if not tool_name:
+            raise HTTPException(status_code=400, detail="工具名称不能为空")
+        
+        if not mcp_server:
+            raise HTTPException(status_code=503, detail="服务未初始化")
+        
+        # 调用MCP工具
+        result = mcp_server.mcp_tools.execute_tool(tool_name, parameters)
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ MCP工具调用失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # MCP查询端点
 @app.post("/query")

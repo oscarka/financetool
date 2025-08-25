@@ -8,10 +8,20 @@ class ApiClient {
     // 优先使用环境变量
     const String? backendUrl = String.fromEnvironment('BACKEND_API_URL');
     if (backendUrl != null && backendUrl.isNotEmpty) {
+      print('🔍 [ApiClient] 使用环境变量指定的后端API: $backendUrl');
       return backendUrl;
     }
     
-    // 现在直接使用真实数据，不需要连接API
+    // 检查是否使用本地开发环境
+    const bool useLocalBackend = bool.fromEnvironment('USE_LOCAL_BACKEND', defaultValue: false);
+    
+    if (useLocalBackend) {
+      print('🔍 [ApiClient] 使用本地开发环境API: http://localhost:8000/api/v1');
+      return 'http://localhost:8000/api/v1';
+    }
+    
+    // 默认使用生产环境
+    print('🔍 [ApiClient] 使用默认Railway生产环境API: https://backend-production-2750.up.railway.app/api/v1');
     return 'https://backend-production-2750.up.railway.app/api/v1';
   }
   
@@ -23,7 +33,7 @@ class ApiClient {
       final response = await http.get(
         Uri.parse('$baseUrl/ai-analyst/asset-data?base_currency=$baseCurrency'),
         headers: {
-          'X-API-Key': 'ai_analyst_key_2024',
+          'X-API-Key': const String.fromEnvironment('AI_ANALYST_API_KEY', defaultValue: 'ai_analyst_key_2024'),
           'Content-Type': 'application/json',
         },
       );
@@ -114,14 +124,14 @@ class ApiClient {
   }
 
   // 获取资产快照数据
-  static Future<List<Map<String, dynamic>>> getAssetSnapshots(String baseCurrency) async {
+  static Future<List<Map<String, dynamic>> getAssetSnapshots(String baseCurrency) async {
     print('🔍 [ApiClient] 正在从后端获取实时快照数据...');
     
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/ai-analyst/asset-data?base_currency=$baseCurrency'),
         headers: {
-          'X-API-Key': 'ai_analyst_key_2024',
+          'X-API-Key': const String.fromEnvironment('AI_ANALYST_API_KEY', defaultValue: 'ai_analyst_key_2024'),
           'Content-Type': 'application/json',
         },
       );

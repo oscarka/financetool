@@ -400,9 +400,14 @@ def get_asset_data(
     if not latest_snapshot_time:
         raise HTTPException(status_code=404, detail="没有找到资产快照数据")
     
-    # 获取最新的资产快照
+    # 使用前后5分钟时间窗口获取快照数据，避免精确时间匹配导致的数据缺失
+    time_window_start = latest_snapshot_time - timedelta(minutes=5)
+    time_window_end = latest_snapshot_time + timedelta(minutes=5)
+    
+    # 获取时间窗口内的所有资产快照
     latest_snapshots = db.query(AssetSnapshot).filter(
-        AssetSnapshot.snapshot_time == latest_snapshot_time
+        AssetSnapshot.snapshot_time >= time_window_start,
+        AssetSnapshot.snapshot_time <= time_window_end
     ).all()
     
     balance_field = f"balance_{base_currency.lower()}"

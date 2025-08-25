@@ -154,7 +154,6 @@ class BaseConfig(BaseSettings):
     def get_cors_origins_list(self) -> list:
         import json
         value = self.cors_origins
-        print("settings.cors_origins 原始内容：", repr(value))  # 这行是调试用的，可以看到实际内容
         
         # 处理可能的语法错误（分号替换为逗号）
         if isinstance(value, str):
