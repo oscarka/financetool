@@ -19,6 +19,7 @@ from app.models.database import (
     FundDividend, DCAPlan
 )
 from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
+from app.config.exchange_rates import get_fallback_exchange_rate
 from pydantic import BaseModel, Field
 import logging
 
@@ -34,6 +35,7 @@ class AssetDataResponse(BaseModel):
     platform_summary: List[Dict[str, Any]] = Field(..., description="平台汇总数据")
     asset_type_summary: List[Dict[str, Any]] = Field(..., description="资产类型汇总")
     snapshot_time: str = Field(..., description="数据快照时间")
+    warnings: List[str] = Field(default=[], description="数据警告信息")
 
 class TransactionDataResponse(BaseModel):
     """交易数据响应模型"""
@@ -379,58 +381,7 @@ def api_playground():
     """
     return HTMLResponse(content=html_content)
 
-def _get_fallback_exchange_rate(self, amount: float, from_currency: str, to_currency: str) -> Optional[float]:
-    """获取备用汇率（硬编码的常用汇率）"""
-    # 常用货币对的备用汇率（基于市场大致水平，定期更新）
-    fallback_rates = {
-        # 主要货币对
-        ('USD', 'CNY'): 7.2,
-        ('CNY', 'USD'): 0.139,
-        ('EUR', 'CNY'): 7.8,
-        ('CNY', 'EUR'): 0.128,
-        ('JPY', 'CNY'): 0.048,
-        ('CNY', 'JPY'): 20.83,
-        ('HKD', 'CNY'): 0.92,
-        ('CNY', 'HKD'): 1.087,
-        ('GBP', 'CNY'): 9.1,
-        ('CNY', 'GBP'): 0.110,
-        ('AUD', 'CNY'): 4.8,
-        ('CNY', 'AUD'): 0.208,
-        ('CAD', 'CNY'): 5.3,
-        ('CNY', 'CAD'): 0.189,
-        
-        # 数字货币（基于大致市场价）
-        ('BTC', 'CNY'): 450000,
-        ('CNY', 'BTC'): 0.00000222,
-        ('ETH', 'CNY'): 15000,
-        ('CNY', 'ETH'): 0.0000667,
-        ('USDT', 'CNY'): 7.2,
-        ('CNY', 'USDT'): 0.139,
-        ('USDC', 'CNY'): 7.2,
-        ('CNY', 'USDC'): 0.139,
-        
-        # 交叉汇率
-        ('USD', 'EUR'): 0.92,
-        ('EUR', 'USD'): 1.087,
-        ('USD', 'JPY'): 150,
-        ('JPY', 'USD'): 0.00667,
-        ('USD', 'GBP'): 0.79,
-        ('GBP', 'USD'): 1.266,
-    }
-    
-    # 直接查找
-    direct_rate = fallback_rates.get((from_currency, to_currency))
-    if direct_rate is not None:
-        return amount * direct_rate
-    
-    # 通过CNY进行交叉转换
-    if from_currency != 'CNY' and to_currency != 'CNY':
-        cny_from = fallback_rates.get((from_currency, 'CNY'))
-        cny_to = fallback_rates.get(('CNY', to_currency))
-        if cny_from is not None and cny_to is not None:
-            return amount * cny_from * cny_to
-    
-    return None
+
 
 @router.get("/asset-data", response_model=AssetDataResponse)
 def get_asset_data(
@@ -502,11 +453,17 @@ def get_asset_data(
             
             # 方法2：使用备用汇率（如果实时转换失败）
             if converted_value is None:
-                converted_value = _get_fallback_exchange_rate(
+                converted_value, used_fallback = get_fallback_exchange_rate(
                     balance_original, snapshot.currency, base_currency
                 )
                 if converted_value is not None:
-                    logger.warning(f"使用备用汇率: {balance_original} {snapshot.currency} -> {converted_value} {base_currency}")
+                    if used_fallback:
+                        logger.warning(f"使用备用汇率: {balance_original} {snapshot.currency} -> {converted_value} {base_currency}")
+                        # 标记使用了默认汇率
+                        if 'extra_data' not in snapshot.extra:
+                            snapshot.extra['extra_data'] = {}
+                        snapshot.extra['extra_data']['used_fallback_rate'] = True
+                        snapshot.extra['extra_data']['fallback_rate_note'] = f"使用默认汇率转换 {snapshot.currency} -> {base_currency}"
             
             # 最终处理
             if converted_value is not None:
@@ -585,12 +542,24 @@ def get_asset_data(
             "unique_assets": len(data["assets"])
         })
     
+    # 收集警告信息
+    warnings = []
+    fallback_count = 0
+    
+    for holding in current_holdings:
+        if holding.get('extra_data', {}).get('used_fallback_rate'):
+            fallback_count += 1
+    
+    if fallback_count > 0:
+        warnings.append(f"⚠️ 有 {fallback_count} 项资产使用了默认汇率进行转换，可能与实时汇率存在差异")
+    
     return AssetDataResponse(
         current_holdings=current_holdings,
         total_value_by_currency=total_by_currency,
         platform_summary=platform_summary,
         asset_type_summary=asset_type_summary,
-        snapshot_time=latest_snapshot_time.isoformat()
+        snapshot_time=latest_snapshot_time.isoformat(),
+        warnings=warnings
     )
 
 @router.get("/transaction-data", response_model=TransactionDataResponse)
