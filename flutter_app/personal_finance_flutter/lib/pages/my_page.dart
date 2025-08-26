@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../design/design_tokens.dart';
+import '../services/smart_api_client.dart';
+import '../services/background_cache_service.dart';
 
 class MyPage extends StatelessWidget {
   const MyPage({super.key});
@@ -360,18 +362,52 @@ class _QuickActionsCard extends StatelessWidget {
           ),
           const SizedBox(height: T.spacingM),
           Row(
-            children: const [
+            children: [
               _ActionButton(
                 icon: Icons.insert_chart_outlined_rounded,
                 label: '导出报告',
+                onTap: () {},
               ),
-              SizedBox(width: T.spacingM),
+              const SizedBox(width: T.spacingM),
               _ActionButton(
                 icon: Icons.cloud_sync_outlined,
                 label: '同步数据',
+                onTap: () {},
               ),
             ],
           ),
+          const SizedBox(height: T.spacingM),
+                      Row(
+              children: [
+                _ActionButton(
+                  icon: Icons.cached,
+                  label: '缓存管理',
+                  onTap: () => _showCacheManagementDialog(context),
+                ),
+                const SizedBox(width: T.spacingM),
+                _ActionButton(
+                  icon: Icons.refresh,
+                  label: '刷新缓存',
+                  onTap: () => _refreshAllCache(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: T.spacingM),
+            Row(
+              children: [
+                _ActionButton(
+                  icon: Icons.cloud_sync,
+                  label: '后台缓存',
+                  onTap: () => _showBackgroundCacheDialog(context),
+                ),
+                const SizedBox(width: T.spacingM),
+                _ActionButton(
+                  icon: Icons.settings,
+                  label: '缓存设置',
+                  onTap: () => _showCacheSettingsDialog(context),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -508,7 +544,8 @@ class _Segmented extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _ActionButton({required this.icon, required this.label});
+  final VoidCallback? onTap;
+  const _ActionButton({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -524,7 +561,7 @@ class _ActionButton extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(T.radiusM),
-            onTap: () {},
+            onTap: onTap,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -545,4 +582,228 @@ class _ActionButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// 缓存管理相关方法
+void _showCacheManagementDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('缓存管理'),
+        content: FutureBuilder<Map<String, dynamic>>(
+          future: SmartApiClient.getCacheStats(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            
+            if (snapshot.hasError) {
+              return Text('获取缓存信息失败: ${snapshot.error}');
+            }
+            
+            final stats = snapshot.data!;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('缓存条目: ${stats['cache_entries'] ?? 0}'),
+                Text('时间戳条目: ${stats['timestamp_entries'] ?? 0}'),
+                Text('已缓存货币: ${(stats['cached_currencies'] as List?)?.join(', ') ?? '无'}'),
+                const SizedBox(height: 16),
+                const Text('缓存策略:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('• 默认缓存时间: 10分钟'),
+                const Text('• 离线时使用过期缓存'),
+                const Text('• 自动预加载其他货币'),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _clearAllCache(context);
+            },
+            child: const Text('清除所有缓存'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+void _refreshAllCache(BuildContext context) async {
+  try {
+    // 显示加载指示器
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('正在刷新缓存...'),
+            ],
+          ),
+        );
+      },
+    );
+    
+    // 刷新所有支持的货币缓存
+    const currencies = ['CNY', 'USD', 'EUR'];
+    for (final currency in currencies) {
+      await SmartApiClient.getAggregatedStats(currency, forceRefresh: true);
+      await SmartApiClient.getAssetSnapshots(currency, forceRefresh: true);
+    }
+    
+    // 关闭加载指示器
+    Navigator.of(context).pop();
+    
+    // 显示成功消息
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('缓存刷新完成！')),
+      );
+    }
+  } catch (e) {
+    // 关闭加载指示器
+    Navigator.of(context).pop();
+    
+    // 显示错误消息
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('缓存刷新失败: $e')),
+      );
+    }
+  }
+}
+
+void _clearAllCache(BuildContext context) async {
+  try {
+    await SmartApiClient.clearAllCache();
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('所有缓存已清除')),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('清除缓存失败: $e')),
+      );
+    }
+  }
+}
+
+/// 显示后台缓存服务对话框
+void _showBackgroundCacheDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('后台缓存服务'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('服务状态: ${BackgroundCacheService.isRunning ? "运行中" : "已停止"}'),
+            Text('网络状态: ${BackgroundCacheService.isNetworkIdle ? "空闲" : "忙碌"}'),
+            const SizedBox(height: 16),
+            const Text('功能说明:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('• 自动在后台预加载所有货币数据'),
+            const Text('• 网络空闲时智能缓存'),
+            const Text('• 每30分钟自动刷新缓存'),
+            const Text('• 支持离线缓存使用'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭'),
+          ),
+          if (!BackgroundCacheService.isRunning)
+            TextButton(
+              onPressed: () async {
+                await BackgroundCacheService.start();
+                Navigator.of(context).pop();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('后台缓存服务已启动')),
+                  );
+                }
+              },
+              child: const Text('启动服务'),
+            ),
+          if (BackgroundCacheService.isRunning)
+            TextButton(
+              onPressed: () async {
+                await BackgroundCacheService.stop();
+                Navigator.of(context).pop();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('后台缓存服务已停止')),
+                  );
+                }
+              },
+              child: const Text('停止服务'),
+            ),
+          TextButton(
+            onPressed: () async {
+              await BackgroundCacheService.triggerManualCaching();
+              Navigator.of(context).pop();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('手动触发后台缓存')),
+                );
+              }
+            },
+            child: const Text('手动缓存'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+/// 显示缓存设置对话框
+void _showCacheSettingsDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('缓存设置'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('当前配置:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('• 默认缓存时间: 10分钟'),
+            Text('• 后台缓存间隔: 30分钟'),
+            Text('• 网络空闲延迟: 10秒'),
+            Text('• 支持的货币: CNY, USD, EUR, USDT, BTC'),
+            const SizedBox(height: 16),
+            const Text('缓存策略:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('• 优先使用缓存数据'),
+            const Text('• 网络失败时使用过期缓存'),
+            const Text('• 自动后台预加载'),
+            const Text('• 智能网络状态检测'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      );
+    },
+  );
 }

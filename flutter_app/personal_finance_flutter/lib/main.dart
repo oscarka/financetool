@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'services/api_client.dart';
+import 'services/smart_api_client.dart';
+import 'services/background_cache_service.dart';
 import 'models/asset_stats.dart';
 import 'models/trend_data.dart';
 import 'pages/main_app_demo.dart';
@@ -307,21 +308,34 @@ class _AssetHomePageState extends State<AssetHomePage> {
   void initState() {
     super.initState();
     _loadData();
+    _startBackgroundCaching();
   }
 
-  Future<void> _loadData() async {
+  /// 启动后台缓存服务
+  Future<void> _startBackgroundCaching() async {
+    try {
+      await BackgroundCacheService.start();
+      print('🚀 [AssetHomePage] 后台缓存服务已启动');
+    } catch (e) {
+      print('❌ [AssetHomePage] 启动后台缓存服务失败: $e');
+    }
+  }
+
+  Future<void> _loadData({bool forceRefresh = false}) async {
     setState(() {
       isLoading = true;
       errorMessage = null;
     });
 
     try {
+      print('🔄 [AssetHomePage] 开始加载 $selectedCurrency 的数据...');
+      
       // 并行加载聚合统计、趋势数据、最大持仓和资产快照
       final futures = await Future.wait([
-        ApiClient.getAggregatedStats(selectedCurrency),
-        ApiClient.getAssetTrend(2, selectedCurrency), // 获取2天数据用于计算24小时变化
-        ApiClient.getLargestHolding(selectedCurrency),
-        ApiClient.getAssetSnapshots(selectedCurrency),
+        SmartApiClient.getAggregatedStats(selectedCurrency, forceRefresh: forceRefresh),
+        SmartApiClient.getAssetTrend(2, selectedCurrency, forceRefresh: forceRefresh), // 获取2天数据用于计算24小时变化
+        SmartApiClient.getLargestHolding(selectedCurrency, forceRefresh: forceRefresh),
+        SmartApiClient.getAssetSnapshots(selectedCurrency, forceRefresh: forceRefresh),
       ]);
 
       final statsJson = futures[0] as Map<String, dynamic>;
@@ -361,12 +375,18 @@ class _AssetHomePageState extends State<AssetHomePage> {
         riskLevel = _calculateRiskLevelFromSnapshots(snapshotsResult);
         isLoading = false;
       });
+      
+      print('✅ [AssetHomePage] $selectedCurrency 数据加载完成');
+      
+      // 后台预加载其他货币数据
+      SmartApiClient.preloadOtherCurrencies(selectedCurrency);
+      
     } catch (e) {
       setState(() {
         errorMessage = '数据加载失败: $e';
         isLoading = false;
       });
-      print('数据加载错误: $e');
+      print('❌ [AssetHomePage] 数据加载错误: $e');
     }
   }
 
@@ -423,12 +443,26 @@ class _AssetHomePageState extends State<AssetHomePage> {
     });
   }
 
-  void _selectCurrency(String currency) {
+  void _selectCurrency(String currency) async {
+    if (currency == selectedCurrency) return;
+    
     setState(() {
       selectedCurrency = currency;
       showCurrencyDropdown = false;
     });
-    _loadData(); // 重新加载数据
+    
+    // 检查是否有缓存数据
+    final hasCache = await SmartApiClient.hasValidCache(currency, 'aggregated_stats');
+    
+    if (hasCache) {
+      print('📱 [AssetHomePage] 发现 $currency 的缓存数据，快速切换');
+      // 有缓存时快速加载
+      _loadData(forceRefresh: false);
+    } else {
+      print('🌐 [AssetHomePage] $currency 无缓存，从网络加载');
+      // 无缓存时从网络加载
+      _loadData(forceRefresh: true);
+    }
   }
 
   void _toggleDataVisibility() {
@@ -753,6 +787,23 @@ class _AssetHomePageState extends State<AssetHomePage> {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      // 刷新按钮
+                      GestureDetector(
+                        onTap: () => _loadData(forceRefresh: true),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.refresh,
+                            color: Colors.white54,
+                            size: 16,
+                          ),
+                        ),
+                      ),
                       const Spacer(),
               GestureDetector(
                 onTap: _toggleDataVisibility,
@@ -923,7 +974,10 @@ class _AssetHomePageState extends State<AssetHomePage> {
             const SizedBox(height: 20),
             
             // 资产排行
-            _AssetRankingCard(assetSnapshots: assetSnapshots),
+            _AssetRankingCard(
+              assetSnapshots: assetSnapshots,
+              selectedCurrency: selectedCurrency,
+            ),
             const SizedBox(height: 20),
             
             // 市场行情
@@ -1389,8 +1443,12 @@ class _LabelPair extends StatelessWidget {
 
 class _AssetRankingCard extends StatelessWidget {
   final List<Map<String, dynamic>> assetSnapshots;
+  final String selectedCurrency;
   
-  const _AssetRankingCard({required this.assetSnapshots});
+  const _AssetRankingCard({
+    required this.assetSnapshots,
+    required this.selectedCurrency,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1438,11 +1496,15 @@ class _AssetRankingCard extends StatelessWidget {
           subtitle = '$assetType • ${snapshot['balance']?.toStringAsFixed(2) ?? '0.00'}';
       }
       
+      // 根据选择的货币格式化显示
+      final currencySymbol = _getCurrencySymbol(selectedCurrency);
+      final formattedValue = _formatCurrencyValue(baseValue, selectedCurrency);
+      
       return _RankingRow(
         icon: icon,
         title: assetName.length > 10 ? '${assetName.substring(0, 10)}...' : assetName,
         subtitle: subtitle,
-        value: "\$${baseValue.toStringAsFixed(0)}",
+        value: formattedValue,
         ratio: "$ratio%",
         change: "+0.0%", // 暂时使用固定值，后续可以添加真实变化数据
         changeColor: const Color(0xFF34B27B),
@@ -1498,6 +1560,53 @@ class _AssetRankingCard extends StatelessWidget {
         ],
       ),
     );
+  }
+  
+  /// 获取货币符号
+  String _getCurrencySymbol(String currency) {
+    switch (currency) {
+      case 'CNY':
+        return '¥';
+      case 'USD':
+        return '\$';
+      case 'EUR':
+        return '€';
+      case 'USDT':
+        return 'USDT ';
+      case 'BTC':
+        return '₿';
+      default:
+        return '\$';
+    }
+  }
+  
+  /// 格式化货币值
+  String _formatCurrencyValue(num value, String currency) {
+    final symbol = _getCurrencySymbol(currency);
+    
+    // 根据货币类型选择合适的小数位数
+    int decimalPlaces;
+    switch (currency) {
+      case 'CNY':
+      case 'USD':
+      case 'EUR':
+        decimalPlaces = 0; // 整数显示
+        break;
+      case 'USDT':
+        decimalPlaces = 2; // 保留2位小数
+        break;
+      case 'BTC':
+        decimalPlaces = 4; // 保留4位小数
+        break;
+      default:
+        decimalPlaces = 0;
+    }
+    
+    if (decimalPlaces == 0) {
+      return "$symbol${value.toStringAsFixed(0)}";
+    } else {
+      return "$symbol${value.toStringAsFixed(decimalPlaces)}";
+    }
   }
 }
 
