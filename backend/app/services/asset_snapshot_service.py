@@ -274,10 +274,9 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
         })
     # 使用窗口函数获取每个账户的最新记录，避免重复
     from sqlalchemy import desc, func
-    from datetime import datetime, timedelta
     
     # 获取最近24小时内的最新记录
-    yesterday = datetime.now() - timedelta(days=1)
+    yesterday = snapshot_time - timedelta(days=1)
     
     # 使用窗口函数获取每个账户的最新记录
     wise_latest_query = db.query(
