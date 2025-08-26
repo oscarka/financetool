@@ -27,37 +27,30 @@ def get_asset_snapshots(
     if base_currency is None:
         base_currency = 'CNY'
     
-    # 特殊处理Wise平台：使用5分钟时间窗口获取最新快照数据
+    # 获取快照开始执行的时间（当前时间）
+    snapshot_execution_time = datetime.now()
+    
+    # 特殊处理Wise平台：只查询快照开始执行后5分钟内的数据
     if platform == 'Wise' or (asset_type == '外汇' and not platform):
-        # 获取当前时间，只查询最近5分钟内的Wise快照数据
-        current_time = datetime.now()
-        time_window_start = current_time - timedelta(minutes=5)
-        
         q = db.query(AssetSnapshot).filter(
             AssetSnapshot.platform == 'Wise',
-            AssetSnapshot.snapshot_time >= time_window_start
+            AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
         )
-        logging.warning(f"[asset_snapshot] Wise平台使用5分钟时间窗口: {time_window_start} 到 {current_time}")
+        logging.warning(f"[asset_snapshot] Wise平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
     elif platform == 'OKX' or (asset_type == '数字货币' and not platform):
-        # 获取当前时间，只查询最近5分钟内的OKX快照数据
-        current_time = datetime.now()
-        time_window_start = current_time - timedelta(minutes=5)
-        
+        # 只查询快照开始执行后5分钟内的OKX数据
         q = db.query(AssetSnapshot).filter(
             AssetSnapshot.platform == 'OKX',
-            AssetSnapshot.snapshot_time >= time_window_start
+            AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
         )
-        logging.warning(f"[asset_snapshot] OKX平台使用5分钟时间窗口: {time_window_start} 到 {current_time}")
+        logging.warning(f"[asset_snapshot] OKX平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
     elif platform == 'Web3':
-        # 获取当前时间，只查询最近5分钟内的Web3快照数据
-        current_time = datetime.now()
-        time_window_start = current_time - timedelta(minutes=5)
-        
+        # 只查询快照开始执行后5分钟内的Web3数据
         q = db.query(AssetSnapshot).filter(
             AssetSnapshot.platform == 'Web3',
-            AssetSnapshot.snapshot_time >= time_window_start
+            AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
         )
-        logging.warning(f"[asset_snapshot] Web3平台使用5分钟时间窗口: {time_window_start} 到 {current_time}")
+        logging.warning(f"[asset_snapshot] Web3平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
     else:
         # 其他平台使用原有逻辑
         q = db.query(AssetSnapshot)
