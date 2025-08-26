@@ -362,12 +362,33 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'balance': o.total_balance
         })
     
-    # 5. Web3数字货币 - 归类为数字货币，类似于OKX的第四个账户
-    web3_balances = db.query(Web3Balance).all()
-    logging.warning(f"[extract_asset_snapshot] Web3 balances count: {len(web3_balances)}")
+    # 5. Web3数字货币 - 需要去重，只获取每个项目的最新记录
+    web3_latest_query = db.query(
+        Web3Balance.project_id,
+        Web3Balance.account_id,
+        Web3Balance.total_value,
+        Web3Balance.currency,
+        Web3Balance.update_time,
+        func.row_number().over(
+            partition_by=[Web3Balance.project_id, Web3Balance.account_id],
+            order_by=desc(Web3Balance.update_time)
+        ).label('rn')
+    ).subquery()
     
-    for w in web3_balances:
-        logging.warning(f"[extract_asset_snapshot] Web3 balance: {w.project_id} - {w.total_value} {w.currency}")
+    web3_latest = db.query(
+        web3_latest_query.c.project_id,
+        web3_latest_query.c.account_id,
+        web3_latest_query.c.total_value,
+        web3_latest_query.c.currency,
+        web3_latest_query.c.update_time
+    ).filter(
+        web3_latest_query.c.rn == 1
+    ).all()
+    
+    logging.warning(f"[extract_asset_snapshot] Web3 latest balances count: {len(web3_latest)}")
+    
+    for w in web3_latest:
+        logging.warning(f"[extract_asset_snapshot] Web3 latest balance: {w.project_id} - {w.total_value} {w.currency}")
         all_assets.append({
             'user_id': None,
             'platform': 'Web3',
