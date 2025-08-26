@@ -329,7 +329,7 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
         })
     
     # 4. OKX数字货币 - OKXBalance表有(account_id, currency, account_type)唯一约束，没有重复，直接查询
-    for o in db.query(OKXBalance).filter(OKXBalance.update_time >= yesterday).all():
+    for o in db.query(OKXBalance).all():
         all_assets.append({
             'user_id': None,
             'platform': 'OKX',
