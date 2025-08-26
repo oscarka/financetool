@@ -372,8 +372,8 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'user_id': None,
             'platform': 'Web3',
             'asset_type': '数字货币',
-            'asset_code': f"{w.project_id}_{w.account_id}",
-            'asset_name': f"Web3 {w.project_id}",
+            'asset_code': w.project_id[:20],  # 限制长度，避免数据库字段溢出
+            'asset_name': f"Web3 {w.project_id[:15]}",  # 限制长度
             'currency': w.currency,
             'balance': w.total_value
         })
