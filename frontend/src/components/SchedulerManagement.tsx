@@ -177,6 +177,28 @@ const TASK_TEMPLATES = {
       minute: 0,
       frequency: 'daily'
     }
+  },
+  'wise_exchange_rate_sync': {
+    name: 'Wise汇率同步',
+    description: '同步Wise汇率数据',
+    config: {},
+    schedule: {
+      type: 'cron',
+      hour: 18,
+      minute: 0,
+      frequency: 'daily'
+    }
+  },
+  'wise_transaction_sync': {
+    name: 'Wise交易同步',
+    description: '同步Wise交易记录',
+    config: {},
+    schedule: {
+      type: 'cron',
+      hour: 18,
+      minute: 0,
+      frequency: 'daily'
+    }
   }
 };
 

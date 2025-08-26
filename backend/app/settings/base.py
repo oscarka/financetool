@@ -19,7 +19,7 @@ class BaseConfig(BaseSettings):
     cors_origins: str = '["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"]'
     
     # 日志配置
-    log_level: str = "WARNING"  # 从INFO调整为WARNING
+    log_level: str = "INFO"  # 调整为INFO级别，确保能看到所有日志
     log_file: str = "./logs/app.log"
     
     # 基金API配置
