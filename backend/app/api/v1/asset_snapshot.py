@@ -51,6 +51,13 @@ def get_asset_snapshots(
             AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
         )
         logging.warning(f"[asset_snapshot] Web3平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
+    elif platform == 'IBKR':
+        # 只查询快照开始执行后5分钟内的IBKR数据
+        q = db.query(AssetSnapshot).filter(
+            AssetSnapshot.platform == 'IBKR',
+            AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
+        )
+        logging.warning(f"[asset_snapshot] IBKR平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
     else:
         # 其他平台使用原有逻辑
         q = db.query(AssetSnapshot)

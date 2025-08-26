@@ -316,8 +316,31 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'balance': w.available_balance
         })
     
-    # 3. IBKR证券 - IBKRBalance表有(account_id, snapshot_date, snapshot_time)唯一约束，没有重复，直接查询
-    for i in db.query(IBKRBalance).filter(IBKRBalance.snapshot_time >= yesterday).all():
+    # 3. IBKR证券 - 需要去重，只获取每个账户的最新记录
+    ibkr_latest_query = db.query(
+        IBKRBalance.account_id,
+        IBKRBalance.currency,
+        IBKRBalance.net_liquidation,
+        IBKRBalance.snapshot_time,
+        func.row_number().over(
+            partition_by=[IBKRBalance.account_id, IBKRBalance.currency],
+            order_by=desc(IBKRBalance.snapshot_time)
+        ).label('rn')
+    ).subquery()
+    
+    ibkr_latest = db.query(
+        ibkr_latest_query.c.account_id,
+        ibkr_latest_query.c.currency,
+        ibkr_latest_query.c.net_liquidation,
+        ibkr_latest_query.c.snapshot_time
+    ).filter(
+        ibkr_latest_query.c.rn == 1
+    ).all()
+    
+    logging.warning(f"[extract_asset_snapshot] IBKR latest balances count: {len(ibkr_latest)}")
+    
+    for i in ibkr_latest:
+        logging.warning(f"[extract_asset_snapshot] IBKR latest balance: {i.account_id} - {i.net_liquidation} {i.currency}")
         all_assets.append({
             'user_id': None,
             'platform': 'IBKR',
