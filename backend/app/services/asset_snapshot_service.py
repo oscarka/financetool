@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
-from app.models.database import AssetPosition, WiseBalance, IBKRBalance, OKXBalance, ExchangeRate, WiseExchangeRate
+from app.models.database import AssetPosition, WiseBalance, IBKRBalance, OKXBalance, Web3Balance, ExchangeRate, WiseExchangeRate
 from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
 import redis
 import json
@@ -360,6 +360,22 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'asset_name': '',
             'currency': o.currency,
             'balance': o.total_balance
+        })
+    
+    # 5. Web3数字货币 - 归类为数字货币，类似于OKX的第四个账户
+    web3_balances = db.query(Web3Balance).all()
+    logging.warning(f"[extract_asset_snapshot] Web3 balances count: {len(web3_balances)}")
+    
+    for w in web3_balances:
+        logging.warning(f"[extract_asset_snapshot] Web3 balance: {w.project_id} - {w.total_value} {w.currency}")
+        all_assets.append({
+            'user_id': None,
+            'platform': 'Web3',
+            'asset_type': '数字货币',
+            'asset_code': f"{w.project_id}_{w.account_id}",
+            'asset_name': f"Web3 {w.project_id}",
+            'currency': w.currency,
+            'balance': w.total_value
         })
     
     logging.warning(f"[extract_asset_snapshot] all_assets count: {len(all_assets)}")
