@@ -272,7 +272,38 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'currency': p.currency,
             'balance': p.current_value
         })
-    for w in db.query(WiseBalance).all():
+    # 使用窗口函数获取每个账户的最新记录，避免重复
+    from sqlalchemy import desc, func
+    from datetime import datetime, timedelta
+    
+    # 获取最近24小时内的最新记录
+    yesterday = datetime.now() - timedelta(days=1)
+    
+    # 使用窗口函数获取每个账户的最新记录
+    wise_latest_query = db.query(
+        WiseBalance.account_id,
+        WiseBalance.currency,
+        WiseBalance.available_balance,
+        WiseBalance.update_time,
+        func.row_number().over(
+            partition_by=[WiseBalance.account_id, WiseBalance.currency],
+            order_by=desc(WiseBalance.update_time)
+        ).label('rn')
+    ).filter(
+        WiseBalance.update_time >= yesterday
+    ).subquery()
+    
+    # 只获取每个账户+货币组合的最新记录
+    wise_latest = db.query(
+        wise_latest_query.c.account_id,
+        wise_latest_query.c.currency,
+        wise_latest_query.c.available_balance,
+        wise_latest_query.c.update_time
+    ).filter(
+        wise_latest_query.c.rn == 1
+    ).all()
+    
+    for w in wise_latest:
         all_assets.append({
             'user_id': None,
             'platform': 'Wise',
@@ -282,7 +313,30 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'currency': w.currency,
             'balance': w.available_balance
         })
-    for i in db.query(IBKRBalance).all():
+    # 使用窗口函数获取每个IBKR账户的最新记录
+    ibkr_latest_query = db.query(
+        IBKRBalance.account_id,
+        IBKRBalance.currency,
+        IBKRBalance.net_liquidation,
+        IBKRBalance.snapshot_time,
+        func.row_number().over(
+            partition_by=[IBKRBalance.account_id, IBKRBalance.currency],
+            order_by=desc(IBKRBalance.snapshot_time)
+        ).label('rn')
+    ).filter(
+        IBKRBalance.snapshot_time >= yesterday
+    ).subquery()
+    
+    ibkr_latest = db.query(
+        ibkr_latest_query.c.account_id,
+        ibkr_latest_query.c.currency,
+        ibkr_latest_query.c.net_liquidation,
+        ibkr_latest_query.c.snapshot_time
+    ).filter(
+        ibkr_latest_query.c.rn == 1
+    ).all()
+    
+    for i in ibkr_latest:
         all_assets.append({
             'user_id': None,
             'platform': 'IBKR',
@@ -292,7 +346,31 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'currency': i.currency,
             'balance': i.net_liquidation
         })
-    for o in db.query(OKXBalance).all():
+    
+    # 使用窗口函数获取每个OKX账户的最新记录
+    okx_latest_query = db.query(
+        OKXBalance.account_id,
+        OKXBalance.currency,
+        OKXBalance.total_balance,
+        OKXBalance.update_time,
+        func.row_number().over(
+            partition_by=[OKXBalance.account_id, OKXBalance.currency],
+            order_by=desc(OKXBalance.update_time)
+        ).label('rn')
+    ).filter(
+        OKXBalance.update_time >= yesterday
+    ).subquery()
+    
+    okx_latest = db.query(
+        okx_latest_query.c.account_id,
+        okx_latest_query.c.currency,
+        okx_latest_query.c.total_balance,
+        okx_latest_query.c.update_time
+    ).filter(
+        okx_latest_query.c.rn == 1
+    ).all()
+    
+    for o in okx_latest:
         all_assets.append({
             'user_id': None,
             'platform': 'OKX',
