@@ -62,6 +62,23 @@ def get_asset_snapshots(
         else:
             # 如果没有快照数据，使用默认查询
             q = db.query(AssetSnapshot).filter(AssetSnapshot.platform == 'OKX')
+    elif platform == 'Web3':
+        # 获取最新快照时间
+        latest_snapshot_time = db.query(func.max(AssetSnapshot.snapshot_time)).scalar()
+        if latest_snapshot_time:
+            # 使用前后5分钟时间窗口获取快照数据，避免精确时间匹配导致的数据缺失
+            time_window_start = latest_snapshot_time - timedelta(minutes=5)
+            time_window_end = latest_snapshot_time + timedelta(minutes=5)
+            
+            q = db.query(AssetSnapshot).filter(
+                AssetSnapshot.platform == 'Web3',
+                AssetSnapshot.snapshot_time >= time_window_start,
+                AssetSnapshot.snapshot_time <= time_window_end
+            )
+            logging.warning(f"[asset_snapshot] Web3平台使用5分钟时间窗口: {time_window_start} 到 {time_window_end}")
+        else:
+            # 如果没有快照数据，使用默认查询
+            q = db.query(AssetSnapshot).filter(AssetSnapshot.platform == 'Web3')
     else:
         # 其他平台使用原有逻辑
         q = db.query(AssetSnapshot)
