@@ -71,7 +71,8 @@
         "cron": "0 18 * * *",
         "plugin": "financial_operations.tasks.okx_position_sync",
         "args": {},
-        "enabled": true
+        "enabled": false,
+        "description": "⚠️ 此任务功能待实现，暂时禁用。持仓数据通过其他方式同步。"
     },
     {
         "id": "okx_market_data_sync",
