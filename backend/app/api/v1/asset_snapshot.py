@@ -27,38 +27,37 @@ def get_asset_snapshots(
     if base_currency is None:
         base_currency = 'CNY'
     
-    # 如果没有指定时间范围，使用5分钟时间窗口获取最新快照数据
-    if not start and not end:
+    # 特殊处理Wise平台：使用5分钟时间窗口获取最新快照数据
+    if platform == 'Wise' or (asset_type == '外汇' and not platform):
         # 获取最新快照时间
         latest_snapshot_time = db.query(func.max(AssetSnapshot.snapshot_time)).scalar()
-        if not latest_snapshot_time:
-            raise HTTPException(status_code=404, detail="没有找到资产快照数据")
-        
-        # 使用前后5分钟时间窗口获取快照数据，避免精确时间匹配导致的数据缺失
-        time_window_start = latest_snapshot_time - timedelta(minutes=5)
-        time_window_end = latest_snapshot_time + timedelta(minutes=5)
-        
-        logging.warning(f"[asset_snapshot] 使用5分钟时间窗口: {time_window_start} 到 {time_window_end}")
-        
-        q = db.query(AssetSnapshot).filter(
-            AssetSnapshot.snapshot_time >= time_window_start,
-            AssetSnapshot.snapshot_time <= time_window_end
-        )
+        if latest_snapshot_time:
+            # 使用前后5分钟时间窗口获取快照数据，避免精确时间匹配导致的数据缺失
+            time_window_start = latest_snapshot_time - timedelta(minutes=5)
+            time_window_end = latest_snapshot_time + timedelta(minutes=5)
+            
+            q = db.query(AssetSnapshot).filter(
+                AssetSnapshot.platform == 'Wise',
+                AssetSnapshot.snapshot_time >= time_window_start,
+                AssetSnapshot.snapshot_time <= time_window_end
+            )
+            logging.warning(f"[asset_snapshot] Wise平台使用5分钟时间窗口: {time_window_start} 到 {time_window_end}")
+        else:
+            # 如果没有快照数据，使用默认查询
+            q = db.query(AssetSnapshot).filter(AssetSnapshot.platform == 'Wise')
     else:
-        # 如果指定了时间范围，使用指定的时间范围
+        # 其他平台使用原有逻辑
         q = db.query(AssetSnapshot)
+        if platform:
+            q = q.filter(AssetSnapshot.platform == platform)
+        if asset_type:
+            q = q.filter(AssetSnapshot.asset_type == asset_type)
+        if currency:
+            q = q.filter(AssetSnapshot.currency == currency)
         if start:
             q = q.filter(AssetSnapshot.snapshot_time >= start)
         if end:
             q = q.filter(AssetSnapshot.snapshot_time <= end)
-    
-    # 应用其他过滤条件
-    if platform:
-        q = q.filter(AssetSnapshot.platform == platform)
-    if asset_type:
-        q = q.filter(AssetSnapshot.asset_type == asset_type)
-    if currency:
-        q = q.filter(AssetSnapshot.currency == currency)
     
     q = q.order_by(desc(AssetSnapshot.snapshot_time))
     data = q.all()
