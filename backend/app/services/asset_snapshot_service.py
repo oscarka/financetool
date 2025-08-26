@@ -328,8 +328,30 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'balance': i.net_liquidation
         })
     
-    # 4. OKX数字货币 - OKXBalance表有(account_id, currency, account_type)唯一约束，没有重复，直接查询
-    for o in db.query(OKXBalance).all():
+    # 4. OKX数字货币 - 需要时间窗口筛选，避免快照记录重复
+    okx_latest_query = db.query(
+        OKXBalance.account_id,
+        OKXBalance.currency,
+        OKXBalance.total_balance,
+        OKXBalance.account_type,
+        OKXBalance.update_time,
+        func.row_number().over(
+            partition_by=[OKXBalance.account_id, OKXBalance.currency, OKXBalance.account_type],
+            order_by=desc(OKXBalance.update_time)
+        ).label('rn')
+    ).subquery()
+    
+    okx_latest = db.query(
+        okx_latest_query.c.account_id,
+        okx_latest_query.c.currency,
+        okx_latest_query.c.total_balance,
+        okx_latest_query.c.account_type,
+        okx_latest_query.c.update_time
+    ).filter(
+        okx_latest_query.c.rn == 1
+    ).all()
+    
+    for o in okx_latest:
         all_assets.append({
             'user_id': None,
             'platform': 'OKX',
