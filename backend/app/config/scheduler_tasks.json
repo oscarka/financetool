@@ -144,10 +144,11 @@
     },
     {
         "id": "full_snapshot_extract",
-        "name": "全量快照抽取",
-        "cron": "0 21 * * *",
+        "name": "全量快照抽取（每小时）",
+        "cron": "0 * * * *",
         "plugin": "financial_operations.tasks.full_snapshot_extract",
         "args": {},
-        "enabled": true
+        "enabled": true,
+        "description": "每小时执行一次快照，用于计算24小时收益变化"
     }
 ]
