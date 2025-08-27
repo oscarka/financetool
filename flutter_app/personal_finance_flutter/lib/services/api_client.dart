@@ -8,56 +8,115 @@ class ApiClient {
     // 优先使用环境变量
     const String? backendUrl = String.fromEnvironment('BACKEND_API_URL');
     if (backendUrl != null && backendUrl.isNotEmpty) {
+      print('🔍 [ApiClient] 使用环境变量指定的后端API: $backendUrl');
       return backendUrl;
     }
     
-    // 现在直接使用真实数据，不需要连接API
+    // 检查是否使用本地开发环境
+    const bool useLocalBackend = bool.fromEnvironment('USE_LOCAL_BACKEND', defaultValue: false);
+    
+    if (useLocalBackend) {
+      print('🔍 [ApiClient] 使用本地开发环境API: http://localhost:8000/api/v1');
+      return 'http://localhost:8000/api/v1';
+    }
+    
+    // 默认使用生产环境
+    print('🔍 [ApiClient] 使用默认Railway生产环境API: https://backend-production-2750.up.railway.app/api/v1');
     return 'https://backend-production-2750.up.railway.app/api/v1';
   }
   
   // 获取聚合统计数据
   static Future<Map<String, dynamic>> getAggregatedStats(String baseCurrency) async {
-    // 直接返回从Railway获取的真实数据，避免CORS问题
-    print('🔍 [ApiClient] 使用Railway真实数据，避免CORS问题');
+    print('🔍 [ApiClient] 正在从后端获取实时聚合统计数据...');
     
-    // 这些是从Railway后端获取的真实数据（通过railway run -- curl测试确认）
-    return {
-      'total_value': 166660.55,
-      'platform_stats': {'支付宝': 158460.30, 'Wise': 8158.23, 'IBKR': 42.03},
-      'asset_type_stats': {'基金': 158460.30, '外汇': 8158.23, '证券': 42.03},
-      'currency_stats': {'CNY': 158460.30, 'USD': 77.95, 'AUD': 1315.22, 'JPY': 6800.40},
-      'asset_count': 12,
-      'platform_count': 3,
-      'asset_type_count': 3,
-      'currency_count': 6,
-      'has_default_rates': false
-    };
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/ai-analyst/asset-data?base_currency=$baseCurrency'),
+        headers: {
+          'X-API-Key': const String.fromEnvironment('AI_ANALYST_API_KEY', defaultValue: 'ai_analyst_key_2024'),
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        // 从后端数据中提取聚合统计信息
+        final currentHoldings = data['current_holdings'] as List;
+        final totalValue = currentHoldings.fold<double>(
+          0.0, 
+          (sum, holding) => sum + (holding['base_currency_value'] ?? 0.0)
+        );
+        
+        // 按平台统计
+        final platformStats = <String, double>{};
+        final assetTypeStats = <String, double>{};
+        final currencyStats = <String, double>{};
+        
+        for (final holding in currentHoldings) {
+          final platform = holding['platform'] ?? '未知';
+          final assetType = holding['asset_type'] ?? '未知';
+          final currency = holding['currency'] ?? '未知';
+          final value = (holding['base_currency_value'] ?? 0.0).toDouble();
+          
+          platformStats[platform] = (platformStats[platform] ?? 0.0) + value;
+          assetTypeStats[assetType] = (assetTypeStats[assetType] ?? 0.0) + value;
+          currencyStats[currency] = (currencyStats[currency] ?? 0.0) + value;
+        }
+        
+        return {
+          'total_value': totalValue,
+          'platform_stats': platformStats,
+          'asset_type_stats': assetTypeStats,
+          'currency_stats': currencyStats,
+          'asset_count': currentHoldings.length,
+          'platform_count': platformStats.length,
+          'asset_type_count': assetTypeStats.length,
+          'currency_count': currencyStats.length,
+          'has_default_rates': true
+        };
+      } else {
+        print('❌ [ApiClient] 获取聚合统计数据失败: ${response.statusCode}');
+        throw Exception('获取数据失败: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ [ApiClient] 获取聚合统计数据失败: $e');
+      throw Exception('网络请求失败: $e');
+    }
   }
   
   // 获取资产趋势数据
   static Future<List<Map<String, dynamic>>> getAssetTrend(int days, String baseCurrency) async {
-    // 直接返回真实趋势数据，避免连接localhost:3000
-    print('🔍 [ApiClient] 使用真实趋势数据，避免连接localhost:3000');
+    print('🔍 [ApiClient] 正在从后端获取实时趋势数据...');
     
-    // 生成基于真实数据的趋势
-    return _generateMockTrendData(days);
+    try {
+      // 获取当前数据作为趋势的基准
+      final currentStats = await getAggregatedStats(baseCurrency);
+      final baseValue = currentStats['total_value'] ?? 0.0;
+      
+      // 生成基于真实数据的趋势（暂时使用模拟数据，后续可以对接真实趋势API）
+      return _generateTrendData(days, baseValue);
+    } catch (e) {
+      print('❌ [ApiClient] 获取趋势数据失败: $e');
+      // 如果获取失败，返回默认趋势数据
+      return _generateTrendData(days, 0.0);
+    }
   }
   
-  // 生成模拟趋势数据
-  static List<Map<String, dynamic>> _generateMockTrendData(int days) {
+  // 生成趋势数据
+  static List<Map<String, dynamic>> _generateTrendData(int days, double baseValue) {
     final List<Map<String, dynamic>> data = [];
     final now = DateTime.now();
-    double baseValue = 166660.55;  // 使用从Railway获取的真实总价值作为基准
     
     for (int i = days - 1; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
       // 生成合理的波动（±2%）
       final randomChange = (DateTime.now().millisecondsSinceEpoch % 200 - 100) / 5000.0;
-      baseValue = baseValue * (1 + randomChange);
+      final dayValue = baseValue * (1 + randomChange);
       
       data.add({
         'date': '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
-        'total': baseValue,
+        'total': dayValue,
       });
     }
     
@@ -66,39 +125,41 @@ class ApiClient {
 
   // 获取资产快照数据
   static Future<List<Map<String, dynamic>>> getAssetSnapshots(String baseCurrency) async {
-    // 直接返回基于真实数据的快照，避免API调用失败
-    print('🔍 [ApiClient] 使用真实快照数据，避免API调用失败');
+    print('🔍 [ApiClient] 正在从后端获取实时快照数据...');
     
-    // 基于真实数据生成快照
-    return [
-      {
-        'asset_type': '基金',
-        'asset_name': '易方达沪深300ETF',
-        'asset_code': '110020',
-        'balance': 158460.30,
-        'base_value': 158460.30,
-        'currency': 'CNY',
-        'platform': '支付宝'
-      },
-      {
-        'asset_type': '外汇',
-        'asset_name': 'Wise账户',
-        'asset_code': 'WISE',
-        'balance': 8158.23,
-        'base_value': 8158.23,
-        'currency': 'USD',
-        'platform': 'Wise'
-      },
-      {
-        'asset_type': '证券',
-        'asset_name': 'IBKR账户',
-        'asset_code': 'IBKR',
-        'balance': 42.03,
-        'base_value': 42.03,
-        'currency': 'USD',
-        'platform': 'IBKR'
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/ai-analyst/asset-data?base_currency=$baseCurrency'),
+        headers: {
+          'X-API-Key': const String.fromEnvironment('AI_ANALYST_API_KEY', defaultValue: 'ai_analyst_key_2024'),
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final currentHoldings = data['current_holdings'] as List;
+        
+        // 转换为快照格式
+        return currentHoldings.map<Map<String, dynamic>>((holding) {
+          return {
+            'asset_type': holding['asset_type'] ?? '未知',
+            'asset_name': holding['asset_name'] ?? '未知',
+            'asset_code': holding['asset_code'] ?? '未知',
+            'balance': holding['balance_original'] ?? 0.0,
+            'base_value': holding['base_currency_value'] ?? 0.0,
+            'currency': holding['currency'] ?? '未知',
+            'platform': holding['platform'] ?? '未知'
+          };
+        }).toList();
+      } else {
+        print('❌ [ApiClient] 获取快照数据失败: ${response.statusCode}');
+        throw Exception('获取数据失败: ${response.statusCode}');
       }
-    ];
+    } catch (e) {
+      print('❌ [ApiClient] 获取快照数据失败: $e');
+      throw Exception('网络请求失败: $e');
+    }
   }
 
   // 获取最大持仓资产

@@ -8,8 +8,7 @@ from datetime import datetime
 
 from app.settings import settings
 from app.utils.database import init_database, get_data_directory, get_database_path
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx, aggregation, ai_analyst
-from app.api import asset_snapshot
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx, aggregation, ai_analyst, asset_snapshot
 from app.services.extensible_scheduler_service import ExtensibleSchedulerService
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
@@ -105,13 +104,19 @@ app = FastAPI(
 )
 
 # 配置CORS
+cors_origins = settings.get_cors_origins_list()
+print(f"🔍 [CORS] 允许的源: {cors_origins}")
+
+# 使用兼容的CORS配置（临时解决方案）
+# 注意：在生产环境中应该使用更严格的源限制
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.get_cors_origins_list(),
-    allow_credentials=True,
+    allow_origins=["*"],         # 允许所有源（开发环境）
+    allow_credentials=False,     # 当allow_origins=["*"]时，必须设为False
     allow_methods=["*"],
     allow_headers=["*"],
 )
+print(f"🔍 [CORS] 使用通配符源（开发环境）")
 
 # 添加请求日志中间件
 app.add_middleware(RequestLoggingMiddleware)
@@ -203,6 +208,8 @@ app.include_router(
     prefix=f"{settings.api_v1_prefix}",
     tags=["AI分析师"]
 )
+
+
 
 # 注册MCP智能图表接口
 from app.api.v1.mcp_smart_chart import router as mcp_chart_router

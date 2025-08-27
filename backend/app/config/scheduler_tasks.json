@@ -71,7 +71,8 @@
         "cron": "0 18 * * *",
         "plugin": "financial_operations.tasks.okx_position_sync",
         "args": {},
-        "enabled": true
+        "enabled": false,
+        "description": "⚠️ 此任务功能待实现，暂时禁用。持仓数据通过其他方式同步。"
     },
     {
         "id": "okx_market_data_sync",
@@ -79,7 +80,8 @@
         "cron": "0 18 * * *",
         "plugin": "financial_operations.tasks.okx_market_data_sync",
         "args": {},
-        "enabled": true
+        "enabled": false,
+        "description": "⚠️ 此任务功能待实现，暂时禁用。市场数据通过汇率缓存任务同步。"
     },
     {
         "id": "okx_transaction_sync",
@@ -144,10 +146,11 @@
     },
     {
         "id": "full_snapshot_extract",
-        "name": "全量快照抽取",
-        "cron": "0 21 * * *",
+        "name": "全量快照抽取（每小时）",
+        "cron": "0 * * * *",
         "plugin": "financial_operations.tasks.full_snapshot_extract",
         "args": {},
-        "enabled": true
+        "enabled": true,
+        "description": "每小时执行一次快照，用于计算24小时收益变化"
     }
 ]

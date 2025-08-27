@@ -49,7 +49,7 @@ class OKXBalanceSyncTask(BaseTask):
                             'currency': detail.get('ccy'),
                             'available_balance': float(detail.get('availBal', 0)),
                             'frozen_balance': float(detail.get('frozenBal', 0)),
-                            'total_balance': float(detail.get('bal', 0)),
+                            'total_balance': float(detail.get('eq', 0)),
                             'account_type': account.get('acctId'),
                             'sync_time': datetime.now().isoformat()
                         }
@@ -80,16 +80,27 @@ class OKXBalanceSyncTask(BaseTask):
                         }
                         processed_positions.append(position_info)
             
+            # 🔑 关键修改：调用数据库同步方法
+            context.log("开始同步余额数据到数据库...")
+            db_sync_result = await okx_service.sync_balances_to_db()
+            
+            if not db_sync_result.get('success', False):
+                context.log(f"数据库同步失败: {db_sync_result.get('error', '未知错误')}", "ERROR")
+                return TaskResult(success=False, error=f"数据库同步失败: {db_sync_result.get('error', '未知错误')}")
+            
+            context.log(f"数据库同步成功: {db_sync_result.get('message', '同步完成')}")
+            
             result_data = {
                 'balances': processed_balances,
                 'positions': processed_positions,
                 'total_balance': total_balance,
                 'currency_count': len(set(b['currency'] for b in processed_balances)),
                 'position_count': len(processed_positions),
-                'sync_time': datetime.now().isoformat()
+                'sync_time': datetime.now().isoformat(),
+                'db_sync_result': db_sync_result  # 添加数据库同步结果
             }
             
-            context.log(f"OKX余额同步任务完成，同步了 {len(processed_balances)} 个币种余额，{len(processed_positions)} 个持仓")
+            context.log(f"OKX余额同步任务完成，同步了 {len(processed_balances)} 个币种余额，{len(processed_positions)} 个持仓，数据已保存到数据库")
             
             # 发布事件
             if context.event_bus:

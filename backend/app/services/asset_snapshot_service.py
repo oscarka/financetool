@@ -1,8 +1,8 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
-from app.models.database import AssetPosition, WiseBalance, IBKRBalance, OKXBalance, ExchangeRate, WiseExchangeRate
+from app.models.database import AssetPosition, WiseBalance, IBKRBalance, OKXBalance, Web3Balance, ExchangeRate, WiseExchangeRate
 from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
 import redis
 import json
@@ -262,6 +262,8 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
     
     # 聚合资产
     all_assets = []
+    
+    # 1. 支付宝基金等 - AssetPosition表，本身没有重复，直接查询
     for p in db.query(AssetPosition).all():
         all_assets.append({
             'user_id': None,
@@ -272,7 +274,38 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'currency': p.currency,
             'balance': p.current_value
         })
-    for w in db.query(WiseBalance).all():
+    
+    # 2. Wise外汇 - 需要去重，因为WiseBalance表只有account_id唯一约束，一个账户可以有多种货币，且每次同步都插入新记录
+    from sqlalchemy import desc, func
+    
+    # 获取最近24小时内的最新记录
+    yesterday = snapshot_time - timedelta(days=1)
+    
+    # 使用窗口函数获取每个账户的最新记录，避免重复
+    wise_latest_query = db.query(
+        WiseBalance.account_id,
+        WiseBalance.currency,
+        WiseBalance.available_balance,
+        WiseBalance.update_time,
+        func.row_number().over(
+            partition_by=[WiseBalance.account_id, WiseBalance.currency],
+            order_by=desc(WiseBalance.update_time)
+        ).label('rn')
+    ).filter(
+        WiseBalance.update_time >= yesterday
+    ).subquery()
+    
+    # 只获取每个账户+货币组合的最新记录
+    wise_latest = db.query(
+        wise_latest_query.c.account_id,
+        wise_latest_query.c.currency,
+        wise_latest_query.c.available_balance,
+        wise_latest_query.c.update_time
+    ).filter(
+        wise_latest_query.c.rn == 1
+    ).all()
+    
+    for w in wise_latest:
         all_assets.append({
             'user_id': None,
             'platform': 'Wise',
@@ -282,7 +315,32 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'currency': w.currency,
             'balance': w.available_balance
         })
-    for i in db.query(IBKRBalance).all():
+    
+    # 3. IBKR证券 - 需要去重，只获取每个账户的最新记录
+    ibkr_latest_query = db.query(
+        IBKRBalance.account_id,
+        IBKRBalance.currency,
+        IBKRBalance.net_liquidation,
+        IBKRBalance.snapshot_time,
+        func.row_number().over(
+            partition_by=[IBKRBalance.account_id, IBKRBalance.currency],
+            order_by=desc(IBKRBalance.snapshot_time)
+        ).label('rn')
+    ).subquery()
+    
+    ibkr_latest = db.query(
+        ibkr_latest_query.c.account_id,
+        ibkr_latest_query.c.currency,
+        ibkr_latest_query.c.net_liquidation,
+        ibkr_latest_query.c.snapshot_time
+    ).filter(
+        ibkr_latest_query.c.rn == 1
+    ).all()
+    
+    logging.warning(f"[extract_asset_snapshot] IBKR latest balances count: {len(ibkr_latest)}")
+    
+    for i in ibkr_latest:
+        logging.warning(f"[extract_asset_snapshot] IBKR latest balance: {i.account_id} - {i.net_liquidation} {i.currency}")
         all_assets.append({
             'user_id': None,
             'platform': 'IBKR',
@@ -292,7 +350,31 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'currency': i.currency,
             'balance': i.net_liquidation
         })
-    for o in db.query(OKXBalance).all():
+    
+    # 4. OKX数字货币 - 需要时间窗口筛选，避免快照记录重复
+    okx_latest_query = db.query(
+        OKXBalance.account_id,
+        OKXBalance.currency,
+        OKXBalance.total_balance,
+        OKXBalance.account_type,
+        OKXBalance.update_time,
+        func.row_number().over(
+            partition_by=[OKXBalance.account_id, OKXBalance.currency, OKXBalance.account_type],
+            order_by=desc(OKXBalance.update_time)
+        ).label('rn')
+    ).subquery()
+    
+    okx_latest = db.query(
+        okx_latest_query.c.account_id,
+        okx_latest_query.c.currency,
+        okx_latest_query.c.total_balance,
+        okx_latest_query.c.account_type,
+        okx_latest_query.c.update_time
+    ).filter(
+        okx_latest_query.c.rn == 1
+    ).all()
+    
+    for o in okx_latest:
         all_assets.append({
             'user_id': None,
             'platform': 'OKX',
@@ -301,6 +383,43 @@ def extract_asset_snapshot(db: Session, snapshot_time: datetime = None, base_cur
             'asset_name': '',
             'currency': o.currency,
             'balance': o.total_balance
+        })
+    
+    # 5. Web3数字货币 - 需要去重，只获取每个项目的最新记录
+    web3_latest_query = db.query(
+        Web3Balance.project_id,
+        Web3Balance.account_id,
+        Web3Balance.total_value,
+        Web3Balance.currency,
+        Web3Balance.update_time,
+        func.row_number().over(
+            partition_by=[Web3Balance.project_id, Web3Balance.account_id],
+            order_by=desc(Web3Balance.update_time)
+        ).label('rn')
+    ).subquery()
+    
+    web3_latest = db.query(
+        web3_latest_query.c.project_id,
+        web3_latest_query.c.account_id,
+        web3_latest_query.c.total_value,
+        web3_latest_query.c.currency,
+        web3_latest_query.c.update_time
+    ).filter(
+        web3_latest_query.c.rn == 1
+    ).all()
+    
+    logging.warning(f"[extract_asset_snapshot] Web3 latest balances count: {len(web3_latest)}")
+    
+    for w in web3_latest:
+        logging.warning(f"[extract_asset_snapshot] Web3 latest balance: {w.project_id} - {w.total_value} {w.currency}")
+        all_assets.append({
+            'user_id': None,
+            'platform': 'Web3',
+            'asset_type': '数字货币',
+            'asset_code': w.project_id[:20],  # 限制长度，避免数据库字段溢出
+            'asset_name': f"Web3 {w.project_id[:15]}",  # 限制长度
+            'currency': w.currency,
+            'balance': w.total_value
         })
     
     logging.warning(f"[extract_asset_snapshot] all_assets count: {len(all_assets)}")

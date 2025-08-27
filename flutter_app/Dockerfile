@@ -30,8 +30,8 @@ RUN flutter doctor
 # 创建工作目录
 WORKDIR /app
 
-# 复制Flutter配置文件 (重命名以避免Railway自动检测)
-COPY --chown=flutter:flutter personal_finance_flutter/flutter_pubspec.yaml pubspec.yaml
+# 复制Flutter配置文件
+COPY --chown=flutter:flutter personal_finance_flutter/pubspec.yaml ./
 COPY --chown=flutter:flutter personal_finance_flutter/pubspec.lock ./
 
 # 安装Flutter依赖 - 明确使用flutter pub get

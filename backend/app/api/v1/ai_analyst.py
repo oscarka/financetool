@@ -19,6 +19,7 @@ from app.models.database import (
     FundDividend, DCAPlan
 )
 from app.models.asset_snapshot import AssetSnapshot, ExchangeRateSnapshot
+from app.config.exchange_rates import get_fallback_exchange_rate
 from pydantic import BaseModel, Field
 import logging
 
@@ -34,6 +35,7 @@ class AssetDataResponse(BaseModel):
     platform_summary: List[Dict[str, Any]] = Field(..., description="平台汇总数据")
     asset_type_summary: List[Dict[str, Any]] = Field(..., description="资产类型汇总")
     snapshot_time: str = Field(..., description="数据快照时间")
+    warnings: List[str] = Field(default=[], description="数据警告信息")
 
 class TransactionDataResponse(BaseModel):
     """交易数据响应模型"""
@@ -379,6 +381,8 @@ def api_playground():
     """
     return HTMLResponse(content=html_content)
 
+
+
 @router.get("/asset-data", response_model=AssetDataResponse)
 def get_asset_data(
     base_currency: str = Query("CNY", description="基准货币"),
@@ -400,9 +404,14 @@ def get_asset_data(
     if not latest_snapshot_time:
         raise HTTPException(status_code=404, detail="没有找到资产快照数据")
     
-    # 获取最新的资产快照
+    # 使用前后5分钟时间窗口获取快照数据，避免精确时间匹配导致的数据缺失
+    time_window_start = latest_snapshot_time - timedelta(minutes=5)
+    time_window_end = latest_snapshot_time + timedelta(minutes=5)
+    
+    # 获取时间窗口内的所有资产快照
     latest_snapshots = db.query(AssetSnapshot).filter(
-        AssetSnapshot.snapshot_time == latest_snapshot_time
+        AssetSnapshot.snapshot_time >= time_window_start,
+        AssetSnapshot.snapshot_time <= time_window_end
     ).all()
     
     balance_field = f"balance_{base_currency.lower()}"
@@ -421,9 +430,53 @@ def get_asset_data(
         balance_eur = float(snapshot.balance_eur) if snapshot.balance_eur else 0
         balance_original = float(snapshot.balance)
         
-        # 基准货币价值
+        # 基准货币价值 - 改进汇率转换逻辑
         base_value = getattr(snapshot, balance_field, None)
-        base_value = float(base_value) if base_value else balance_original
+        if base_value is not None:
+            base_value = float(base_value)
+        else:
+            # 如果目标货币字段不存在，尝试通过汇率转换
+            converted_value = None
+            
+            # 方法1：尝试实时汇率转换
+            try:
+                from app.services.exchange_rate_service import ExchangeRateService
+                converted_value = ExchangeRateService.convert_currency(
+                    balance_original, 
+                    snapshot.currency, 
+                    base_currency
+                )
+                if converted_value is not None:
+                    logger.info(f"实时汇率转换成功: {balance_original} {snapshot.currency} -> {converted_value} {base_currency}")
+            except Exception as e:
+                logger.warning(f"实时汇率转换失败: {balance_original} {snapshot.currency} -> {base_currency}, 错误: {e}")
+            
+            # 方法2：使用备用汇率（如果实时转换失败）
+            if converted_value is None:
+                converted_value, used_fallback = get_fallback_exchange_rate(
+                    balance_original, snapshot.currency, base_currency
+                )
+                if converted_value is not None:
+                    if used_fallback:
+                        logger.warning(f"使用备用汇率: {balance_original} {snapshot.currency} -> {converted_value} {base_currency}")
+                        # 标记使用了默认汇率
+                        if 'extra_data' not in snapshot.extra:
+                            snapshot.extra['extra_data'] = {}
+                        snapshot.extra['extra_data']['used_fallback_rate'] = True
+                        snapshot.extra['extra_data']['fallback_rate_note'] = f"使用默认汇率转换 {snapshot.currency} -> {base_currency}"
+            
+            # 最终处理
+            if converted_value is not None:
+                base_value = converted_value
+            else:
+                # 如果所有方法都失败，记录警告但不设为0
+                logger.error(f"所有汇率转换方法都失败: {balance_original} {snapshot.currency} -> {base_currency}")
+                # 使用原始值，但标记为未转换
+                base_value = balance_original
+                # 在extra_data中标记
+                if 'extra_data' not in snapshot.extra:
+                    snapshot.extra['extra_data'] = {}
+                snapshot.extra['extra_data']['conversion_warning'] = f"汇率转换失败，显示原始{snapshot.currency}金额"
         
         # 过滤小额资产
         if base_value < min_amount:
@@ -489,12 +542,24 @@ def get_asset_data(
             "unique_assets": len(data["assets"])
         })
     
+    # 收集警告信息
+    warnings = []
+    fallback_count = 0
+    
+    for holding in current_holdings:
+        if holding.get('extra_data', {}).get('used_fallback_rate'):
+            fallback_count += 1
+    
+    if fallback_count > 0:
+        warnings.append(f"⚠️ 有 {fallback_count} 项资产使用了默认汇率进行转换，可能与实时汇率存在差异")
+    
     return AssetDataResponse(
         current_holdings=current_holdings,
         total_value_by_currency=total_by_currency,
         platform_summary=platform_summary,
         asset_type_summary=asset_type_summary,
-        snapshot_time=latest_snapshot_time.isoformat()
+        snapshot_time=latest_snapshot_time.isoformat(),
+        warnings=warnings
     )
 
 @router.get("/transaction-data", response_model=TransactionDataResponse)

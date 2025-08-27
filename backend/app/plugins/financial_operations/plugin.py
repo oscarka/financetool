@@ -69,13 +69,13 @@ class FinancialOperationsPlugin(BaseTaskPlugin):
             {
                 "task_id": "okx_position_sync",
                 "name": "OKX持仓同步",
-                "description": "同步OKX持仓信息",
+                "description": "⚠️ 已禁用 - 功能待实现，持仓数据通过其他方式同步",
                 "class": "app.plugins.financial_operations.tasks.okx_position_sync.OKXPositionSyncTask"
             },
             {
                 "task_id": "okx_market_data_sync",
                 "name": "OKX市场数据同步",
-                "description": "同步OKX市场行情数据",
+                "description": "⚠️ 已禁用 - 功能待实现，市场数据通过汇率缓存任务同步",
                 "class": "app.plugins.financial_operations.tasks.okx_market_data_sync.OKXMarketDataSyncTask"
             },
             {

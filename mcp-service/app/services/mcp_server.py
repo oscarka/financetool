@@ -37,6 +37,13 @@ class MCPServer:
         # 初始化MCP工具
         self.mcp_tools = MCPTools(self.db_config)
         
+        # 重新初始化DeepSeek AI服务，传入MCP工具
+        if hasattr(self.ai_service, '__class__') and self.ai_service.__class__.__name__ == 'DeepSeekAIService':
+            # 创建新的DeepSeek AI服务实例，传入MCP工具
+            from .ai_service import DeepSeekAIService as DeepSeekClass
+            self.ai_service = DeepSeekClass(self.mcp_tools)
+            logger.info("✅ 重新初始化DeepSeek AI服务，集成MCP工具")
+        
         # 初始化Claude AI服务（仅在API密钥配置时）
         self.claude_ai = None
         if os.getenv("CLAUDE_API_KEY"):
@@ -208,11 +215,9 @@ class MCPServer:
         
         # 自动选择AI服务
         if ai_service == "auto":
-            # 优先使用Claude（如果配置了API key）
-            if self.claude_ai and hasattr(self.claude_ai, 'api_key') and self.claude_ai.api_key:
-                ai_service = "claude"
-            else:
-                ai_service = "deepseek"
+            # 强制使用DeepSeek AI，因为Claude API Key无效
+            ai_service = "deepseek"
+            logger.info("🔧 强制使用DeepSeek AI，因为Claude API Key无效")
         
         logger.info(f"🔍 选择的AI服务: {ai_service}")
         

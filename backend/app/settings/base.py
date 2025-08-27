@@ -19,7 +19,7 @@ class BaseConfig(BaseSettings):
     cors_origins: str = '["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"]'
     
     # 日志配置
-    log_level: str = "WARNING"  # 从INFO调整为WARNING
+    log_level: str = "INFO"  # 调整为INFO级别，确保能看到所有日志
     log_file: str = "./logs/app.log"
     
     # 基金API配置
@@ -154,7 +154,6 @@ class BaseConfig(BaseSettings):
     def get_cors_origins_list(self) -> list:
         import json
         value = self.cors_origins
-        print("settings.cors_origins 原始内容：", repr(value))  # 这行是调试用的，可以看到实际内容
         
         # 处理可能的语法错误（分号替换为逗号）
         if isinstance(value, str):

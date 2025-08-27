@@ -27,17 +27,51 @@ def get_asset_snapshots(
     if base_currency is None:
         base_currency = 'CNY'
     
-    q = db.query(AssetSnapshot)
-    if platform:
-        q = q.filter(AssetSnapshot.platform == platform)
-    if asset_type:
-        q = q.filter(AssetSnapshot.asset_type == asset_type)
-    if currency:
-        q = q.filter(AssetSnapshot.currency == currency)
-    if start:
-        q = q.filter(AssetSnapshot.snapshot_time >= start)
-    if end:
-        q = q.filter(AssetSnapshot.snapshot_time <= end)
+    # 获取快照开始执行的时间（当前时间）
+    snapshot_execution_time = datetime.now()
+    
+    # 特殊处理Wise平台：只查询快照开始执行后5分钟内的数据
+    if platform == 'Wise' or (asset_type == '外汇' and not platform):
+        q = db.query(AssetSnapshot).filter(
+            AssetSnapshot.platform == 'Wise',
+            AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
+        )
+        logging.warning(f"[asset_snapshot] Wise平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
+    elif platform == 'OKX' or (asset_type == '数字货币' and not platform):
+        # 只查询快照开始执行后5分钟内的OKX数据
+        q = db.query(AssetSnapshot).filter(
+            AssetSnapshot.platform == 'OKX',
+            AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
+        )
+        logging.warning(f"[asset_snapshot] OKX平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
+    elif platform == 'Web3':
+        # 只查询快照开始执行后5分钟内的Web3数据
+        q = db.query(AssetSnapshot).filter(
+            AssetSnapshot.platform == 'Web3',
+            AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
+        )
+        logging.warning(f"[asset_snapshot] Web3平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
+    elif platform == 'IBKR':
+        # 只查询快照开始执行后5分钟内的IBKR数据
+        q = db.query(AssetSnapshot).filter(
+            AssetSnapshot.platform == 'IBKR',
+            AssetSnapshot.snapshot_time >= snapshot_execution_time - timedelta(minutes=5)
+        )
+        logging.warning(f"[asset_snapshot] IBKR平台使用快照执行时间窗口: {snapshot_execution_time - timedelta(minutes=5)} 到 {snapshot_execution_time}")
+    else:
+        # 其他平台使用原有逻辑
+        q = db.query(AssetSnapshot)
+        if platform:
+            q = q.filter(AssetSnapshot.platform == platform)
+        if asset_type:
+            q = q.filter(AssetSnapshot.asset_type == asset_type)
+        if currency:
+            q = q.filter(AssetSnapshot.currency == currency)
+        if start:
+            q = q.filter(AssetSnapshot.snapshot_time >= start)
+        if end:
+            q = q.filter(AssetSnapshot.snapshot_time <= end)
+    
     q = q.order_by(desc(AssetSnapshot.snapshot_time))
     data = q.all()
     logging.warning(f"[asset_snapshot] returning {len(data)} rows")

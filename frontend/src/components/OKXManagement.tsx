@@ -532,6 +532,9 @@ export const OKXManagement: React.FC = () => {
         fetchTradingBalances();
         fetchFundingBalances();
         fetchSavingsBalances();
+        
+        // 🔑 关键修复：页面初始化时获取汇率数据
+        fetchExchangeRates();
     }, []);
 
     // 页面加载时自动获取Web3总额
