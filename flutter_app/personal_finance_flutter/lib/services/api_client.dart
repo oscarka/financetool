@@ -10,37 +10,57 @@ class ApiClient {
     if (backendUrl != null && backendUrl.isNotEmpty) {
       return backendUrl;
     }
-    
-    // 现在直接使用真实数据，不需要连接API
+    // 默认后端基地址（生产后端）
     return 'https://backend-production-2750.up.railway.app/api/v1';
   }
   
   // 获取聚合统计数据
   static Future<Map<String, dynamic>> getAggregatedStats(String baseCurrency) async {
-    // 直接返回从Railway获取的真实数据，避免CORS问题
-    print('🔍 [ApiClient] 使用Railway真实数据，避免CORS问题');
-    
-    // 这些是从Railway后端获取的真实数据（通过railway run -- curl测试确认）
-    return {
-      'total_value': 166660.55,
-      'platform_stats': {'支付宝': 158460.30, 'Wise': 8158.23, 'IBKR': 42.03},
-      'asset_type_stats': {'基金': 158460.30, '外汇': 8158.23, '证券': 42.03},
-      'currency_stats': {'CNY': 158460.30, 'USD': 77.95, 'AUD': 1315.22, 'JPY': 6800.40},
-      'asset_count': 12,
-      'platform_count': 3,
-      'asset_type_count': 3,
-      'currency_count': 6,
-      'has_default_rates': false
-    };
+    try {
+      final uri = Uri.parse('$baseUrl/aggregation/stats?base_currency=$baseCurrency');
+      final resp = await http.get(uri, headers: {'Content-Type': 'application/json'});
+      if (resp.statusCode == 200) {
+        final jsonData = json.decode(resp.body);
+        if (jsonData['success'] == true) {
+          return Map<String, dynamic>.from(jsonData['data'] ?? {});
+        }
+        throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
+      }
+      throw Exception('HTTP错误: ${resp.statusCode}');
+    } catch (e) {
+      print('❌ [ApiClient] 获取聚合统计失败，使用回退: $e');
+      return {
+        'total_value': 0.0,
+        'platform_stats': <String, double>{},
+        'asset_type_stats': <String, double>{},
+        'currency_stats': <String, double>{},
+        'asset_count': 0,
+        'platform_count': 0,
+        'asset_type_count': 0,
+        'currency_count': 0,
+        'has_default_rates': false
+      };
+    }
   }
   
   // 获取资产趋势数据
   static Future<List<Map<String, dynamic>>> getAssetTrend(int days, String baseCurrency) async {
-    // 直接返回真实趋势数据，避免连接localhost:3000
-    print('🔍 [ApiClient] 使用真实趋势数据，避免连接localhost:3000');
-    
-    // 生成基于真实数据的趋势
-    return _generateMockTrendData(days);
+    try {
+      final uri = Uri.parse('$baseUrl/aggregation/trend?days=$days&base_currency=$baseCurrency');
+      final resp = await http.get(uri, headers: {'Content-Type': 'application/json'});
+      if (resp.statusCode == 200) {
+        final jsonData = json.decode(resp.body);
+        if (jsonData['success'] == true) {
+          final List list = jsonData['data'] ?? [];
+          return list.map((e) => Map<String, dynamic>.from(e)).toList();
+        }
+        throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
+      }
+      throw Exception('HTTP错误: ${resp.statusCode}');
+    } catch (e) {
+      print('❌ [ApiClient] 获取趋势失败，使用回退: $e');
+      return _generateMockTrendData(days);
+    }
   }
   
   // 生成模拟趋势数据
@@ -66,39 +86,22 @@ class ApiClient {
 
   // 获取资产快照数据
   static Future<List<Map<String, dynamic>>> getAssetSnapshots(String baseCurrency) async {
-    // 直接返回基于真实数据的快照，避免API调用失败
-    print('🔍 [ApiClient] 使用真实快照数据，避免API调用失败');
-    
-    // 基于真实数据生成快照
-    return [
-      {
-        'asset_type': '基金',
-        'asset_name': '易方达沪深300ETF',
-        'asset_code': '110020',
-        'balance': 158460.30,
-        'base_value': 158460.30,
-        'currency': 'CNY',
-        'platform': '支付宝'
-      },
-      {
-        'asset_type': '外汇',
-        'asset_name': 'Wise账户',
-        'asset_code': 'WISE',
-        'balance': 8158.23,
-        'base_value': 8158.23,
-        'currency': 'USD',
-        'platform': 'Wise'
-      },
-      {
-        'asset_type': '证券',
-        'asset_name': 'IBKR账户',
-        'asset_code': 'IBKR',
-        'balance': 42.03,
-        'base_value': 42.03,
-        'currency': 'USD',
-        'platform': 'IBKR'
+    try {
+      final uri = Uri.parse('$baseUrl/snapshot/assets?base_currency=$baseCurrency');
+      final resp = await http.get(uri, headers: {'Content-Type': 'application/json'});
+      if (resp.statusCode == 200) {
+        final jsonData = json.decode(resp.body);
+        if (jsonData['success'] == true) {
+          final List list = jsonData['data'] ?? [];
+          return list.map((e) => Map<String, dynamic>.from(e)).toList();
+        }
+        throw Exception('API返回错误: ${jsonData['message'] ?? 'Unknown error'}');
       }
-    ];
+      throw Exception('HTTP错误: ${resp.statusCode}');
+    } catch (e) {
+      print('❌ [ApiClient] 获取资产快照失败，使用回退: $e');
+      return [];
+    }
   }
 
   // 获取最大持仓资产
