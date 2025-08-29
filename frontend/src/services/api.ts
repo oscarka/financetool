@@ -654,4 +654,68 @@ export const aiAnalystAPI = {
         }),
 }
 
+// Web3钱包相关API
+export const web3WalletAPI = {
+    // 获取配置信息
+    getConfig: (): Promise<APIResponse> =>
+        api.get('/web3-wallets/config'),
+
+    // 添加钱包
+    addWallet: (data: {
+        wallet_address: string;
+        chain_type: string;
+        wallet_name?: string;
+        user_id?: number;
+    }): Promise<APIResponse> =>
+        api.post('/web3-wallets/add', data),
+
+    // 获取钱包列表
+    getWallets: (userId?: number): Promise<APIResponse> => {
+        const url = userId ? `/web3-wallets/list?user_id=${userId}` : '/web3-wallets/list';
+        return api.get(url);
+    },
+
+    // 获取钱包资产
+    getWalletAssets: (walletId: number): Promise<APIResponse> =>
+        api.get(`/web3-wallets/${walletId}/assets`),
+
+    // 同步单个钱包
+    syncWallet: (walletId: number): Promise<APIResponse> =>
+        api.post(`/web3-wallets/${walletId}/sync`),
+
+    // 同步所有钱包
+    syncAllWallets: (userId?: number): Promise<APIResponse> => {
+        const url = userId ? `/web3-wallets/sync-all?user_id=${userId}` : '/web3-wallets/sync-all';
+        return api.post(url);
+    },
+
+    // 获取投资组合总览
+    getPortfolio: (userId?: number): Promise<APIResponse> => {
+        const url = userId ? `/web3-wallets/portfolio?user_id=${userId}` : '/web3-wallets/portfolio';
+        return api.get(url);
+    },
+
+    // 移除钱包
+    removeWallet: (walletId: number): Promise<APIResponse> =>
+        api.delete(`/web3-wallets/${walletId}`),
+
+    // 获取所有资产
+    getAllAssets: (userId?: number): Promise<APIResponse> => {
+        const url = userId ? `/web3-wallets/assets/all?user_id=${userId}` : '/web3-wallets/assets/all';
+        return api.get(url);
+    },
+
+    // 更新代币价格
+    updatePrices: (): Promise<APIResponse> =>
+        api.post('/web3-wallets/prices/update'),
+
+    // 获取代币价格
+    getTokenPrice: (tokenSymbol: string): Promise<APIResponse> =>
+        api.get(`/web3-wallets/prices/${tokenSymbol}`),
+
+    // 测试服务
+    testService: (): Promise<APIResponse> =>
+        api.get('/web3-wallets/test'),
+}
+
 export default api 
