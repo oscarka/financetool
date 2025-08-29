@@ -3,6 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:math';
 import 'services/smart_api_client.dart';
 import 'services/background_cache_service.dart';
+import 'services/asset_precache_service.dart';
+import 'services/smart_asset_service.dart';
 import 'models/asset_stats.dart';
 import 'models/trend_data.dart';
 import 'pages/main_app_demo.dart';
@@ -12,6 +14,7 @@ import 'pages/my_page.dart'; // Added import for MyPage
 import 'widgets/ai_chat_widget.dart'; // Added import for AIChatWidget
 import 'widgets/expandable_asset_chart.dart'; // Added import for ExpandableAssetChart and ExpandedChartSection
 import 'design/design_tokens.dart';
+import 'services/currency_manager.dart';
 
 void main() {
   runApp(const PersonalFinanceApp());
@@ -317,10 +320,20 @@ class _AssetHomePageState extends State<AssetHomePage> {
   /// 启动后台缓存服务
   Future<void> _startBackgroundCaching() async {
     try {
+      // 启动通用后台缓存服务
       await BackgroundCacheService.start();
-      // 后台缓存服务已启动
+      print('✅ [AssetHomePage] 通用后台缓存服务已启动');
+      
+      // 启动专门的资产预缓存服务
+      await AssetPrecacheService.start();
+      print('✅ [AssetHomePage] 资产预缓存服务已启动');
+      
+      // 立即预加载一次资产数据
+      await SmartAssetService.preloadAllAssets();
+      print('✅ [AssetHomePage] 初始资产数据预加载完成');
+      
     } catch (e) {
-              // 启动后台缓存服务失败: $e
+      print('❌ [AssetHomePage] 启动后台缓存服务失败: $e');
     }
   }
 
@@ -453,6 +466,9 @@ class _AssetHomePageState extends State<AssetHomePage> {
       selectedCurrency = currency;
       showCurrencyDropdown = false;
     });
+    
+    // 通知全局货币管理器
+    CurrencyManager().setCurrency(currency);
     
     // 检查是否有缓存数据
     final hasCache = await SmartApiClient.hasValidCache(currency, 'aggregated_stats');
