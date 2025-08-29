@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.settings import settings
 from app.utils.database import init_database, get_data_directory, get_database_path
-from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx, aggregation, ai_analyst, asset_snapshot
+from app.api.v1 import funds, exchange_rates, wise, paypal, upload_db_router, logs, ibkr, scheduler, config, okx, aggregation, ai_analyst, asset_snapshot, web3_wallets
 from app.services.extensible_scheduler_service import ExtensibleSchedulerService
 from app.utils.middleware import RequestLoggingMiddleware
 from app.utils.logger import log_system
@@ -225,6 +225,13 @@ app.include_router(
     ai_chat_router,
     prefix=f"{settings.api_v1_prefix}/ai-chat",
     tags=["AI聊天"]
+)
+
+# 注册Web3钱包接口
+app.include_router(
+    web3_wallets.router,
+    prefix=f"{settings.api_v1_prefix}",
+    tags=["Web3钱包"]
 )
 
 

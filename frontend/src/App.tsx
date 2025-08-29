@@ -21,6 +21,7 @@ import SchedulerManagementPage from './pages/SchedulerManagementPage'
 import AIAnalystTest from './pages/AIAnalystTest'
 import MobileAIAnalystTest from './pages/MobileAIAnalystTest'
 import AIFunctionTest from './pages/AIFunctionTest'
+import { Web3WalletsPage } from './pages/Web3Wallets'
 import React from 'react'
 
 function App() {
@@ -87,6 +88,7 @@ function App() {
                     <Route path="/analysis" element={<Analysis />} />
                     <Route path="/exchange-rates" element={<ExchangeRates />} />
                     <Route path="/okx" element={<OKXManagementPage />} />
+                    <Route path="/web3-wallets" element={<Web3WalletsPage />} />
                     <Route path="/wise" element={<WiseManagementPage />} />
                     <Route path="/paypal" element={<PayPalManagementPage />} />
                     <Route path="/ibkr" element={<IBKRManagementPage />} />

@@ -582,4 +582,65 @@ class Web3Transaction(Base):
         UniqueConstraint('transaction_hash', name='uq_web3_transaction'),
     )
 
+# Web3钱包相关模型
+
+class Web3Wallet(Base):
+    """Web3钱包管理表"""
+    __tablename__ = "web3_wallets"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True)
+    wallet_address = Column(String(42), nullable=False, index=True)
+    wallet_name = Column(String(50), nullable=True)
+    chain_type = Column(String(20), nullable=False, index=True)
+    connection_type = Column(String(20), nullable=False)
+    last_sync_time = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, nullable=True, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint('wallet_address', 'chain_type', name='uq_wallet_chain'),
+    )
+
+
+class Web3WalletBalance(Base):
+    """Web3钱包余额表（历史记录模式）"""
+    __tablename__ = "web3_wallet_balances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    wallet_id = Column(Integer, ForeignKey('web3_wallets.id', ondelete='CASCADE'), nullable=False, index=True)
+    chain = Column(String(20), nullable=False, index=True)
+    token_symbol = Column(String(10), nullable=False, index=True)
+    token_name = Column(String(100), nullable=True)
+    token_address = Column(String(100), nullable=True)
+    balance = Column(DECIMAL(30, 18), nullable=False)
+    balance_formatted = Column(String(50), nullable=True)
+    usdt_price = Column(DECIMAL(15, 8), nullable=True)
+    usdt_value = Column(DECIMAL(15, 2), nullable=True)
+    is_native_token = Column(Boolean, nullable=True, default=False)
+    sync_time = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    __table_args__ = (
+        Index('idx_balances_wallet_time', 'wallet_id', 'sync_time'),
+    )
+
+
+class Web3TokenPrice(Base):
+    """Web3代币价格缓存表"""
+    __tablename__ = "web3_token_prices"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    token_symbol = Column(String(10), nullable=False, index=True)
+    token_address = Column(String(100), nullable=True)
+    chain = Column(String(20), nullable=False, index=True)
+    usdt_price = Column(DECIMAL(15, 8), nullable=False)
+    coingecko_id = Column(String(100), nullable=True)
+    last_updated = Column(DateTime, default=func.now(), index=True)
+    
+    __table_args__ = (
+        UniqueConstraint('token_symbol', 'chain', 'token_address', name='uq_token_price'),
+    )
+
 # OKX索引 - 这些索引已经在__table_args__中定义，这里不需要重复定义 

@@ -1,0 +1,47 @@
+{
+  "name": "web3-wallet-app",
+  "version": "1.0.0",
+  "description": "Web3多钱包对接演示应用",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "ethers": "^6.8.0",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/wallet-adapter-phantom": "^0.9.24",
+    "@solana/web3.js": "^1.87.6",
+    "web3": "^4.2.0",
+    "@web3-react/core": "^8.2.3",
+    "@web3-react/metamask": "^8.2.4",
+    "@binance-chain/bsc-connector": "^1.0.0",
+    "styled-components": "^6.1.1",
+    "lucide-react": "^0.292.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.0.0"
+  },
+  "keywords": [
+    "web3",
+    "blockchain",
+    "wallet",
+    "ethereum",
+    "solana",
+    "binance-smart-chain"
+  ],
+  "author": "Web3 Developer",
+  "license": "MIT"
+}
