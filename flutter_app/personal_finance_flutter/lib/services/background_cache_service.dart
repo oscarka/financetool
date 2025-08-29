@@ -136,7 +136,7 @@ class BackgroundCacheService {
         return;
       }
       
-      print('🔄 [$_tag] 后台预加载 $currency 数据...');
+              // 后台预加载 $currency 数据...
       
       // 预加载核心数据
       await Future.wait([

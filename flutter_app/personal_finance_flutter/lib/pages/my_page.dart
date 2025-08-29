@@ -167,7 +167,7 @@ class _ProfileCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: T.spacingM, vertical: T.spacingM),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.16),
+              color: Colors.white.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(T.radiusM),
             ),
             child: const Row(
@@ -204,16 +204,16 @@ class _BadgeBox extends StatelessWidget {
       width: width,
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(T.radiusM),
-        border: Border.all(color: Colors.white.withOpacity(0.18), width: 0.6),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.6),
       ),
       child: Row(
         children: [
           Container(
             width: 20, height: 20,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.22),
+              color: Colors.white.withValues(alpha: 0.22),
               borderRadius: BorderRadius.circular(T.radiusM),
             ),
             child: const Icon(Icons.check, size: 14, color: Colors.white),

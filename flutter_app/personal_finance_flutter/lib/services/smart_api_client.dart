@@ -256,7 +256,7 @@ class SmartApiClient {
   // 后台预加载货币数据
   static Future<void> _preloadCurrencyData(String currency) async {
     try {
-      print('🔄 [SmartApiClient] 后台预加载 $currency 数据...');
+              // 后台预加载 $currency 数据...
       
       // 检查是否已有有效缓存
       final hasValidCache = await CacheService.hasValidCache(currency, 'aggregated_stats');

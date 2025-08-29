@@ -153,7 +153,7 @@ class InfoCard extends StatelessWidget {
                     subtitle!,
                     style: TextStyle(
                       fontSize: T.fontSizeS,
-                      color: textColor?.withOpacity(0.7) ?? T.textSecondary,
+                      color: textColor?.withValues(alpha: 0.7) ?? T.textSecondary,
                     ),
                   ),
                 ],

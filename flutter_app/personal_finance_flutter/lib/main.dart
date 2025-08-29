@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
 import 'services/smart_api_client.dart';
 import 'services/background_cache_service.dart';
 import 'models/asset_stats.dart';
@@ -9,6 +10,7 @@ import 'pages/analysis_page.dart'; // Added import for AnalysisPage
 import 'pages/snapshot_page.dart'; // Added import for SnapshotPage
 import 'pages/my_page.dart'; // Added import for MyPage
 import 'widgets/ai_chat_widget.dart'; // Added import for AIChatWidget
+import 'widgets/expandable_asset_chart.dart'; // Added import for ExpandableAssetChart and ExpandedChartSection
 import 'design/design_tokens.dart';
 
 void main() {
@@ -78,7 +80,7 @@ class AppSelectionPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
-                      color: T.primary.withOpacity(0.3),
+                      color: T.primary.withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -162,10 +164,10 @@ class AppSelectionPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.1),
+                  color: const Color(0xFF10B981).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: const Color(0xFF10B981).withOpacity(0.2),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
                   ),
                 ),
                 child: Row(
@@ -219,7 +221,7 @@ class AppSelectionPage extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -291,6 +293,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
   String selectedCurrency = 'USD';
   bool showCurrencyDropdown = false;
   bool isDataVisible = true;
+  bool isChartExpanded = false; // 新增：控制图表展开状态
   
   // 页面状态 - 0: 首页, 1: 行情, 3: 资产
   int currentPageIndex = 0;
@@ -315,9 +318,9 @@ class _AssetHomePageState extends State<AssetHomePage> {
   Future<void> _startBackgroundCaching() async {
     try {
       await BackgroundCacheService.start();
-      print('🚀 [AssetHomePage] 后台缓存服务已启动');
+      // 后台缓存服务已启动
     } catch (e) {
-      print('❌ [AssetHomePage] 启动后台缓存服务失败: $e');
+              // 启动后台缓存服务失败: $e
     }
   }
 
@@ -328,7 +331,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
     });
 
     try {
-      print('🔄 [AssetHomePage] 开始加载 $selectedCurrency 的数据...');
+              // 开始加载 $selectedCurrency 的数据...
       
       // 并行加载聚合统计、趋势数据、最大持仓和资产快照
       final futures = await Future.wait([
@@ -352,7 +355,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
       if (dailyChangePercentage == null || trendDataList.length < 2) {
         dailyChangePercentage = 0.0;
         dailyProfit = 0.0;
-        print('历史数据不足，24小时变化和今日收益显示为0');
+        // 历史数据不足，24小时变化和今日收益显示为0
       }
 
       // 使用快照数据计算总资产价值，确保数据一致性
@@ -376,7 +379,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
         isLoading = false;
       });
       
-      print('✅ [AssetHomePage] $selectedCurrency 数据加载完成');
+              // $selectedCurrency 数据加载完成
       
       // 后台预加载其他货币数据
       SmartApiClient.preloadOtherCurrencies(selectedCurrency);
@@ -386,7 +389,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
         errorMessage = '数据加载失败: $e';
         isLoading = false;
       });
-      print('❌ [AssetHomePage] 数据加载错误: $e');
+              // 数据加载错误: $e
     }
   }
 
@@ -455,11 +458,11 @@ class _AssetHomePageState extends State<AssetHomePage> {
     final hasCache = await SmartApiClient.hasValidCache(currency, 'aggregated_stats');
     
     if (hasCache) {
-      print('📱 [AssetHomePage] 发现 $currency 的缓存数据，快速切换');
+              // 发现 $currency 的缓存数据，快速切换
       // 有缓存时快速加载
       _loadData(forceRefresh: false);
     } else {
-      print('🌐 [AssetHomePage] $currency 无缓存，从网络加载');
+              // $currency 无缓存，从网络加载
       // 无缓存时从网络加载
       _loadData(forceRefresh: true);
     }
@@ -482,7 +485,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -511,11 +514,11 @@ class _AssetHomePageState extends State<AssetHomePage> {
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
+                  BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 10,
+          offset: const Offset(0, -2),
+        ),
         ],
       ),
       child: SafeArea(
@@ -674,7 +677,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF10B981).withOpacity(0.3),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -702,203 +705,487 @@ class _AssetHomePageState extends State<AssetHomePage> {
   }
 
   Widget _buildAssetCard() {
+    // 1. 加载状态
     if (isLoading) {
-      return Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: const Color(0xFF1E1F24),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: const Center(
-          child: CircularProgressIndicator(
-            color: Colors.white,
-          ),
-        ),
-      );
+      return _buildLoadingCard();
     }
 
+    // 2. 错误状态
     if (errorMessage != null) {
-      return Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: const Color(0xFF1E1F24),
+      return _buildErrorCard();
+    }
+
+    // 3. 无数据状态
+    if (assetStats == null) {
+      return _buildNoDataCard();
+    }
+
+    // 4. 正常状态 - 重构后的清晰布局
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF1E1F24),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 顶部标题行
+          _buildCardHeader(),
+          
+          // 货币选择下拉菜单
+          if (showCurrencyDropdown) _buildCurrencyDropdown(),
+          
+          // 总资产金额和24小时变化组合行 - 与折线图并排显示
+          const SizedBox(height: 16),
+          _buildTotalAssetWithChangeRow(),
+          
+          // 展开的折线图区域 - 在卡片内部
+          if (isChartExpanded) ...[
+            const SizedBox(height: 24),
+            _buildExpandedChartInCard(),
+          ],
+          
+          // 分隔线
+          const Divider(color: Colors.white24, height: 8),
+          
+          // 底部资产信息
+          _buildAssetDetails(),
+        ],
+      ),
+    );
+  }
+
+  // 在卡片内部构建展开的折线图
+  Widget _buildExpandedChartInCard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 时间范围选择器
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: ['1日', '1周', '1月', '半年'].map((range) {
+            final isSelected = range == '1日'; // 默认选中1日
+            return GestureDetector(
+              onTap: () {
+                print('🎯 选择时间范围: $range');
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF10B981) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF10B981) : Colors.white.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  range,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.7),
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
-        padding: const EdgeInsets.all(20),
+        
+        const SizedBox(height: 20),
+        
+        // 大折线图
+        SizedBox(
+          height: 200,
+          child: _buildExpandedLineChart(),
+        ),
+        
+        // 底部向上箭头 - 作为关闭按钮
+        Center(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                isChartExpanded = false;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Icon(
+                Icons.keyboard_arrow_up,
+                color: Colors.white.withValues(alpha: 0.7),
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 展开的折线图
+  Widget _buildExpandedLineChart() {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 8),
-            Text(
-              errorMessage!,
-              style: const TextStyle(color: Colors.white70),
-              textAlign: TextAlign.center,
+            Icon(
+              Icons.show_chart,
+              color: const Color(0xFF10B981),
+              size: 48,
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('重试'),
+            Text(
+              '资产趋势图表',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '显示24小时资产变化趋势',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 12,
+              ),
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    if (assetStats == null) {
-      return Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: const Color(0xFF1E1F24),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: const Center(
-          child: Text(
-            '暂无数据',
-            style: TextStyle(color: Colors.white70),
-          ),
-        ),
-      );
+  // 生成模拟数据
+  List<TrendData> _generateMockData() {
+    final now = DateTime.now();
+    final data = <TrendData>[];
+    
+    for (int i = 0; i < 24; i++) {
+      final time = now.subtract(Duration(hours: 23 - i));
+      final baseValue = 10000.0;
+      final trendValue = baseValue + (i * 20.83);
+      final randomVariation = (Random().nextDouble() - 0.5) * 100;
+      final finalValue = trendValue + randomVariation;
+      
+      data.add(TrendData(
+        date: time.toIso8601String(),
+        total: finalValue,
+      ));
     }
+    
+    return data;
+  }
 
+  // ==================== 重构后的辅助方法 ====================
+  
+  // 加载状态卡片
+  Widget _buildLoadingCard() {
     return Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: const Color(0xFF1E1F24),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Text('总资产估值', style: TextStyle(color: Colors.white70)),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _toggleCurrencyDropdown,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(selectedCurrency, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 4),
-                            Icon(
-                              showCurrencyDropdown ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                              color: Colors.white54,
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // 刷新按钮
-                      GestureDetector(
-                        onTap: () => _loadData(forceRefresh: true),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.refresh,
-                            color: Colors.white54,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-              GestureDetector(
-                onTap: _toggleDataVisibility,
-                child: Icon(
-                  isDataVisible ? Icons.remove_red_eye_outlined : Icons.visibility_off_outlined,
-                  color: Colors.white54,
-                ),
-              ),
-                    ],
-                  ),
-                  if (showCurrencyDropdown)
-                    Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2A),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
-                      ),
-                      child: Column(
-                        children: [
-                          _buildCurrencyOption('CNY'),
-                          _buildCurrencyOption('USD'),
-                          _buildCurrencyOption('USDT'),
-                          _buildCurrencyOption('BTC'),
-                          _buildCurrencyOption('更多 >', isMore: true),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF1E1F24),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: const Center(
+        child: CircularProgressIndicator(
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  // 错误状态卡片
+  Widget _buildErrorCard() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF1E1F24),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+          const SizedBox(height: 8),
           Text(
-            isDataVisible 
-              ? assetStats!.formatCurrency(assetStats!.totalValue, selectedCurrency)
-              : '*****',
-            style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
+            errorMessage!,
+            style: const TextStyle(color: Colors.white70),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loadData,
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 无数据状态卡片
+  Widget _buildNoDataCard() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF1E1F24),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: const Center(
+        child: Text(
+          '暂无数据',
+          style: TextStyle(color: Colors.white70),
+        ),
+      ),
+    );
+  }
+
+  // 卡片头部 - 标题、货币选择、刷新按钮、可见性切换
+  Widget _buildCardHeader() {
+    return Row(
+      children: [
+        // 标题
+        const Text('总资产估值', style: TextStyle(color: Colors.white70)),
+        const SizedBox(width: 8),
+        
+        // 货币选择
+        GestureDetector(
+          onTap: _toggleCurrencyDropdown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
-                  ? (assetStats!.dailyChangePercent! >= 0 ? Icons.arrow_upward : Icons.arrow_downward)
-                  : Icons.remove,
-                size: 14,
-                color: assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
-                  ? (assetStats!.dailyChangePercent! >= 0 ? Colors.green : Colors.red)
-                  : Colors.grey,
+              Text(
+                selectedCurrency, 
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)
               ),
               const SizedBox(width: 4),
-                      Text(
-                assetStats!.dailyChangePercent != null
-                  ? '${assetStats!.dailyChangePercent! >= 0 ? '+' : ''}${assetStats!.dailyChangePercent!.toStringAsFixed(2)}%'
-                  : '0.00%',
-                style: TextStyle(
-                  color: assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
-                    ? (assetStats!.dailyChangePercent! >= 0 ? Colors.green : Colors.red)
-                    : Colors.grey,
+              Icon(
+                showCurrencyDropdown ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                color: Colors.white54,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        
+        // 刷新按钮
+        GestureDetector(
+          onTap: () => _loadData(forceRefresh: true),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.refresh,
+              color: Colors.white54,
+              size: 16,
+            ),
+          ),
+        ),
+        
+        const Spacer(),
+        
+        // 数据可见性切换
+        GestureDetector(
+          onTap: _toggleDataVisibility,
+          child: Icon(
+            isDataVisible ? Icons.remove_red_eye_outlined : Icons.visibility_off_outlined,
+            color: Colors.white54,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 货币选择下拉菜单
+  Widget _buildCurrencyDropdown() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        children: [
+          _buildCurrencyOption('CNY'),
+          _buildCurrencyOption('USD'),
+          _buildCurrencyOption('USDT'),
+          _buildCurrencyOption('BTC'),
+          _buildCurrencyOption('更多 >', isMore: true),
+        ],
+      ),
+    );
+  }
+
+  // 总资产金额和24小时变化组合行 - 与折线图并排显示，居中对齐
+  Widget _buildTotalAssetWithChangeRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center, // 居中对齐，确保折线图与组合模块同高
+      children: [
+        // 左侧：总额和24小时变化组合模块
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 总资产金额
+              Text(
+                isDataVisible 
+                  ? assetStats!.formatCurrency(assetStats!.totalValue, selectedCurrency)
+                  : '*****',
+                style: const TextStyle(
+                  fontSize: 36, // 大字体突出显示
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  height: 1.1, // 减少行高，让文字更紧凑
                 ),
               ),
-              const SizedBox(width: 6),
-              const Text('24h', style: TextStyle(color: Colors.white38)),
-                    ],
+              
+              // 24小时变化信息
+              const SizedBox(height: 4), // 小间距
+              Row(
+                children: [
+                  // 变化箭头
+                  Icon(
+                    assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
+                      ? (assetStats!.dailyChangePercent! >= 0 ? Icons.arrow_upward : Icons.arrow_downward)
+                      : Icons.remove,
+                    size: 16,
+                    color: assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
+                      ? (assetStats!.dailyChangePercent! >= 0 ? Colors.green : Colors.red)
+                      : Colors.grey,
                   ),
-                  const Divider(color: Colors.white24, height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _AssetInfo(
-                title: '可用余额',
-                amount: isDataVisible 
-                  ? assetStats!.formatCurrency(assetStats!.calculatedAvailableBalance, selectedCurrency)
-                  : '*****',
-              ),
-              _AssetInfo(
-                title: '冻结资产',
-                amount: isDataVisible 
-                  ? assetStats!.formatCurrency(assetStats!.calculatedFrozenAssets, selectedCurrency)
-                  : '*****',
-              ),
-              _AssetInfo(
-                title: '今日收益',
-                amount: assetStats!.todayProfit != null && isDataVisible
-                  ? '${assetStats!.todayProfit! >= 0 ? '+' : ''}${assetStats!.formatCurrency(assetStats!.todayProfit!.abs(), selectedCurrency)}'
-                  : isDataVisible 
-                    ? assetStats!.formatCurrency(0.0, selectedCurrency)
-                    : '*****',
-                highlight: true,
-              ),
-                    ],
-                  )
+                  const SizedBox(width: 6),
+                  
+                  // 变化百分比
+                  Text(
+                    assetStats!.dailyChangePercent != null
+                      ? '${assetStats!.dailyChangePercent! >= 0 ? '+' : ''}${assetStats!.dailyChangePercent!.toStringAsFixed(2)}%'
+                      : '0.00%',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
+                        ? (assetStats!.dailyChangePercent! >= 0 ? Colors.green : Colors.red)
+                        : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  
+                  // 24h标签
+                  const Text(
+                    '24h', 
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
+            ],
+          ),
+        ),
+        
+        // 右侧：折线图组件 - 与组合模块居中对齐
+        const SizedBox(width: 16), // 保持间距
+        ExpandableAssetChart(
+          trendData: trendData,
+          selectedCurrency: selectedCurrency,
+          totalValue: assetStats!.totalValue,
+          dailyChangePercent: assetStats!.dailyChangePercent,
+          onTap: () {
+            setState(() {
+              isChartExpanded = !isChartExpanded;
+            });
+            print('🎯 点击折线图，展开状态: $isChartExpanded');
+          },
+        ),
+      ],
+    );
+  }
+
+  // 24小时变化行 - 独立显示，不包含折线图
+  Widget _buildDailyChangeRow() {
+    return Row(
+      children: [
+        // 变化箭头
+        Icon(
+          assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
+            ? (assetStats!.dailyChangePercent! >= 0 ? Icons.arrow_upward : Icons.arrow_downward)
+            : Icons.remove,
+          size: 16,
+          color: assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
+            ? (assetStats!.dailyChangePercent! >= 0 ? Colors.green : Colors.red)
+            : Colors.grey,
+        ),
+        const SizedBox(width: 6),
+        
+        // 变化百分比
+        Text(
+          assetStats!.dailyChangePercent != null
+            ? '${assetStats!.dailyChangePercent! >= 0 ? '+' : ''}${assetStats!.dailyChangePercent!.toStringAsFixed(2)}%'
+            : '0.00%',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: assetStats!.dailyChangePercent != null && assetStats!.dailyChangePercent! != 0
+              ? (assetStats!.dailyChangePercent! >= 0 ? Colors.green : Colors.red)
+              : Colors.grey,
+          ),
+        ),
+        const SizedBox(width: 8),
+        
+        // 24h标签
+        const Text(
+          '24h', 
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 底部资产详情
+  Widget _buildAssetDetails() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _AssetInfo(
+          title: '可用余额',
+          amount: isDataVisible 
+            ? assetStats!.formatCurrency(assetStats!.calculatedAvailableBalance, selectedCurrency)
+            : '*****',
+        ),
+        _AssetInfo(
+          title: '冻结资产',
+          amount: isDataVisible 
+            ? assetStats!.formatCurrency(assetStats!.calculatedFrozenAssets, selectedCurrency)
+            : '*****',
+        ),
+        _AssetInfo(
+          title: '今日收益',
+          amount: assetStats!.todayProfit != null && isDataVisible
+            ? '${assetStats!.todayProfit! >= 0 ? '+' : ''}${assetStats!.formatCurrency(assetStats!.todayProfit!.abs(), selectedCurrency)}'
+            : isDataVisible 
+              ? assetStats!.formatCurrency(0.0, selectedCurrency)
+              : '*****',
+          highlight: true,
+        ),
+      ],
     );
   }
 
@@ -957,6 +1244,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
 
             // 总资产卡片
             _buildAssetCard(),
+            
             const SizedBox(height: 20),
             
             // 功能按钮区
@@ -1063,6 +1351,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
   }
 }
 
+
 class _AssetInfo extends StatelessWidget {
   final String title;
   final String amount;
@@ -1165,11 +1454,11 @@ class _AssetDistributionCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+                  BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
         ],
       ),
       child: Column(
@@ -1374,7 +1663,7 @@ class _Legend extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.3),
+                color: color.withValues(alpha: 0.3),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -1527,11 +1816,11 @@ class _AssetRankingCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+                  BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
         ],
       ),
       child: Column(
@@ -1689,7 +1978,7 @@ class _RankingRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: changeColor.withOpacity(0.1),
+              color: changeColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(change, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: changeColor)),
@@ -1712,7 +2001,7 @@ class _MarketTrendsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
