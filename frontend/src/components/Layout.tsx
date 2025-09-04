@@ -14,7 +14,8 @@ import {
     StockOutlined,
     ToolOutlined,
     ClockCircleOutlined,
-    RobotOutlined
+    RobotOutlined,
+    WalletOutlined
 } from '@ant-design/icons'
 
 const { Sider, Content } = AntLayout
@@ -29,6 +30,7 @@ const navigation = [
     { name: 'AI分析师测试', href: '/ai-analyst-test', icon: RobotOutlined },
     { name: 'AI功能测试', href: '/ai-function-test', icon: RobotOutlined },
     { name: 'OKX管理', href: '/okx', icon: SettingOutlined },
+    { name: 'Web3钱包', href: '/web3-wallets', icon: WalletOutlined },
     { name: 'Wise管理', href: '/wise', icon: BankOutlined },
     { name: 'PayPal管理', href: '/paypal', icon: PayCircleOutlined },
     { name: 'IBKR管理', href: '/ibkr', icon: StockOutlined },
