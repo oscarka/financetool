@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
-COPY backend/requirements.txt .
+COPY requirements.txt .
 
 # 创建虚拟环境并安装依赖
 RUN python -m venv /opt/venv
