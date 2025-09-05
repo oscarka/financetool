@@ -8,7 +8,7 @@ class IBKRService {
   /// 获取IBKR持仓信息
   static Future<List<IBKRPosition>> getPositions() async {
     try {
-      print('🔄 [IBKRService] 正在获取IBKR持仓信息...');
+      // print('🔄 [IBKRService] 正在获取IBKR持仓信息...');
       
       final response = await http.get(
         Uri.parse('$baseUrl/ibkr/positions'),
@@ -17,27 +17,27 @@ class IBKRService {
         },
       );
       
-      print('📡 [IBKRService] IBKR持仓API响应状态: ${response.statusCode}');
+      // print('📡 [IBKRService] IBKR持仓API响应状态: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('📊 [IBKRService] IBKR持仓API响应数据: $data');
+        // print('📊 [IBKRService] IBKR持仓API响应数据: $data');
         
         if (data['success'] == true && data['data'] != null) {
           final List<dynamic> positionsData = data['data'];
           final positions = positionsData.map((json) => IBKRPosition.fromJson(json)).toList();
-          print('✅ [IBKRService] 成功获取IBKR持仓: ${positions.length}条');
+          // print('✅ [IBKRService] 成功获取IBKR持仓: ${positions.length}条');
           return positions;
         } else {
-          print('❌ [IBKRService] IBKR持仓API返回失败: ${data['message']}');
+          // print('❌ [IBKRService] IBKR持仓API返回失败: ${data['message']}');
           return _getMockIBKRPositions();
         }
       } else {
-        print('❌ [IBKRService] IBKR持仓API HTTP错误: ${response.statusCode}');
+        // print('❌ [IBKRService] IBKR持仓API HTTP错误: ${response.statusCode}');
         return _getMockIBKRPositions();
       }
     } catch (e) {
-      print('❌ [IBKRService] 获取IBKR持仓异常: $e');
+      // print('❌ [IBKRService] 获取IBKR持仓异常: $e');
       return _getMockIBKRPositions();
     }
   }
@@ -45,7 +45,7 @@ class IBKRService {
   /// 获取IBKR余额信息
   static Future<List<Map<String, dynamic>>> getBalances() async {
     try {
-      print('🔄 [IBKRService] 正在获取IBKR余额信息...');
+      // print('🔄 [IBKRService] 正在获取IBKR余额信息...');
       
       final response = await http.get(
         Uri.parse('$baseUrl/ibkr/balances'),
@@ -54,26 +54,26 @@ class IBKRService {
         },
       );
       
-      print('📡 [IBKRService] IBKR余额API响应状态: ${response.statusCode}');
+      // print('📡 [IBKRService] IBKR余额API响应状态: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('📊 [IBKRService] IBKR余额API响应数据: $data');
+        // print('📊 [IBKRService] IBKR余额API响应数据: $data');
         
         if (data['success'] == true && data['data'] != null) {
           final List<dynamic> balancesData = data['data'];
-          print('✅ [IBKRService] 成功获取IBKR余额: ${balancesData.length}条');
+          // print('✅ [IBKRService] 成功获取IBKR余额: ${balancesData.length}条');
           return balancesData.cast<Map<String, dynamic>>();
         } else {
-          print('❌ [IBKRService] IBKR余额API返回失败: ${data['message']}');
+          // print('❌ [IBKRService] IBKR余额API返回失败: ${data['message']}');
           return _getMockIBKRBalances();
         }
       } else {
-        print('❌ [IBKRService] IBKR余额API HTTP错误: ${response.statusCode}');
+        // print('❌ [IBKRService] IBKR余额API HTTP错误: ${response.statusCode}');
         return _getMockIBKRBalances();
       }
     } catch (e) {
-      print('❌ [IBKRService] 获取IBKR余额异常: $e');
+      // print('❌ [IBKRService] 获取IBKR余额异常: $e');
       return _getMockIBKRBalances();
     }
   }
@@ -81,7 +81,7 @@ class IBKRService {
   /// 获取IBKR汇总信息
   static Future<Map<String, dynamic>> getIBKRSummary() async {
     try {
-      print('🔄 [IBKRService] 正在获取IBKR汇总信息...');
+      // print('🔄 [IBKRService] 正在获取IBKR汇总信息...');
       
       final response = await http.get(
         Uri.parse('$baseUrl/ibkr/summary'),
@@ -90,33 +90,33 @@ class IBKRService {
         },
       );
       
-      print('📡 [IBKRService] IBKR汇总API响应状态: ${response.statusCode}');
+      // print('📡 [IBKRService] IBKR汇总API响应状态: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('📊 [IBKRService] IBKR汇总API响应数据: $data');
+        // print('📊 [IBKRService] IBKR汇总API响应数据: $data');
         
         if (data['success'] == true && data['data'] != null) {
           final summaryData = data['data'];
-          print('✅ [IBKRService] 成功获取IBKR汇总信息');
+          // print('✅ [IBKRService] 成功获取IBKR汇总信息');
           return summaryData;
         } else {
-          print('❌ [IBKRService] IBKR汇总API返回失败: ${data['message']}');
+          // print('❌ [IBKRService] IBKR汇总API返回失败: ${data['message']}');
           return _getMockIBKRSummary();
         }
       } else {
-        print('❌ [IBKRService] IBKR汇总API HTTP错误: ${response.statusCode}');
+        // print('❌ [IBKRService] IBKR汇总API HTTP错误: ${response.statusCode}');
         return _getMockIBKRSummary();
       }
     } catch (e) {
-      print('❌ [IBKRService] 获取IBKR汇总信息异常: $e');
+      // print('❌ [IBKRService] 获取IBKR汇总信息异常: $e');
       return _getMockIBKRSummary();
     }
   }
   
   /// 获取模拟IBKR持仓数据（开发测试用）
   static List<IBKRPosition> _getMockIBKRPositions() {
-    print('🔄 [IBKRService] 使用模拟IBKR持仓数据');
+    // print('🔄 [IBKRService] 使用模拟IBKR持仓数据');
     return [
       IBKRPosition(
         accountId: 'U13638726',
@@ -156,7 +156,7 @@ class IBKRService {
   
   /// 获取模拟IBKR余额数据（开发测试用）
   static List<Map<String, dynamic>> _getMockIBKRBalances() {
-    print('🔄 [IBKRService] 使用模拟IBKR余额数据');
+    // print('🔄 [IBKRService] 使用模拟IBKR余额数据');
     return [
       {
         'account_id': 'U13638726',
@@ -171,7 +171,7 @@ class IBKRService {
   
   /// 获取模拟IBKR汇总数据（开发测试用）
   static Map<String, dynamic> _getMockIBKRSummary() {
-    print('🔄 [IBKRService] 使用模拟IBKR汇总数据');
+    // print('🔄 [IBKRService] 使用模拟IBKR汇总数据');
     return {
       'total_accounts': 1,
       'total_positions': 3,

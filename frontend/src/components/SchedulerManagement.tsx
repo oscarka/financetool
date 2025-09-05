@@ -177,7 +177,7 @@ const TASK_TEMPLATES = {
       minute: 0,
       frequency: 'daily'
     }
-
+  }
 };
 
 // 常用时间预设

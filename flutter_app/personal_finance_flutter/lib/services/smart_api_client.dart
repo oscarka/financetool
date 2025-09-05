@@ -106,7 +106,7 @@ class SmartApiClient {
   
   // 智能获取资产趋势数据
   static Future<List<Map<String, dynamic>>> getAssetTrend(int days, String baseCurrency, {bool forceRefresh = false}) async {
-    print('🔍 [SmartApiClient] 获取 $baseCurrency 的趋势数据...');
+    print('🔍 [SmartApiClient] 获取 $baseCurrency 的趋势数据 ($days 天)...');
     
     // 如果不是强制刷新，先尝试从缓存获取
     if (!forceRefresh) {
@@ -118,17 +118,34 @@ class SmartApiClient {
     }
     
     try {
-      print('🌐 [SmartApiClient] 从网络获取趋势数据...');
-      final currentStats = await getAggregatedStats(baseCurrency, forceRefresh: forceRefresh);
-      final baseValue = currentStats['total_value'] ?? 0.0;
+      print('🌐 [SmartApiClient] 从网络获取真实趋势数据...');
       
-      // 生成趋势数据
-      final trendData = _generateTrendData(days, baseValue);
+      // 调用后端API获取真实的历史趋势数据
+      final response = await http.get(
+        Uri.parse('$baseUrl/aggregation/trend?days=$days&base_currency=$baseCurrency'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
       
-      // 保存到缓存
-      await CacheService.saveToCache(baseCurrency, 'trend_data_$days', trendData);
-      
-      return trendData;
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          final trendData = List<Map<String, dynamic>>.from(data['data']);
+          print('✅ [SmartApiClient] 获取到 ${trendData.length} 条真实趋势数据');
+          
+          // 保存到缓存
+          await CacheService.saveToCache(baseCurrency, 'trend_data_$days', trendData);
+          
+          return trendData;
+        } else {
+          print('⚠️ [SmartApiClient] API返回数据格式异常，使用备用数据');
+          throw Exception('API返回数据格式异常');
+        }
+      } else {
+        print('❌ [SmartApiClient] API请求失败: ${response.statusCode}');
+        throw Exception('API请求失败: ${response.statusCode}');
+      }
     } catch (e) {
       print('❌ [SmartApiClient] 获取趋势数据失败: $e');
       
@@ -139,8 +156,9 @@ class SmartApiClient {
         return List<Map<String, dynamic>>.from(expiredCache);
       }
       
-      // 最后返回默认数据
-      return _generateTrendData(days, 0.0);
+      // 最后返回默认数据（全为0）
+      print('⚠️ [SmartApiClient] 使用默认数据（全为0）');
+      return _generateDefaultTrendData(days);
     }
   }
   
@@ -297,7 +315,24 @@ class SmartApiClient {
     await CacheService.clearAllCache();
   }
   
-  // 生成趋势数据
+  // 生成默认趋势数据（全为0）
+  static List<Map<String, dynamic>> _generateDefaultTrendData(int days) {
+    final List<Map<String, dynamic>> data = [];
+    final now = DateTime.now();
+    
+    for (int i = days - 1; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      
+      data.add({
+        'date': '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+        'total': 0.0,
+      });
+    }
+    
+    return data;
+  }
+
+  // 生成模拟趋势数据（用于测试）
   static List<Map<String, dynamic>> _generateTrendData(int days, double baseValue) {
     final List<Map<String, dynamic>> data = [];
     final now = DateTime.now();

@@ -94,6 +94,9 @@ class ApiClient {
       final currentStats = await getAggregatedStats(baseCurrency);
       final baseValue = currentStats['total_value'] ?? 0.0;
       
+      print('🔍 [ApiClient] 趋势数据基准值: $baseValue ($baseCurrency)');
+      print('🔍 [ApiClient] 当前统计数据: $currentStats');
+      
       // 生成基于真实数据的趋势（暂时使用模拟数据，后续可以对接真实趋势API）
       return _generateTrendData(days, baseValue);
     } catch (e) {
