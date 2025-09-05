@@ -303,7 +303,7 @@ class _SnapshotPageState extends State<SnapshotPage> {
         _buildIBKRCard(),
         const SizedBox(height: T.spacingM),
         _buildOKXCard(),
-        const SizedBox(height: T.spacingL),
+        const SizedBox(height: T.spacingM),
 
         // 今日表现
         // 暂时注释掉这些功能，后续实现
@@ -975,6 +975,7 @@ class _SnapshotPageState extends State<SnapshotPage> {
 
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.only(bottom: T.spacingM),
       padding: const EdgeInsets.all(T.spacingL),
       decoration: BoxDecoration(
         color: T.cardBackground,
@@ -1214,6 +1215,7 @@ class _SnapshotPageState extends State<SnapshotPage> {
 
       return Container(
         width: double.infinity,
+        margin: const EdgeInsets.only(bottom: T.spacingM),
         padding: const EdgeInsets.all(T.spacingL),
         decoration: BoxDecoration(
           color: T.cardBackground,
