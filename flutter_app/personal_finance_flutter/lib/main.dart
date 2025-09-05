@@ -5,6 +5,8 @@ import 'services/smart_api_client.dart';
 import 'services/background_cache_service.dart';
 import 'services/asset_precache_service.dart';
 import 'services/smart_asset_service.dart';
+import 'services/cache_service.dart';
+import 'utils/debug_logger.dart';
 import 'models/asset_stats.dart';
 import 'models/trend_data.dart';
 import 'pages/main_app_demo.dart';
@@ -298,6 +300,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
   bool isDataVisible = true;
   bool isChartExpanded = false; // 新增：控制图表展开状态
   String selectedTimeRange = '1日'; // 新增：选中的时间范围
+  bool isDataFromCache = false; // 新增：数据是否来自缓存
   
   // 页面状态 - 0: 首页, 1: 行情, 3: 资产
   int currentPageIndex = 0;
@@ -340,18 +343,18 @@ class _AssetHomePageState extends State<AssetHomePage> {
     try {
       // 启动通用后台缓存服务
       await BackgroundCacheService.start();
-      print('✅ [AssetHomePage] 通用后台缓存服务已启动');
+      DebugLogger.logSuccess(' [AssetHomePage] 通用后台缓存服务已启动');
       
       // 启动专门的资产预缓存服务
       await AssetPrecacheService.start();
-      print('✅ [AssetHomePage] 资产预缓存服务已启动');
+      DebugLogger.logSuccess(' [AssetHomePage] 资产预缓存服务已启动');
       
       // 立即预加载一次资产数据
       await SmartAssetService.preloadAllAssets();
-      print('✅ [AssetHomePage] 初始资产数据预加载完成');
+      DebugLogger.logSuccess(' [AssetHomePage] 初始资产数据预加载完成');
       
     } catch (e) {
-      print('❌ [AssetHomePage] 启动后台缓存服务失败: $e');
+      DebugLogger.logError(' [AssetHomePage] 启动后台缓存服务失败: $e');
     }
   }
 
@@ -371,7 +374,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
       final statsJson = await SmartApiClient.getAggregatedStats(selectedCurrency, forceRefresh: forceRefresh);
       final currentTotalValue = statsJson['total_value'] ?? 0.0;
       
-      print('🔍 [DEBUG] 当前总资产值: $currentTotalValue ($selectedCurrency)');
+      DebugLogger.logInfo('当前总资产值: $currentTotalValue ($selectedCurrency)');
       
       // 并行加载其他数据
       final futures = await Future.wait([
@@ -384,24 +387,61 @@ class _AssetHomePageState extends State<AssetHomePage> {
       
       // 根据时间范围生成趋势数据
       List<Map<String, dynamic>> trendJson;
-      if (selectedTimeRange == '1日' || selectedTimeRange == '1周') {
-        print('🔍 [DEBUG] ${selectedTimeRange}范围：使用基于真实资产的小时数据');
-        trendJson = _generateDefaultTrendData(currentTotalValue).map((data) => {
-          'date': data.date,
-          'total': data.total,
-        }).toList();
-        print('🔍 [DEBUG] ${selectedTimeRange}范围最终数据:');
+      
+      // 先尝试从缓存获取趋势数据
+      DebugLogger.logInfo('检查缓存: $selectedCurrency $selectedTimeRange, forceRefresh: $forceRefresh');
+      final cachedTrendData = await CacheService.getTrendDataFromCache(selectedCurrency, selectedTimeRange);
+      if (cachedTrendData != null && !forceRefresh) {
+        DebugLogger.logInfo('${selectedTimeRange}范围：使用缓存数据');
+        trendJson = cachedTrendData;
+        isDataFromCache = true;
+        DebugLogger.logInfo('缓存数据详情:');
         for (int i = 0; i < trendJson.length; i++) {
-          print('  - 数据${i+1}: ${trendJson[i]['total']} (${trendJson[i]['date']})');
+          DebugLogger.log('  - 数据${i+1}: ${trendJson[i]['total']} (${trendJson[i]['date']})');
         }
       } else {
-        // 1月和半年范围调用后端API
-        print('🔍 [DEBUG] ${selectedTimeRange}范围：调用后端API，天数: $days');
-        trendJson = await SmartApiClient.getAssetTrend(days, selectedCurrency, forceRefresh: forceRefresh);
-        print('🔍 [DEBUG] 后端API返回数据:');
-        for (int i = 0; i < trendJson.length; i++) {
-          print('  - 数据${i+1}: ${trendJson[i]['total']} (${trendJson[i]['date']})');
+        // 缓存无效或强制刷新，生成新数据
+        if (selectedTimeRange == '1日' || selectedTimeRange == '1周') {
+          DebugLogger.logInfo('${selectedTimeRange}范围：使用基于真实资产的小时数据');
+          trendJson = _generateDefaultTrendData(currentTotalValue).map((data) => {
+            'date': data.date,
+            'total': data.total,
+          }).toList();
+          DebugLogger.logInfo(' ${selectedTimeRange}范围最终数据:');
+          for (int i = 0; i < trendJson.length; i++) {
+            DebugLogger.log('  - 数据${i+1}: ${trendJson[i]['total']} (${trendJson[i]['date']})');
+          }
+        } else {
+          // 1月和半年范围：先尝试后端API，如果失败则使用模拟数据
+          DebugLogger.logInfo(' ${selectedTimeRange}范围：尝试调用后端API，天数: $days');
+          try {
+            trendJson = await SmartApiClient.getAssetTrend(days, selectedCurrency, forceRefresh: forceRefresh);
+            DebugLogger.logInfo(' 后端API返回数据:');
+            for (int i = 0; i < trendJson.length; i++) {
+              DebugLogger.log('  - 数据${i+1}: ${trendJson[i]['total']} (${trendJson[i]['date']})');
+            }
+            
+            // 如果后端返回的数据为空或无效，使用模拟数据
+            if (trendJson.isEmpty) {
+              DebugLogger.logWarning(' 后端API返回空数据，使用模拟数据');
+              trendJson = _generateDefaultTrendData(currentTotalValue).map((data) => {
+                'date': data.date,
+                'total': data.total,
+              }).toList();
+            }
+          } catch (e) {
+            DebugLogger.logWarning(' 后端API调用失败: $e，使用模拟数据');
+            trendJson = _generateDefaultTrendData(currentTotalValue).map((data) => {
+              'date': data.date,
+              'total': data.total,
+            }).toList();
+          }
         }
+        
+        // 保存到缓存
+        DebugLogger.logInfo('保存数据到缓存: $selectedCurrency $selectedTimeRange');
+        await CacheService.saveTrendDataToCache(selectedCurrency, selectedTimeRange, trendJson);
+        isDataFromCache = false;
       }
 
       // 计算24小时变化
@@ -819,7 +859,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
 
   // 在卡片内部构建展开的折线图
   Widget _buildExpandedChartInCard() {
-    print('🔍 [DEBUG] 构建展开图表卡片');
+    DebugLogger.logInfo(' 构建展开图表卡片');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -833,9 +873,9 @@ class _AssetHomePageState extends State<AssetHomePage> {
                 setState(() {
                   selectedTimeRange = range;
                 });
-                print('🎯 选择时间范围: $range');
-                // 重新加载数据
-                _loadData(forceRefresh: true);
+                DebugLogger.log('🎯 选择时间范围: $range');
+                // 重新加载数据，优先使用缓存
+                _loadData(forceRefresh: false);
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -899,13 +939,13 @@ class _AssetHomePageState extends State<AssetHomePage> {
     // 使用真实数据，如果没有数据则使用默认数据（全为0）
     final displayData = trendData.isNotEmpty ? trendData : _generateDefaultTrendData(assetStats?.totalValue ?? 0.0);
     
-    print('🔍 [DEBUG] 绘制图表，数据点数量: ${displayData.length}');
-    print('🔍 [DEBUG] 真实数据: ${trendData.isNotEmpty}, 使用默认数据: ${trendData.isEmpty}');
-    print('🔍 [DEBUG] 时间范围: $selectedTimeRange');
-    print('🔍 [DEBUG] 悬停索引: $_hoveredDataIndex');
-    print('🔍 [DEBUG] 大图表显示数据详情:');
+    DebugLogger.logInfo(' 绘制图表，数据点数量: ${displayData.length}');
+    DebugLogger.logInfo(' 真实数据: ${trendData.isNotEmpty}, 使用默认数据: ${trendData.isEmpty}');
+    DebugLogger.logInfo(' 时间范围: $selectedTimeRange');
+    DebugLogger.logInfo(' 悬停索引: $_hoveredDataIndex');
+    DebugLogger.logInfo(' 大图表显示数据详情:');
     for (int i = 0; i < displayData.length; i++) {
-      print('  - 数据${i+1}: ${displayData[i].total.toStringAsFixed(2)} (${displayData[i].date})');
+      DebugLogger.log('  - 数据${i+1}: ${displayData[i].total.toStringAsFixed(2)} (${displayData[i].date})');
     }
     
     return Container(
@@ -939,11 +979,11 @@ class _AssetHomePageState extends State<AssetHomePage> {
   // 处理图表悬停
   void _handleChartHover(Offset position, List<TrendData> data, double width) {
     if (data.isEmpty) {
-      print('🔍 [DEBUG] 悬停处理：数据为空');
+      DebugLogger.logInfo(' 悬停处理：数据为空');
       return;
     }
     
-    print('🔍 [DEBUG] 悬停处理：图表宽度: $width');
+    DebugLogger.logInfo(' 悬停处理：图表宽度: $width');
     final padding = 20.0;
     final dataWidth = width - 2 * padding;
     
@@ -951,10 +991,10 @@ class _AssetHomePageState extends State<AssetHomePage> {
     final relativeX = position.dx - padding;
     final dataIndex = (relativeX / dataWidth * (data.length - 1)).round();
     
-    print('🔍 [DEBUG] 悬停位置: ${position.dx}, 相对位置: $relativeX, 数据索引: $dataIndex');
+    DebugLogger.logInfo(' 悬停位置: ${position.dx}, 相对位置: $relativeX, 数据索引: $dataIndex');
     
     if (dataIndex >= 0 && dataIndex < data.length) {
-      print('🔍 [DEBUG] 悬停数据点: ${data[dataIndex].total}, 时间: ${data[dataIndex].date}');
+      DebugLogger.logInfo(' 悬停数据点: ${data[dataIndex].total}, 时间: ${data[dataIndex].date}');
       setState(() {
         _hoveredDataIndex = dataIndex;
       });
@@ -983,13 +1023,13 @@ class _AssetHomePageState extends State<AssetHomePage> {
     final now = DateTime.now();
     final data = <TrendData>[];
     
-    print('🔍 [DEBUG] 生成默认数据，时间范围: $selectedTimeRange，基准值: $baseValue');
+    DebugLogger.logInfo(' 生成默认数据，时间范围: $selectedTimeRange，基准值: $baseValue');
     
     // 根据时间范围生成对应时间粒度的默认数据
     switch (selectedTimeRange) {
       case '1日':
         // 1日范围：生成24小时模拟数据
-        print('🔍 [DEBUG] 生成24小时模拟数据，基于真实资产值: $baseValue');
+        DebugLogger.logInfo(' 生成24小时模拟数据，基于真实资产值: $baseValue');
         for (int i = 23; i >= 0; i--) {
           final time = now.subtract(Duration(hours: i));
           // 生成模拟的上升趋势数据
@@ -1002,16 +1042,16 @@ class _AssetHomePageState extends State<AssetHomePage> {
             total: finalValue,
           ));
         }
-        print('🔍 [DEBUG] 生成了 ${data.length} 个数据点，起始值: ${data.first.total.toStringAsFixed(2)}');
-        print('🔍 [DEBUG] 24小时数据详情:');
+        DebugLogger.logInfo(' 生成了 ${data.length} 个数据点，起始值: ${data.first.total.toStringAsFixed(2)}');
+        DebugLogger.logInfo(' 24小时数据详情:');
         for (int i = 0; i < data.length; i++) {
           final hour = 23 - i;
-          print('  - 第${hour}小时: ${data[i].total.toStringAsFixed(2)} (${data[i].date})');
+          DebugLogger.log('  - 第${hour}小时: ${data[i].total.toStringAsFixed(2)} (${data[i].date})');
         }
         break;
       case '1周':
         // 1周范围：生成168小时数据（7天 × 24小时）
-        print('🔍 [DEBUG] 生成168小时数据（1周），基于真实资产值: $baseValue');
+        DebugLogger.logInfo(' 生成168小时数据（1周），基于真实资产值: $baseValue');
         for (int i = 167; i >= 0; i--) {
           final time = now.subtract(Duration(hours: i));
           // 生成模拟的上升趋势数据
@@ -1024,11 +1064,11 @@ class _AssetHomePageState extends State<AssetHomePage> {
             total: finalValue,
           ));
         }
-        print('🔍 [DEBUG] 生成了 ${data.length} 个数据点，起始值: ${data.first.total.toStringAsFixed(2)}');
+        DebugLogger.logInfo(' 生成了 ${data.length} 个数据点，起始值: ${data.first.total.toStringAsFixed(2)}');
         break;
       case '1月':
         // 1月范围：生成30天数据
-        print('🔍 [DEBUG] 生成30天数据，基于真实资产值: $baseValue');
+        DebugLogger.logInfo(' 生成30天数据，基于真实资产值: $baseValue');
         for (int i = 29; i >= 0; i--) {
           final time = now.subtract(Duration(days: i));
           data.add(TrendData(
@@ -1039,7 +1079,7 @@ class _AssetHomePageState extends State<AssetHomePage> {
         break;
       case '半年':
         // 半年范围：生成180天数据
-        print('🔍 [DEBUG] 生成180天数据，基于真实资产值: $baseValue');
+        DebugLogger.logInfo(' 生成180天数据，基于真实资产值: $baseValue');
         for (int i = 179; i >= 0; i--) {
           final time = now.subtract(Duration(days: i));
           data.add(TrendData(
@@ -1298,14 +1338,14 @@ class _AssetHomePageState extends State<AssetHomePage> {
             setState(() {
               selectedTimeRange = timeRange;
             });
-            _loadData(forceRefresh: true);
+            _loadData(forceRefresh: false);
           },
           onTap: () {
             setState(() {
               isChartExpanded = !isChartExpanded;
             });
-            print('🎯 点击折线图，展开状态: $isChartExpanded');
-            print('🎯 如果展开，应该显示大图表');
+            DebugLogger.log('🎯 点击折线图，展开状态: $isChartExpanded');
+            DebugLogger.log('🎯 如果展开，应该显示大图表');
           },
         ),
       ],
@@ -2260,15 +2300,15 @@ class _ExpandedLineChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    print('🎨 [大图表] 开始绘制，尺寸: ${size.width} x ${size.height}');
-    print('📊 [大图表] 数据点数量: ${trendData.length}');
+    DebugLogger.log('🎨 [大图表] 开始绘制，尺寸: ${size.width} x ${size.height}');
+    DebugLogger.log('📊 [大图表] 数据点数量: ${trendData.length}');
     
     if (trendData.isEmpty) {
-      print('🔍 [DEBUG] 绘制器：数据为空，跳过绘制');
+      DebugLogger.logInfo(' 绘制器：数据为空，跳过绘制');
       return;
     }
 
-    print('🔍 [DEBUG] 绘制器：绘制 ${trendData.length} 个数据点，悬停索引: $hoveredIndex');
+    DebugLogger.logInfo(' 绘制器：绘制 ${trendData.length} 个数据点，悬停索引: $hoveredIndex');
 
     final paint = Paint()
       ..color = lineColor

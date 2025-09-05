@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import '../models/trend_data.dart';
+import '../utils/debug_logger.dart';
 
 class ExpandableAssetChart extends StatelessWidget {
   final List<TrendData> trendData;
@@ -70,7 +71,7 @@ class ExpandableAssetChart extends StatelessWidget {
     print('  - 数据点数量: ${trendData.length}');
     print('  - 数据范围: ${trendData.map((d) => d.total).reduce((a, b) => a > b ? a : b) - trendData.map((d) => d.total).reduce((a, b) => a < b ? a : b)}');
     
-    print('✅ 真实数据有效，使用真实数据');
+    DebugLogger.logSuccess(' 真实数据有效，使用真实数据');
     return false;
   }
 
@@ -164,7 +165,7 @@ class ExpandableAssetChart extends StatelessWidget {
     final maxValue = displayData.map((d) => d.total).reduce((a, b) => a > b ? a : b);
     final minValue = displayData.map((d) => d.total).reduce((a, b) => a < b ? a : b);
 
-    print('📊 数据范围: ${minValue.toStringAsFixed(2)} - ${maxValue.toStringAsFixed(2)}, 当前值: ${currentValue.toStringAsFixed(2)}');
+    DebugLogger.log('📊 数据范围: ${minValue.toStringAsFixed(2)} - ${maxValue.toStringAsFixed(2)}, 当前值: ${currentValue.toStringAsFixed(2)}');
 
     // 使用模拟数据时，强制显示绿色上升趋势
     final isRising = displayData.last.total > displayData.first.total;
@@ -174,7 +175,7 @@ class ExpandableAssetChart extends StatelessWidget {
     if (_shouldUseDefaultData()) {
       // 模拟数据时使用绿色
       lineColor = const Color(0xFF10B981);
-      print('🎨 使用模拟数据，显示绿色上升趋势');
+      DebugLogger.log('🎨 使用模拟数据，显示绿色上升趋势');
     } else if (isRising && !hasHigherPoints) {
       lineColor = const Color(0xFF10B981); // 绿色
     } else if (hasHigherPoints) {
@@ -183,7 +184,7 @@ class ExpandableAssetChart extends StatelessWidget {
       lineColor = const Color(0xFF6B7280); // 灰色
     }
 
-    print('🎨 选择颜色: $lineColor');
+    DebugLogger.log('🎨 选择颜色: $lineColor');
 
     return CustomPaint(
       size: const Size(90, 80),
@@ -247,8 +248,8 @@ class _MiniLineChartPainter extends CustomPainter {
       return;
     }
 
-    print('🎨 开始绘制折线图，尺寸: ${size.width} x ${size.height}');
-    print('📊 数据点数量: ${trendData.length}');
+    DebugLogger.log('🎨 开始绘制折线图，尺寸: ${size.width} x ${size.height}');
+    DebugLogger.log('📊 数据点数量: ${trendData.length}');
 
     // 使用传入的颜色，确保美观
     final paint = Paint()
@@ -267,7 +268,7 @@ class _MiniLineChartPainter extends CustomPainter {
       }
     }
 
-    print('📊 调整后的数值范围: ${valueRange.toStringAsFixed(2)}');
+    DebugLogger.log('📊 调整后的数值范围: ${valueRange.toStringAsFixed(2)}');
 
     for (int i = 0; i < trendData.length; i++) {
       final data = trendData[i];
@@ -291,7 +292,7 @@ class _MiniLineChartPainter extends CustomPainter {
     }
 
     canvas.drawPath(path, paint);
-    print('✅ 折线图绘制完成');
+    DebugLogger.logSuccess(' 折线图绘制完成');
 
     // 绘制起点和终点的小圆点，增加美观性
     if (trendData.length >= 2) {
@@ -339,8 +340,8 @@ class _ExpandedLineChartPainter extends CustomPainter {
       return;
     }
 
-    print('🎨 开始绘制折线图，尺寸: ${size.width} x ${size.height}');
-    print('📊 数据点数量: ${trendData.length}');
+    DebugLogger.log('🎨 开始绘制折线图，尺寸: ${size.width} x ${size.height}');
+    DebugLogger.log('📊 数据点数量: ${trendData.length}');
 
     // 使用传入的颜色，确保美观
     final paint = Paint()
@@ -359,7 +360,7 @@ class _ExpandedLineChartPainter extends CustomPainter {
       }
     }
 
-    print('📊 调整后的数值范围: ${valueRange.toStringAsFixed(2)}');
+    DebugLogger.log('📊 调整后的数值范围: ${valueRange.toStringAsFixed(2)}');
 
     for (int i = 0; i < trendData.length; i++) {
       final data = trendData[i];
@@ -383,7 +384,7 @@ class _ExpandedLineChartPainter extends CustomPainter {
     }
 
     canvas.drawPath(path, paint);
-    print('✅ 折线图绘制完成');
+    DebugLogger.logSuccess(' 折线图绘制完成');
 
     // 绘制起点和终点的小圆点，增加美观性
     if (trendData.length >= 2) {
@@ -541,8 +542,8 @@ class _ExpandedChartSectionState extends State<ExpandedChartSection> {
     // 使用真实数据，如果没有数据则使用默认数据（全为0）
     final displayData = widget.trendData.isNotEmpty ? widget.trendData : _generateDefaultData();
     
-    print('🔍 [DEBUG] 展开图表绘制，数据点数量: ${displayData.length}');
-    print('🔍 [DEBUG] 真实数据: ${widget.trendData.isNotEmpty}, 使用默认数据: ${widget.trendData.isEmpty}');
+    DebugLogger.logInfo(' 展开图表绘制，数据点数量: ${displayData.length}');
+    DebugLogger.logInfo(' 真实数据: ${widget.trendData.isNotEmpty}, 使用默认数据: ${widget.trendData.isEmpty}');
     
     return GestureDetector(
       onPanUpdate: (details) {
@@ -566,7 +567,7 @@ class _ExpandedChartSectionState extends State<ExpandedChartSection> {
   // 处理图表悬停
   void _handleChartHover(Offset position, List<TrendData> data) {
     if (data.isEmpty) {
-      print('🔍 [DEBUG] 悬停处理：数据为空');
+      DebugLogger.logInfo(' 悬停处理：数据为空');
       return;
     }
     
@@ -578,10 +579,10 @@ class _ExpandedChartSectionState extends State<ExpandedChartSection> {
     final relativeX = position.dx - padding;
     final dataIndex = (relativeX / dataWidth * (data.length - 1)).round();
     
-    print('🔍 [DEBUG] 悬停位置: ${position.dx}, 相对位置: $relativeX, 数据索引: $dataIndex');
+    DebugLogger.logInfo(' 悬停位置: ${position.dx}, 相对位置: $relativeX, 数据索引: $dataIndex');
     
     if (dataIndex >= 0 && dataIndex < data.length) {
-      print('🔍 [DEBUG] 悬停数据点: ${data[dataIndex].total}, 时间: ${data[dataIndex].date}');
+      DebugLogger.logInfo(' 悬停数据点: ${data[dataIndex].total}, 时间: ${data[dataIndex].date}');
       setState(() {
         _hoveredDataIndex = dataIndex;
       });
@@ -688,9 +689,9 @@ class _NewExpandedLineChartPainter extends CustomPainter {
       return;
     }
 
-    print('🎨 开始绘制折线图，尺寸: ${size.width} x ${size.height}');
-    print('📊 数据点数量: ${trendData.length}');
-    print('🔍 [DEBUG] 绘制器：绘制 ${trendData.length} 个数据点，悬停索引: $hoveredIndex');
+    DebugLogger.log('🎨 开始绘制折线图，尺寸: ${size.width} x ${size.height}');
+    DebugLogger.log('📊 数据点数量: ${trendData.length}');
+    DebugLogger.logInfo(' 绘制器：绘制 ${trendData.length} 个数据点，悬停索引: $hoveredIndex');
 
     // 使用传入的颜色，确保美观
     final paint = Paint()
@@ -709,7 +710,7 @@ class _NewExpandedLineChartPainter extends CustomPainter {
       }
     }
 
-    print('📊 调整后的数值范围: ${valueRange.toStringAsFixed(2)}');
+    DebugLogger.log('📊 调整后的数值范围: ${valueRange.toStringAsFixed(2)}');
 
     // 计算所有数据点位置
     final dataPoints = <Offset>[];
@@ -736,7 +737,7 @@ class _NewExpandedLineChartPainter extends CustomPainter {
     }
 
     canvas.drawPath(path, paint);
-    print('✅ 折线图绘制完成');
+    DebugLogger.logSuccess(' 折线图绘制完成');
 
     // 绘制所有数据点，悬停的点高亮显示
     for (int i = 0; i < dataPoints.length; i++) {

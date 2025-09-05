@@ -6,6 +6,19 @@ class CacheService {
   static const String _cacheTimestampPrefix = 'cache_timestamp_';
   static const int _defaultCacheExpiryMinutes = 10; // 默认缓存10分钟
   
+  // 不同时间范围的缓存策略
+  static const Map<String, int> _timeRangeCacheMinutes = {
+    '1日': 30,    // 24小时数据：30分钟缓存
+    '1周': 60,    // 1周数据：1小时缓存
+    '1月': 720,   // 1月数据：12小时缓存
+    '半年': 1440, // 半年数据：24小时缓存
+  };
+  
+  // 获取时间范围的缓存策略
+  static int _getCacheExpiryMinutes(String timeRange) {
+    return _timeRangeCacheMinutes[timeRange] ?? _defaultCacheExpiryMinutes;
+  }
+  
   // 缓存键生成器
   static String _getCacheKey(String currency, String dataType) {
     return '$_cachePrefix${currency}_$dataType';
@@ -125,6 +138,37 @@ class CacheService {
     } catch (e) {
       print('❌ [CacheService] 清除所有缓存失败: $e');
     }
+  }
+  
+  // 专门用于趋势数据的缓存方法
+  static Future<void> saveTrendDataToCache(String currency, String timeRange, List<Map<String, dynamic>> trendData) async {
+    final dataType = 'trend_data_$timeRange';
+    final expiryMinutes = _getCacheExpiryMinutes(timeRange);
+    
+    print('💾 [CacheService] 缓存趋势数据: $currency $timeRange (${expiryMinutes}分钟)');
+    await saveToCache(currency, dataType, trendData);
+  }
+  
+  // 从缓存获取趋势数据
+  static Future<List<Map<String, dynamic>>?> getTrendDataFromCache(String currency, String timeRange) async {
+    final dataType = 'trend_data_$timeRange';
+    final expiryMinutes = _getCacheExpiryMinutes(timeRange);
+    
+    print('📱 [CacheService] 获取趋势数据缓存: $currency $timeRange (${expiryMinutes}分钟)');
+    final cachedData = await getFromCache(currency, dataType, expiryMinutes: expiryMinutes);
+    
+    if (cachedData != null) {
+      return List<Map<String, dynamic>>.from(cachedData);
+    }
+    return null;
+  }
+  
+  // 检查趋势数据缓存是否有效
+  static Future<bool> hasValidTrendCache(String currency, String timeRange) async {
+    final dataType = 'trend_data_$timeRange';
+    final expiryMinutes = _getCacheExpiryMinutes(timeRange);
+    
+    return await hasValidCache(currency, dataType, expiryMinutes: expiryMinutes);
   }
   
   // 获取缓存统计信息
